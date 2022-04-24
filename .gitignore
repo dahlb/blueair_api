@@ -4,6 +4,5 @@
 **@eaDir
 venv/
 dist/
-src/hatch_rest_api.egg-info/
+src/blueair_api.egg-info/
 build/
-hatch_rest_api-aws_mqtt.log
