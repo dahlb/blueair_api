@@ -21,8 +21,8 @@ class Device(CallbacksMixin):
     brightness: int = None
     child_lock: int = None
     fan_speed: int = None
+    fan_mode: str = None
     filter_expired: bool = None
-    mode: str = None
     wifi_working: bool = None
 
     def __init__(
@@ -56,7 +56,7 @@ class Device(CallbacksMixin):
         self.child_lock = int(attributes["child_lock"])
         self.fan_speed = int(attributes["fan_speed"])
         self.filter_expired = attributes["filter_status"] != "OK"
-        self.mode = attributes["mode"]
+        self.fan_mode = attributes["mode"]
         self.wifi_working = attributes["wifi_status"] == "1"
         self.publish_updates()
 
@@ -76,7 +76,7 @@ class Device(CallbacksMixin):
             "child_lock": self.child_lock,
             "fan_speed": self.fan_speed,
             "filter_expired": self.filter_expired,
-            "mode": self.mode,
+            "fan_mode": self.fan_mode,
             "wifi_working": self.wifi_working,
         }
 
