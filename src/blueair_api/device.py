@@ -60,6 +60,9 @@ class Device(CallbacksMixin):
         self.wifi_working = attributes["wifi_status"] == "1"
         self.publish_updates()
 
+    async def set_fan_speed(self, new_speed):
+        await self.api.set_fan_speed(self.uuid, new_speed)
+
     def __repr__(self):
         return {
             "uuid": self.uuid,
@@ -82,6 +85,3 @@ class Device(CallbacksMixin):
 
     def __str__(self):
         return f"{self.__repr__()}"
-
-    def set_fan_speed(self, new_speed):
-        self.api.set_fan_speed(self.uuid, new_speed)
