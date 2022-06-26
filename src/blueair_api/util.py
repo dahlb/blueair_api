@@ -24,3 +24,14 @@ def clean_dictionary_for_logging(dictionary: dict[str, any]) -> dict[str, any]:
             mutable_dictionary[key] = new_array
 
     return mutable_dictionary
+
+
+def convert_api_array_to_dict(array):
+    dictionary = {}
+    for obj in array:
+        if "v" in obj:
+            dictionary[obj["n"]] = obj["v"]
+        else:
+            if "vb" in obj:
+                dictionary[obj["n"]] = obj["vb"]
+    return dictionary

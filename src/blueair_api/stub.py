@@ -11,7 +11,7 @@ import sys
 
 path_root = Path(__file__).parents[2]
 sys.path.append(str(path_root))
-from src.blueair_api import get_devices
+from src.blueair_api import get_devices, get_aws_devices
 
 
 logger = logging.getLogger("src.blueair_api")
@@ -26,6 +26,13 @@ logger.addHandler(ch)
 async def testing():
     username = input("Username: ")
     password = getpass()
+    try:
+        api, devices = await get_aws_devices(username=username, password=password)
+        await devices[0].refresh()
+        logger.debug(devices[0])
+    finally:
+        if api:
+            await api.cleanup_client_session()
     try:
         api, devices = await get_devices(username=username, password=password)
         for device in devices:
