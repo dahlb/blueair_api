@@ -19,7 +19,7 @@ class Device(CallbacksMixin):
     room_location: str = None
 
     brightness: int = None
-    child_lock: int = None
+    child_lock: bool = None
     fan_speed: int = None
     fan_mode: str = None
     filter_expired: bool = None
@@ -53,7 +53,7 @@ class Device(CallbacksMixin):
         attributes = await self.api.get_attributes(self.uuid)
         _LOGGER.debug(f"result: {attributes}")
         self.brightness = int(attributes["brightness"])
-        self.child_lock = int(attributes["child_lock"])
+        self.child_lock = bool(attributes["child_lock"])
         self.fan_speed = int(attributes["fan_speed"])
         self.filter_expired = attributes["filter_status"] != "OK"
         self.fan_mode = attributes["mode"]

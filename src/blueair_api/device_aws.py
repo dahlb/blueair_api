@@ -19,8 +19,7 @@ class DeviceAws(CallbacksMixin):
     brightness: int = None
     child_lock: int = None
     fan_speed: int = None
-    fan_mode: str = None
-    filter_expired: bool = None
+    fan_auto_mode: bool = None
     running: bool = None
     night_mode: bool = None
     germ_shield: bool = None
@@ -31,6 +30,7 @@ class DeviceAws(CallbacksMixin):
     tVOC: int = None
     temperature: int = None
     humidity: int = None
+    filter_usage: int = None # percentage
 
     def __init__(
         self,
@@ -68,8 +68,8 @@ class DeviceAws(CallbacksMixin):
         self.brightness = int(states["brightness"])
         self.child_lock = states["childlock"]
         self.fan_speed = int(states["fanspeed"])
-        self.fan_mode = states["automode"]
-        self.filter_expired = states["filterusage"] >= 95
+        self.fan_auto_mode = states["automode"]
+        self.filter_usage = states["filterusage"]
 
         self.publish_updates()
 
@@ -88,8 +88,7 @@ class DeviceAws(CallbacksMixin):
             "brightness": self.brightness,
             "child_lock": self.child_lock,
             "fan_speed": self.fan_speed,
-            "filter_expired": self.filter_expired,
-            "fan_mode": self.fan_mode,
+            "fan_auto_mode": self.fan_auto_mode,
             "running": self.running,
             "night_mode": self.night_mode,
             "germ_shield": self.germ_shield,
@@ -99,6 +98,7 @@ class DeviceAws(CallbacksMixin):
             "tVOC": self.tVOC,
             "temperature": self.temperature,
             "humidity": self.humidity,
+            "filter_usage": self.filter_usage,
         }
 
     def __str__(self):
