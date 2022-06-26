@@ -153,3 +153,20 @@ class HttpAwsBlueair:
         )
         response_json = await response.json()
         return response_json["deviceInfo"][0]
+
+    async def set_device_info(self, device_uuid, service_name, action_verb, action_value):
+        url = f"https://{AWS_APIKEYS[self.region]['restApiId']}.execute-api.{AWS_APIKEYS[self.region]['awsRegion']}.amazonaws.com/prod/c/{device_uuid}/a/{service_name}"
+        headers = {
+            'Authorization': f"Bearer {await self.get_access_token()}",
+        }
+        json_body = {
+            "n": service_name,
+            action_verb: action_value
+        }
+        response: ClientResponse = (
+            await self._post_request_with_logging_and_errors_raised(
+                url=url, headers=headers, json_body=json_body
+            )
+        )
+        response_text = await response.text()
+        return response_text == "Success"

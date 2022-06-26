@@ -29,6 +29,7 @@ async def testing():
     try:
         api, devices = await get_aws_devices(username=username, password=password)
         await devices[0].refresh()
+        await devices[0].set_child_lock(True)
         logger.debug(devices[0])
     finally:
         if api:
