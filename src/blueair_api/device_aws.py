@@ -31,6 +31,7 @@ class DeviceAws(CallbacksMixin):
     temperature: int = None
     humidity: int = None
     filter_usage: int = None  # percentage
+    wifi_working: bool = None
 
     def __init__(
         self,
@@ -70,6 +71,7 @@ class DeviceAws(CallbacksMixin):
         self.fan_speed = int(states["fanspeed"])
         self.fan_auto_mode = states["automode"]
         self.filter_usage = states["filterusage"]
+        self.wifi_working = states["online"]
 
         self.publish_updates()
 
