@@ -23,8 +23,9 @@ def request_with_logging(func):
         _LOGGER.debug(
             f"response headers:{clean_dictionary_for_logging(response.headers)}"
         )
+        _LOGGER.debug(f"response status: {response.status}")
         try:
-            response_json = await response.json()
+            response_json = await response.json(content_type=None)
             _LOGGER.debug(
                 f"response json: {clean_dictionary_for_logging(response_json)}"
             )

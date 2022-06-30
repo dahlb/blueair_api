@@ -4,8 +4,56 @@ from aiohttp import ClientSession, ClientResponse, FormData
 from .const import AWS_APIKEYS
 
 from .util_http import request_with_logging
+from .errors import AuthError
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def request_with_active_session(func):
+    async def request_with_active_session_wrapper(*args, **kwargs):
+        _LOGGER.debug("session")
+        try:
+            return await func(*args, **kwargs)
+        except AuthError as e:
+            url = kwargs["url"]
+            if "accounts.login" in url:
+                raise e
+            else:
+                _LOGGER.debug(f"got invalid session, attempting to repair and resend")
+                self = args[0]
+                self.session_token = None
+                self.session_secret = None
+
+                self.access_token = None
+
+                self.jwt = None
+                response = await func(*args, **kwargs)
+                return response
+
+    return request_with_active_session_wrapper
+
+
+def request_with_errors(func):
+    async def request_with_errors_wrapper(*args, **kwargs):
+        _LOGGER.debug("checking for errors")
+        response: ClientResponse = await func(*args, **kwargs)
+        status_code = response.status
+        try:
+            response_json = await response.json(content_type=None)
+            if "statusCode" in response_json:
+                _LOGGER.debug("response json found, checking status code from response")
+                status_code = response_json["statusCode"]
+        except Exception as e:
+            _LOGGER.debug(f"Error parsing response for errors {e}")
+            return response
+        if status_code == 200:
+            _LOGGER.debug("response 200")
+            return response
+        if 400 <= status_code <= 500:
+            _LOGGER.debug("auth error")
+            raise AuthError(response.text())
+
+    return request_with_errors_wrapper
 
 
 class HttpAwsBlueair:
@@ -35,12 +83,16 @@ class HttpAwsBlueair:
     async def cleanup_client_session(self):
         await self.api_session.close()
 
+    @request_with_active_session
+    @request_with_errors
     @request_with_logging
     async def _get_request_with_logging_and_errors_raised(
         self, url: str, headers: dict = None
     ) -> ClientResponse:
         return await self.api_session.get(url=url, headers=headers)
 
+    @request_with_active_session
+    @request_with_errors
     @request_with_logging
     async def _post_request_with_logging_and_errors_raised(
         self, url: str, json_body: dict = None, form_data: FormData = None, headers: dict = None
