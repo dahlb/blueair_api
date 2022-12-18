@@ -51,7 +51,7 @@ def request_with_errors(func):
             return response
         if 400 <= status_code <= 500:
             _LOGGER.debug("auth error")
-            raise AuthError(response.text())
+            raise AuthError(await response.text())
 
     return request_with_errors_wrapper
 
