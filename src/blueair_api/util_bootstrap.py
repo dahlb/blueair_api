@@ -46,7 +46,7 @@ async def get_aws_devices(
         password: str,
         region: str = "us",
         client_session: ClientSession = None,
-) -> (HttpBlueair, list[Device]):
+) -> (HttpAwsBlueair, list[Device]):
     api = HttpAwsBlueair(username=username, password=password, region=region, client_session=client_session)
     api_devices = await api.devices()
 
