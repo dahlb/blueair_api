@@ -44,8 +44,8 @@ def request_with_errors(func):
                 _LOGGER.debug("response json found, checking status code from response")
                 status_code = response_json["statusCode"]
         except Exception as e:
-            _LOGGER.debug(f"Error parsing response for errors {e}")
-            return response
+            _LOGGER.error(f"Error parsing response for errors {e}")
+            raise e
         if status_code == 200:
             _LOGGER.debug("response 200")
             return response
