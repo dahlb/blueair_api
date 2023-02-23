@@ -49,12 +49,18 @@ class DeviceAws(CallbacksMixin):
     async def refresh(self):
         info = await self.api.device_info(self.name_api, self.uuid)
         sensor_data = convert_api_array_to_dict(info["sensordata"])
-        self.pm1 = int(sensor_data["pm1"])
-        self.pm2_5 = int(sensor_data["pm2_5"])
-        self.pm10 = int(sensor_data["pm10"])
-        self.tVOC = int(sensor_data["tVOC"])
-        self.temperature = int(sensor_data["t"])
-        self.humidity = int(sensor_data["h"])
+        if "pm1" in sensor_data:
+            self.pm1 = int(sensor_data["pm1"])
+        if "pm2_5" in sensor_data:
+            self.pm2_5 = int(sensor_data["pm2_5"])
+        if "pm10" in sensor_data:
+            self.pm10 = int(sensor_data["pm10"])
+        if "tVOC" in sensor_data:
+            self.tVOC = int(sensor_data["tVOC"])
+        if "t" in sensor_data:
+            self.temperature = int(sensor_data["t"])
+        if "h" in sensor_data:
+            self.humidity = int(sensor_data["h"])
 
         configuration = info["configuration"]
         self.name = configuration["di"]["name"]
@@ -65,7 +71,8 @@ class DeviceAws(CallbacksMixin):
         states = convert_api_array_to_dict(info["states"])
         self.running = states["standby"] is False
         self.night_mode = states["nightmode"]
-        self.germ_shield = states["germshield"]
+        if "germshield" in states:
+            self.germ_shield = states["germshield"]
         self.brightness = int(states["brightness"])
         self.child_lock = states["childlock"]
         self.fan_speed = int(states["fanspeed"])
