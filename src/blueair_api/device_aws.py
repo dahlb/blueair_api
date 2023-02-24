@@ -2,7 +2,7 @@ import logging
 
 from .callbacks import CallbacksMixin
 from .http_aws_blueair import HttpAwsBlueair
-from .util import convert_api_array_to_dict
+from .util import convert_api_array_to_dict, safely_get_json_value
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,31 +44,30 @@ class DeviceAws(CallbacksMixin):
         self.uuid = uuid
         self.name_api = name_api
         self.mac = mac
-        _LOGGER.debug(f"creating blueair device: {self.uuid}")
+        _LOGGER.debug(f"creating blueair device aws: {self.uuid}")
 
     async def refresh(self):
         info = await self.api.device_info(self.name_api, self.uuid)
         sensor_data = convert_api_array_to_dict(info["sensordata"])
-        self.pm1 = int(sensor_data["pm1"])
-        self.pm2_5 = int(sensor_data["pm2_5"])
-        self.pm10 = int(sensor_data["pm10"])
-        self.tVOC = int(sensor_data["tVOC"])
-        self.temperature = int(sensor_data["t"])
-        self.humidity = int(sensor_data["h"])
+        self.pm1 = safely_get_json_value(sensor_data, "pm1", int)
+        self.pm2_5 = safely_get_json_value(sensor_data, "pm2_5", int)
+        self.pm10 = safely_get_json_value(sensor_data, "pm10", int)
+        self.tVOC = safely_get_json_value(sensor_data, "tVOC", int)
+        self.temperature = safely_get_json_value(sensor_data, "t", int)
+        self.humidity = safely_get_json_value(sensor_data, "h", int)
 
-        configuration = info["configuration"]
-        self.name = configuration["di"]["name"]
-        self.firmware = configuration["di"]["cfv"]
-        self.mcu_firmware = configuration["di"]["mfv"]
-        self.serial_number = configuration["di"]["ds"]
+        self.name = safely_get_json_value(info, "configuration.di.name")
+        self.firmware = safely_get_json_value(info, "configuration.di.cfv")
+        self.mcu_firmware = safely_get_json_value(info, "configuration.di.mfv")
+        self.serial_number = safely_get_json_value(info, "configuration.di.ds")
 
         states = convert_api_array_to_dict(info["states"])
         self.running = states["standby"] is False
         self.night_mode = states["nightmode"]
         self.germ_shield = states["germshield"]
-        self.brightness = int(states["brightness"])
+        self.brightness = safely_get_json_value(states, "brightness", int)
         self.child_lock = states["childlock"]
-        self.fan_speed = int(states["fanspeed"])
+        self.fan_speed = safely_get_json_value(states, "fanspeed", int)
         self.fan_auto_mode = states["automode"]
         self.filter_usage = states["filterusage"]
         self.wifi_working = states["online"]
