@@ -62,15 +62,15 @@ class DeviceAws(CallbacksMixin):
         self.serial_number = safely_get_json_value(info, "configuration.di.ds")
 
         states = convert_api_array_to_dict(info["states"])
-        self.running = states["standby"] is False
-        self.night_mode = states["nightmode"]
-        self.germ_shield = states["germshield"]
+        self.running = safely_get_json_value(states, "standby") is False
+        self.night_mode = safely_get_json_value(states, "nightmode", bool)
+        self.germ_shield = safely_get_json_value(states, "germshield", bool)
         self.brightness = safely_get_json_value(states, "brightness", int)
-        self.child_lock = states["childlock"]
+        self.child_lock = safely_get_json_value(states, "childlock")
         self.fan_speed = safely_get_json_value(states, "fanspeed", int)
-        self.fan_auto_mode = states["automode"]
-        self.filter_usage = states["filterusage"]
-        self.wifi_working = states["online"]
+        self.fan_auto_mode = safely_get_json_value(states, "automode", bool)
+        self.filter_usage = safely_get_json_value(states, "filterusage", int)
+        self.wifi_working = safely_get_json_value(states, "online", bool)
 
         self.publish_updates()
 
