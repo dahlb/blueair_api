@@ -76,27 +76,27 @@ class DeviceAws(CallbacksMixin):
 
     async def set_brightness(self, value: int):
         self.brightness = value
-        await self.api.set_device_info(self.uuid, 'brightness', 'v', value)
+        await self.api.set_device_info(self.uuid, "brightness", "v", value)
         self.publish_updates()
 
     async def set_fan_speed(self, value: int):
         self.fan_speed = value
-        await self.api.set_device_info(self.uuid, 'fanspeed', 'v', value)
+        await self.api.set_device_info(self.uuid, "fanspeed", "v", value)
         self.publish_updates()
 
     async def set_running(self, running: bool):
         self.running = running
-        await self.api.set_device_info(self.uuid, 'standby', 'vb', not running)
+        await self.api.set_device_info(self.uuid, "standby", "vb", not running)
         self.publish_updates()
 
     async def set_fan_auto_mode(self, fan_auto_mode: bool):
         self.fan_auto_mode = fan_auto_mode
-        await self.api.set_device_info(self.uuid, 'automode', 'vb', fan_auto_mode)
+        await self.api.set_device_info(self.uuid, "automode", "vb", fan_auto_mode)
         self.publish_updates()
 
     async def set_child_lock(self, child_lock: bool):
         self.child_lock = child_lock
-        await self.api.set_device_info(self.uuid, 'childlock', 'vb', child_lock)
+        await self.api.set_device_info(self.uuid, "childlock", "vb", child_lock)
         self.publish_updates()
 
     def __repr__(self):

@@ -42,12 +42,17 @@ async def get_devices(
 
 
 async def get_aws_devices(
-        username: str,
-        password: str,
-        region: str = "us",
-        client_session: ClientSession = None,
+    username: str,
+    password: str,
+    region: str = "us",
+    client_session: ClientSession = None,
 ) -> (HttpAwsBlueair, list[Device]):
-    api = HttpAwsBlueair(username=username, password=password, region=region, client_session=client_session)
+    api = HttpAwsBlueair(
+        username=username,
+        password=password,
+        region=region,
+        client_session=client_session,
+    )
     api_devices = await api.devices()
 
     def create_device(device):
@@ -59,7 +64,4 @@ async def get_aws_devices(
         )
 
     devices = map(create_device, api_devices)
-    return (
-        api,
-        list(devices)
-    )
+    return (api, list(devices))

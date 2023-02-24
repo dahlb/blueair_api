@@ -18,16 +18,16 @@ MeasurementBundle = TypedDict(
 MeasurementList = List[Mapping[str, Union[int, float]]]
 
 AWS_APIKEYS = {
-  'us': {
-    'gigyaRegion': 'us1',
-    'restApiId': 'on1keymlmh',
-    'awsRegion': 'us-east-2',
-    'apiKey': '3_-xUbbrIY8QCbHDWQs1tLXE-CZBQ50SGElcOY5hF1euE11wCoIlNbjMGAFQ6UwhMY',
-  },
-  'eu': {
-    'gigyaRegion': 'eu1',
-    'restApiId': 'hkgmr8v960',
-    'awsRegion': 'eu-west-1',
-    'apiKey': '3_qRseYzrUJl1VyxvSJANalu_kNgQ83swB1B9uzgms58--5w1ClVNmrFdsDnWVQQCl',
-  },
+    "us": {
+        "gigyaRegion": "us1",
+        "restApiId": "on1keymlmh",
+        "awsRegion": "us-east-2",
+        "apiKey": "3_-xUbbrIY8QCbHDWQs1tLXE-CZBQ50SGElcOY5hF1euE11wCoIlNbjMGAFQ6UwhMY",
+    },
+    "eu": {
+        "gigyaRegion": "eu1",
+        "restApiId": "hkgmr8v960",
+        "awsRegion": "eu-west-1",
+        "apiKey": "3_qRseYzrUJl1VyxvSJANalu_kNgQ83swB1B9uzgms58--5w1ClVNmrFdsDnWVQQCl",
+    },
 }

@@ -95,17 +95,23 @@ class HttpAwsBlueair:
     @request_with_errors
     @request_with_logging
     async def _post_request_with_logging_and_errors_raised(
-        self, url: str, json_body: dict = None, form_data: FormData = None, headers: dict = None
+        self,
+        url: str,
+        json_body: dict = None,
+        form_data: FormData = None,
+        headers: dict = None,
     ) -> ClientResponse:
-        return await self.api_session.post(url=url, data=form_data, json=json_body, headers=headers)
+        return await self.api_session.post(
+            url=url, data=form_data, json=json_body, headers=headers
+        )
 
     async def refresh_session(self):
         url = f"https://accounts.{AWS_APIKEYS[self.region]['gigyaRegion']}.gigya.com/accounts.login"
         form_data = FormData()
-        form_data.add_field("apikey", AWS_APIKEYS[self.region]['apiKey'])
+        form_data.add_field("apikey", AWS_APIKEYS[self.region]["apiKey"])
         form_data.add_field("loginID", self.username)
         form_data.add_field("password", self.password)
-        form_data.add_field("targetEnv", 'mobile')
+        form_data.add_field("targetEnv", "mobile")
         response: ClientResponse = (
             await self._post_request_with_logging_and_errors_raised(
                 url=url, form_data=form_data
@@ -118,11 +124,11 @@ class HttpAwsBlueair:
     async def refresh_jwt(self):
         if self.session_token is None or self.session_secret is None:
             await self.refresh_session()
-        url = f"https://accounts.{AWS_APIKEYS[self.region]['gigyaRegion']}.gigya.com/accounts.getJWT";
+        url = f"https://accounts.{AWS_APIKEYS[self.region]['gigyaRegion']}.gigya.com/accounts.getJWT"
         form_data = FormData()
         form_data.add_field("oauth_token", self.session_token)
         form_data.add_field("secret", self.session_secret)
-        form_data.add_field("targetEnv", 'mobile')
+        form_data.add_field("targetEnv", "mobile")
         response: ClientResponse = (
             await self._post_request_with_logging_and_errors_raised(
                 url=url, form_data=form_data
@@ -135,16 +141,14 @@ class HttpAwsBlueair:
         if self.jwt is None:
             await self.refresh_jwt()
         url = f"https://{AWS_APIKEYS[self.region]['restApiId']}.execute-api.{AWS_APIKEYS[self.region]['awsRegion']}.amazonaws.com/prod/c/login"
-        headers = {
-          "idtoken": self.jwt
-        }
+        headers = {"idtoken": self.jwt}
         response: ClientResponse = (
             await self._post_request_with_logging_and_errors_raised(
                 url=url, headers=headers
             )
         )
         response_json = await response.json()
-        self.access_token = response_json['access_token']
+        self.access_token = response_json["access_token"]
 
     async def get_access_token(self):
         if self.access_token is None:
@@ -154,7 +158,7 @@ class HttpAwsBlueair:
     async def devices(self):
         url = f"https://{AWS_APIKEYS[self.region]['restApiId']}.execute-api.{AWS_APIKEYS[self.region]['awsRegion']}.amazonaws.com/prod/c/registered-devices"
         headers = {
-            'Authorization': f"Bearer {await self.get_access_token()}",
+            "Authorization": f"Bearer {await self.get_access_token()}",
         }
         response: ClientResponse = (
             await self._get_request_with_logging_and_errors_raised(
@@ -174,29 +178,29 @@ class HttpAwsBlueair:
         """
         url = f"https://{AWS_APIKEYS[self.region]['restApiId']}.execute-api.{AWS_APIKEYS[self.region]['awsRegion']}.amazonaws.com/prod/c/{device_name}/r/initial"
         headers = {
-            'Authorization': f"Bearer {await self.get_access_token()}",
+            "Authorization": f"Bearer {await self.get_access_token()}",
         }
         json_body = {
-          "deviceconfigquery": [
-            {
-              "id": device_uuid,
-              "r": {
-                "r": [
-                  "sensors",
-                ],
-              },
-            },
-          ],
-          "includestates": True,
-          "eventsubscription": {
-            "include": [
-              {
-                "filter": {
-                  "o": f"= {device_uuid}",
+            "deviceconfigquery": [
+                {
+                    "id": device_uuid,
+                    "r": {
+                        "r": [
+                            "sensors",
+                        ],
+                    },
                 },
-              },
             ],
-          },
+            "includestates": True,
+            "eventsubscription": {
+                "include": [
+                    {
+                        "filter": {
+                            "o": f"= {device_uuid}",
+                        },
+                    },
+                ],
+            },
         }
         response: ClientResponse = (
             await self._post_request_with_logging_and_errors_raised(
@@ -206,15 +210,14 @@ class HttpAwsBlueair:
         response_json = await response.json()
         return response_json["deviceInfo"][0]
 
-    async def set_device_info(self, device_uuid, service_name, action_verb, action_value):
+    async def set_device_info(
+        self, device_uuid, service_name, action_verb, action_value
+    ):
         url = f"https://{AWS_APIKEYS[self.region]['restApiId']}.execute-api.{AWS_APIKEYS[self.region]['awsRegion']}.amazonaws.com/prod/c/{device_uuid}/a/{service_name}"
         headers = {
-            'Authorization': f"Bearer {await self.get_access_token()}",
+            "Authorization": f"Bearer {await self.get_access_token()}",
         }
-        json_body = {
-            "n": service_name,
-            action_verb: action_value
-        }
+        json_body = {"n": service_name, action_verb: action_value}
         response: ClientResponse = (
             await self._post_request_with_logging_and_errors_raised(
                 url=url, headers=headers, json_body=json_body
