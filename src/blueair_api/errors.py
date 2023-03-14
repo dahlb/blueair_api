@@ -11,3 +11,11 @@ class RateError(BaseError):
 
 class AuthError(BaseError):
     pass
+
+
+class LoginError(AuthError):
+    pass
+
+
+class SessionError(AuthError):
+    pass
