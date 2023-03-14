@@ -5,7 +5,7 @@ import base64
 
 from .util_http import request_with_logging
 from .const import API_KEY
-from .errors import AuthError
+from .errors import LoginError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -69,6 +69,8 @@ class HttpBlueair:
                 url=url, headers=headers
             )
         )
+        if response.status == 404:
+            raise LoginError("invalid username")
         return (await response.text()).replace('"', "")
 
     async def _get_auth_token(self) -> str:
@@ -91,11 +93,11 @@ class HttpBlueair:
         )
         result = await response.text()
         if response.status == 404:
-            raise AuthError("invalid username")
+            raise LoginError("invalid username")
         if result == "true":
             return response.headers["X-AUTH-TOKEN"]
         else:
-            raise AuthError("invalid password")
+            raise LoginError("invalid password")
 
     async def get_devices(self) -> list[dict[str, any]]:
         """
