@@ -80,7 +80,7 @@ class HttpBlueair:
         The authentication token can be reused to prevent an additional network
         request when initializing the client.
         """
-        url = f"https://{self.home_host}/v2/user/{self.username}/login/"
+        url = f"https://{await self.get_home_host()}/v2/user/{self.username}/login/"
         headers = {
             "X-API-KEY-TOKEN": API_KEY,
             "Authorization": "Basic "
