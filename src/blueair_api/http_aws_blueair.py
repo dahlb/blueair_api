@@ -15,7 +15,7 @@ def request_with_active_session(func):
         try:
             return await func(*args, **kwargs)
         except SessionError:
-            _LOGGER.debug(f"got invalid session, attempting to repair and resend")
+            _LOGGER.debug("got invalid session, attempting to repair and resend")
             self = args[0]
             self.session_token = None
             self.session_secret = None

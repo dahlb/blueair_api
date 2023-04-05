@@ -1,4 +1,5 @@
-from typing import Any, Dict, List, Mapping, Union
+from typing import Union
+from collections.abc import Mapping
 from typing_extensions import TypedDict
 
 
@@ -12,10 +13,10 @@ API_KEY = "eyJhbGciOiJIUzI1NiJ9.eyJncmFudGVlIjoiYmx1ZWFpciIsImlhdCI6MTQ1MzEyNTYz
 
 MeasurementBundle = TypedDict(
     "MeasurementBundle",
-    {"sensors": List[str], "datapoints": List[List[Union[int, float]]]},
+    {"sensors": list[str], "datapoints": list[list[Union[int, float]]]},
 )
 
-MeasurementList = List[Mapping[str, Union[int, float]]]
+MeasurementList = list[Mapping[str, Union[int, float]]]
 
 AWS_APIKEYS = {
     "us": {
