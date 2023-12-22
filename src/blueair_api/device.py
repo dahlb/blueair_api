@@ -52,7 +52,10 @@ class Device(CallbacksMixin):
         _LOGGER.debug("Requesting current attributes...")
         attributes = await self.api.get_attributes(self.uuid)
         _LOGGER.debug(f"result: {attributes}")
-        self.brightness = int(attributes["brightness"])
+        if "brightness" in attributes:
+            self.brightness = int(attributes["brightness"])
+        else:
+            self.brightness = 0
         self.child_lock = bool(attributes["child_lock"])
         self.fan_speed = int(attributes["fan_speed"])
         self.filter_expired = attributes["filter_status"] != "OK"
