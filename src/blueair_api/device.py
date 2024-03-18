@@ -58,7 +58,8 @@ class Device(CallbacksMixin):
         else:
             self.brightness = 0
         self.child_lock = bool(attributes["child_lock"])
-        self.night_mode = bool(attributes["night_mode"])
+        if "night_mode" in attributes:
+            self.night_mode = bool(attributes["night_mode"])
         self.fan_speed = int(attributes["fan_speed"])
         self.filter_expired = attributes["filter_status"] != "OK"
         self.fan_mode = attributes["mode"]
