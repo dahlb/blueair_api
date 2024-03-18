@@ -20,6 +20,7 @@ class Device(CallbacksMixin):
 
     brightness: int = None
     child_lock: bool = None
+    night_mode: bool = None
     fan_speed: int = None
     fan_mode: str = None
     filter_expired: bool = None
@@ -57,6 +58,7 @@ class Device(CallbacksMixin):
         else:
             self.brightness = 0
         self.child_lock = bool(attributes["child_lock"])
+        self.night_mode = bool(attributes["night_mode"])
         self.fan_speed = int(attributes["fan_speed"])
         self.filter_expired = attributes["filter_status"] != "OK"
         self.fan_mode = attributes["mode"]
@@ -83,6 +85,7 @@ class Device(CallbacksMixin):
             "room_location": self.room_location,
             "brightness": self.brightness,
             "child_lock": self.child_lock,
+            "night_mode": self.night_mode,
             "fan_speed": self.fan_speed,
             "filter_expired": self.filter_expired,
             "fan_mode": self.fan_mode,
