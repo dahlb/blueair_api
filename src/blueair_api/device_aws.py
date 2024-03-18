@@ -98,7 +98,7 @@ class DeviceAws(CallbacksMixin):
         self.child_lock = child_lock
         await self.api.set_device_info(self.uuid, "childlock", "vb", child_lock)
         self.publish_updates()
-        
+
     async def set_night_mode(self, night_mode: bool):
         self.night_mode = night_mode
         await self.api.set_device_info(self.uuid, "nightmode", "vb", night_mode)
