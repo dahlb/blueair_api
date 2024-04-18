@@ -61,7 +61,10 @@ class Device(CallbacksMixin):
         if "night_mode" in attributes:
             self.night_mode = bool(attributes["night_mode"])
         self.fan_speed = int(attributes["fan_speed"])
-        self.filter_expired = attributes["filter_status"] != "OK"
+        if "filter_status":
+            self.filter_expired = attributes["filter_status"] != "OK"
+        else:
+            self.filter_expired = None
         self.fan_mode = attributes["mode"]
         if "wifi_status" in attributes:
             self.wifi_working = attributes["wifi_status"] == "1"
