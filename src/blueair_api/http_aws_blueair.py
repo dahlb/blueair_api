@@ -198,16 +198,7 @@ class HttpAwsBlueair:
                     },
                 },
             ],
-            "includestates": True,
-            "eventsubscription": {
-                "include": [
-                    {
-                        "filter": {
-                            "o": f"= {device_uuid}",
-                        },
-                    },
-                ],
-            },
+            "includestates": True
         }
         response: ClientResponse = (
             await self._post_request_with_logging_and_errors_raised(
