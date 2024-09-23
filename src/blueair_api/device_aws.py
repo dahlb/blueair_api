@@ -17,7 +17,7 @@ class DeviceAws(CallbacksMixin):
     serial_number: str = None
 
     brightness: int = None
-    child_lock: int = None
+    child_lock: bool = None
     fan_speed: int = None
     fan_auto_mode: bool = None
     running: bool = None
@@ -66,7 +66,7 @@ class DeviceAws(CallbacksMixin):
         self.night_mode = safely_get_json_value(states, "nightmode", bool)
         self.germ_shield = safely_get_json_value(states, "germshield", bool)
         self.brightness = safely_get_json_value(states, "brightness", int)
-        self.child_lock = safely_get_json_value(states, "childlock")
+        self.child_lock = safely_get_json_value(states, "childlock", bool)
         self.fan_speed = safely_get_json_value(states, "fanspeed", int)
         self.fan_auto_mode = safely_get_json_value(states, "automode", bool)
         self.filter_usage = safely_get_json_value(states, "filterusage", int)

@@ -48,8 +48,10 @@ def request_with_errors(func):
             url = kwargs["url"]
             response_text = await response.text()
             if "accounts.login" in url:
+                _LOGGER.debug("login error")
                 raise LoginError(response_text)
             else:
+                _LOGGER.debug("session error")
                 raise SessionError(response_text)
 
     return request_with_errors_wrapper
