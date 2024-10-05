@@ -1,4 +1,3 @@
-from typing import Union
 from collections.abc import Mapping
 from typing_extensions import TypedDict
 
@@ -11,12 +10,12 @@ SENSITIVE_FIELD_NAMES = [
 # The BlueAir API uses a fixed API key.
 API_KEY = "eyJhbGciOiJIUzI1NiJ9.eyJncmFudGVlIjoiYmx1ZWFpciIsImlhdCI6MTQ1MzEyNTYzMiwidmFsaWRpdHkiOi0xLCJqdGkiOiJkNmY3OGE0Yi1iMWNkLTRkZDgtOTA2Yi1kN2JkNzM0MTQ2NzQiLCJwZXJtaXNzaW9ucyI6WyJhbGwiXSwicXVvdGEiOi0xLCJyYXRlTGltaXQiOi0xfQ.CJsfWVzFKKDDA6rWdh-hjVVVE9S3d6Hu9BzXG9htWFw"  # noqa: E501
 
-MeasurementBundle = TypedDict(
-    "MeasurementBundle",
-    {"sensors": list[str], "datapoints": list[list[Union[int, float]]]},
-)
 
-MeasurementList = list[Mapping[str, Union[int, float]]]
+class MeasurementBundle(TypedDict):
+    sensors: list[str]
+    datapoints: list[list[int | float]]
+
+MeasurementList = list[Mapping[str, int | float]]
 
 AWS_APIKEYS = {
     "us": {
