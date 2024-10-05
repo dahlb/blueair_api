@@ -1,6 +1,38 @@
 [build-system]
 requires = [
-    "setuptools>=42",
-    "wheel"
+    "setuptools>=68.0.0",
+    "wheel",
+    "aiohttp>=3.8.1",
 ]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "blueair_api"
+version = "1.9.5"
+authors = [
+  { name="Brendan Dahl", email="dahl.brendan@gmail.com" },
+]
+description = "Blueair Api Wrapper"
+readme = "README.md"
+requires-python = ">=3.12.0, <4"
+dependencies = [
+    "aiohttp>=3.8.1",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Framework :: AsyncIO",
+    "Natural Language :: English",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: MacOS :: MacOS X",
+]
+keywords = [
+    "hatch",
+    "rest-mini",
+    "api"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/dahlb/blueair_api"
+"Bug Tracker" = "https://github.com/dahlb/blueair_api/issues"
