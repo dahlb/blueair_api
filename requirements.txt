@@ -1,5 +1,5 @@
 setuptools>=42
 wheel
-pip>=8.0.3,<24.3
+pip>=8.0.3,<24.4
 ruff==0.7.1
 aiohttp>=3.8.1
