@@ -33,6 +33,7 @@ class DeviceAws(CallbacksMixin):
     filter_usage: int = None  # percentage
     wifi_working: bool = None
     wick_usage: int = None  # percentage
+    wick_dry_mode: bool = None
     wshortage: bool = None
     auto_regulated_humidity: int = None
 
@@ -75,6 +76,7 @@ class DeviceAws(CallbacksMixin):
         self.filter_usage = safely_get_json_value(states, "filterusage", int)
         self.wifi_working = safely_get_json_value(states, "online", bool)
         self.wick_usage = safely_get_json_value(states, "wickusage", int)
+        self.wick_dry_mode = safely_get_json_value(states, "wickdrys", bool)
         self.auto_regulated_humidity = safely_get_json_value(states, "autorh", int)
         self.water_shortage = safely_get_json_value(states, "wshortage", bool)
 
@@ -139,6 +141,7 @@ class DeviceAws(CallbacksMixin):
             "humidity": self.humidity,
             "filter_usage": self.filter_usage,
             "wick_usage": self.wick_usage,
+            "wick_dry_mode": self.wick_dry_mode,
             "auto_regulated_humidity": self.auto_regulated_humidity,
             "water_shortage": self.water_shortage,
         }
