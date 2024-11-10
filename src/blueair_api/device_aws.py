@@ -32,6 +32,8 @@ class DeviceAws(CallbacksMixin):
     humidity: int = None
     filter_usage: int = None  # percentage
     wifi_working: bool = None
+
+    # i35
     wick_usage: int = None  # percentage
     wick_dry_mode: bool = None
     wshortage: bool = None
@@ -115,6 +117,11 @@ class DeviceAws(CallbacksMixin):
     async def set_night_mode(self, night_mode: bool):
         self.night_mode = night_mode
         await self.api.set_device_info(self.uuid, "nightmode", "vb", night_mode)
+        self.publish_updates()
+
+    async def set_wick_dry_mode(self, value: bool):
+        self.wick_dry_mode = value
+        await self.api.set_device_info(self.uuid, "wickdrys", "vb", value)
         self.publish_updates()
 
     def __repr__(self):
