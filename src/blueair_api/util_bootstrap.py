@@ -32,6 +32,7 @@ async def get_devices(
             uuid=device["uuid"],
             name=device["name"],
             mac=device["mac"],
+            type_name=device["type"],
         )
 
     devices = map(create_device, api_devices)

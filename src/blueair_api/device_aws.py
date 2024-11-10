@@ -45,11 +45,13 @@ class DeviceAws(CallbacksMixin):
         uuid: str = None,
         name_api: str = None,
         mac: str = None,
+        type_name: str = None,
     ):
         self.api = api
         self.uuid = uuid
         self.name_api = name_api
         self.mac = mac
+        self.type_name = type_name
         _LOGGER.debug(f"creating blueair device aws: {self.uuid}")
 
     async def refresh(self):
@@ -128,6 +130,7 @@ class DeviceAws(CallbacksMixin):
         return {
             "uuid": self.uuid,
             "name": self.name,
+            "type_name": self.type_name,
             "name_api": self.name_api,
             "mac": self.mac,
             "firmware": self.firmware,
