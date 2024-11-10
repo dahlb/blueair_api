@@ -12,6 +12,9 @@ class DeviceAws(CallbacksMixin):
     name: str = None
     name_api: str = None
     mac: str = None
+    type_name: str = None
+
+    sku: str = None
     firmware: str = None
     mcu_firmware: str = None
     serial_number: str = None
@@ -36,7 +39,7 @@ class DeviceAws(CallbacksMixin):
     # i35
     wick_usage: int = None  # percentage
     wick_dry_mode: bool = None
-    wshortage: bool = None
+    water_shortage: bool = None
     auto_regulated_humidity: int = None
 
     def __init__(
@@ -55,6 +58,7 @@ class DeviceAws(CallbacksMixin):
         _LOGGER.debug(f"creating blueair device aws: {self.uuid}")
 
     async def refresh(self):
+        _LOGGER.debug(f"refreshing blueair device aws: {self.uuid}")
         info = await self.api.device_info(self.name_api, self.uuid)
         sensor_data = convert_api_array_to_dict(info["sensordata"])
         self.pm1 = safely_get_json_value(sensor_data, "pm1", int)
@@ -68,6 +72,7 @@ class DeviceAws(CallbacksMixin):
         self.firmware = safely_get_json_value(info, "configuration.di.cfv")
         self.mcu_firmware = safely_get_json_value(info, "configuration.di.mfv")
         self.serial_number = safely_get_json_value(info, "configuration.di.ds")
+        self.sku = safely_get_json_value(info, "configuration.di.sku")
 
         states = convert_api_array_to_dict(info["states"])
         self.running = safely_get_json_value(states, "standby") is False
@@ -85,6 +90,7 @@ class DeviceAws(CallbacksMixin):
         self.water_shortage = safely_get_json_value(states, "wshortage", bool)
 
         self.publish_updates()
+        _LOGGER.debug(f"refreshed blueair device aws: {self}")
 
     async def set_brightness(self, value: int):
         self.brightness = value
@@ -131,6 +137,7 @@ class DeviceAws(CallbacksMixin):
             "uuid": self.uuid,
             "name": self.name,
             "type_name": self.type_name,
+            "sku": self.sku,
             "name_api": self.name_api,
             "mac": self.mac,
             "firmware": self.firmware,
