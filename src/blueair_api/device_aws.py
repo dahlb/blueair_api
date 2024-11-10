@@ -32,6 +32,9 @@ class DeviceAws(CallbacksMixin):
     humidity: int = None
     filter_usage: int = None  # percentage
     wifi_working: bool = None
+    wick_usage: int = None  # percentage
+    wshortage: bool = None
+    auto_regulated_humidity: int = None
 
     def __init__(
         self,
@@ -71,6 +74,9 @@ class DeviceAws(CallbacksMixin):
         self.fan_auto_mode = safely_get_json_value(states, "automode", bool)
         self.filter_usage = safely_get_json_value(states, "filterusage", int)
         self.wifi_working = safely_get_json_value(states, "online", bool)
+        self.wick_usage = safely_get_json_value(states, "wickusage", int)
+        self.auto_regulated_humidity = safely_get_json_value(states, "autorh", int)
+        self.water_shortage = safely_get_json_value(states, "wshortage", bool)
 
         self.publish_updates()
 
@@ -92,6 +98,11 @@ class DeviceAws(CallbacksMixin):
     async def set_fan_auto_mode(self, fan_auto_mode: bool):
         self.fan_auto_mode = fan_auto_mode
         await self.api.set_device_info(self.uuid, "automode", "vb", fan_auto_mode)
+        self.publish_updates()
+
+    async def set_auto_regulated_humidity(self, value: int):
+        self.auto_regulated_humidity = value
+        await self.api.set_device_info(self.uuid, "autorh", "v", value)
         self.publish_updates()
 
     async def set_child_lock(self, child_lock: bool):
@@ -127,6 +138,9 @@ class DeviceAws(CallbacksMixin):
             "temperature": self.temperature,
             "humidity": self.humidity,
             "filter_usage": self.filter_usage,
+            "wick_usage": self.wick_usage,
+            "auto_regulated_humidity": self.auto_regulated_humidity,
+            "water_shortage": self.water_shortage,
         }
 
     def __str__(self):
