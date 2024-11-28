@@ -2,6 +2,7 @@ import logging
 
 from .callbacks import CallbacksMixin
 from .http_aws_blueair import HttpAwsBlueair
+from .model_enum import ModelEnum
 from .util import convert_api_array_to_dict, safely_get_json_value
 
 _LOGGER = logging.getLogger(__name__)
@@ -131,6 +132,14 @@ class DeviceAws(CallbacksMixin):
         self.wick_dry_mode = value
         await self.api.set_device_info(self.uuid, "wickdrys", "vb", value)
         self.publish_updates()
+
+    @property
+    def model(self) -> ModelEnum:
+        if self.sku == "111633":
+            return ModelEnum.HUMIDIFIER_I35
+        if self.sku == "105826":
+            return ModelEnum.PROTECT_7470I
+        return ModelEnum.UNKNOWN
 
     def __repr__(self):
         return {
