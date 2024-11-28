@@ -37,7 +37,7 @@ class Device(CallbacksMixin):
         self.uuid = uuid
         self.name = name
         self.mac = mac
-        _LOGGER.debug(f"creating blueair device: {self.name}")
+        _LOGGER.debug(f"creating blueair device: {self}")
 
     async def init(self):
         info = await self.api.get_info(self.uuid)
