@@ -32,7 +32,6 @@ async def get_devices(
             uuid=device["uuid"],
             name=device["name"],
             mac=device["mac"],
-            type_name=device["type"],
         )
 
     devices = map(create_device, api_devices)
@@ -62,7 +61,10 @@ async def get_aws_devices(
             uuid=device["uuid"],
             name_api=device["name"],
             mac=device["mac"],
+            type_name=device["type"],
         )
 
-    devices = map(create_device, api_devices)
-    return (api, list(devices))
+
+    devices = list(map(create_device, api_devices))
+
+    return (api, devices)
