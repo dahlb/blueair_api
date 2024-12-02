@@ -4,6 +4,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class CallbacksMixin:
+    __slots__ = ['_callbacks']
+
     def _setup_callbacks(self):
         self._callbacks = set()
 
