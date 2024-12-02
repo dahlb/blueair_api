@@ -136,7 +136,7 @@ class DeviceAws(CallbacksMixin):
     @property
     def model(self) -> ModelEnum:
         if self.sku == "111633":
-            return ModelEnum.HUMIDIFIER_I35
+            return ModelEnum.HUMIDIFIER_H35I
         if self.sku == "105826":
             return ModelEnum.PROTECT_7470I
         if self.sku == "110092":
