@@ -1,3 +1,4 @@
+import dataclasses
 import logging
 
 from .callbacks import CallbacksMixin
@@ -7,8 +8,9 @@ from .util import convert_api_array_to_dict, safely_get_json_value
 
 _LOGGER = logging.getLogger(__name__)
 
-
+@dataclasses.dataclass(init=False, slots=True)
 class DeviceAws(CallbacksMixin):
+    api: HttpAwsBlueair
     uuid: str = None
     name: str = None
     name_api: str = None
@@ -143,36 +145,3 @@ class DeviceAws(CallbacksMixin):
             return ModelEnum.MAX_311I
         return ModelEnum.UNKNOWN
 
-    def __repr__(self):
-        return {
-            "uuid": self.uuid,
-            "name": self.name,
-            "type_name": self.type_name,
-            "sku": self.sku,
-            "name_api": self.name_api,
-            "mac": self.mac,
-            "firmware": self.firmware,
-            "mcu_firmware": self.mcu_firmware,
-            "serial_number": self.serial_number,
-            "brightness": self.brightness,
-            "child_lock": self.child_lock,
-            "fan_speed": self.fan_speed,
-            "fan_auto_mode": self.fan_auto_mode,
-            "running": self.running,
-            "night_mode": self.night_mode,
-            "germ_shield": self.germ_shield,
-            "pm1": self.pm1,
-            "pm2_5": self.pm2_5,
-            "pm10": self.pm10,
-            "tVOC": self.tVOC,
-            "temperature": self.temperature,
-            "humidity": self.humidity,
-            "filter_usage": self.filter_usage,
-            "wick_usage": self.wick_usage,
-            "wick_dry_mode": self.wick_dry_mode,
-            "auto_regulated_humidity": self.auto_regulated_humidity,
-            "water_shortage": self.water_shortage,
-        }
-
-    def __str__(self):
-        return f"{self.__repr__()}"

@@ -1,3 +1,4 @@
+import dataclasses
 import logging
 
 from .callbacks import CallbacksMixin
@@ -6,25 +7,27 @@ from .http_blueair import HttpBlueair
 _LOGGER = logging.getLogger(__name__)
 
 
+@dataclasses.dataclass(init=False, slots=True)
 class Device(CallbacksMixin):
-    uuid: str = None
-    name: str = None
-    timezone: str = None
-    compatibility: str = None
-    model: str = None
-    mac: str = None
-    firmware: str = None
-    mcu_firmware: str = None
-    wlan_driver: str = None
-    room_location: str = None
+    api: HttpBlueair
+    uuid: str | None = None
+    name: str | None = None
+    timezone: str | None = None
+    compatibility: str | None = None
+    model: str | None = None
+    mac: str | None = None
+    firmware: str | None = None
+    mcu_firmware: str | None = None
+    wlan_driver: str | None = None
+    room_location: str | None = None
 
-    brightness: int = None
-    child_lock: bool = None
-    night_mode: bool = None
-    fan_speed: int = None
-    fan_mode: str = None
-    filter_expired: bool = None
-    wifi_working: bool = None
+    brightness: int | None = None
+    child_lock: bool | None = None
+    night_mode: bool | None = None
+    fan_speed: int | None = None
+    fan_mode: str | None = None
+    filter_expired: bool | None = None
+    wifi_working: bool | None = None
 
     def __init__(
         self,
@@ -73,27 +76,3 @@ class Device(CallbacksMixin):
 
     async def set_fan_speed(self, new_speed):
         await self.api.set_fan_speed(self.uuid, new_speed)
-
-    def __repr__(self):
-        return {
-            "uuid": self.uuid,
-            "name": self.name,
-            "timezone": self.timezone,
-            "compatibility": self.compatibility,
-            "model": self.model,
-            "mac": self.mac,
-            "firmware": self.firmware,
-            "mcu_firmware": self.mcu_firmware,
-            "wlan_driver": self.wlan_driver,
-            "room_location": self.room_location,
-            "brightness": self.brightness,
-            "child_lock": self.child_lock,
-            "night_mode": self.night_mode,
-            "fan_speed": self.fan_speed,
-            "filter_expired": self.filter_expired,
-            "fan_mode": self.fan_mode,
-            "wifi_working": self.wifi_working,
-        }
-
-    def __str__(self):
-        return f"{self.__repr__()}"
