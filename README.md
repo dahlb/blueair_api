@@ -20,5 +20,3 @@ a lot of this is based on [hass-blueair](https://github.com/aijayadams/hass-blue
 [releases]: https://github.com/dahlb/blueair_api/releases
 [buymecoffee]: https://www.buymeacoffee.com/dahlb
 [buymecoffeebadge]: https://img.shields.io/badge/buy%20me%20a%20coffee-donate-yellow.svg?style=for-the-badge
-
-
