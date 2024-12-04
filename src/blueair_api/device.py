@@ -40,7 +40,6 @@ class Device(CallbacksMixin):
         self.uuid = uuid
         self.name = name
         self.mac = mac
-        _LOGGER.debug(f"creating blueair device: {self}")
 
     async def init(self):
         info = await self.api.get_info(self.uuid)
@@ -51,7 +50,8 @@ class Device(CallbacksMixin):
         self.mcu_firmware = info["mcuFirmware"]
         self.wlan_driver = info["wlanDriver"]
         self.room_location = info["roomLocation"]
-
+        _LOGGER.debug(f"creating blueair device: {self}")
+        
     async def refresh(self):
         _LOGGER.debug("Requesting current attributes...")
         attributes = await self.api.get_attributes(self.uuid)
