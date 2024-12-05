@@ -10,6 +10,7 @@ class FeatureEnum(StrEnum):
     PM25 = "PM25"
     WATER_SHORTAGE = "Water Shortage"
     FILTER_EXPIRED = "Filter Expired"
+    CHILD_LOCK = "Child Lock"
 
 
 class ModelEnum(Enum):
@@ -37,6 +38,7 @@ class ModelEnum(Enum):
         FeatureEnum.PM10,
         FeatureEnum.PM25,
         FeatureEnum.FILTER_EXPIRED,
+        FeatureEnum.CHILD_LOCK,
     ]
     HUMIDIFIER_H35I = "Blueair Humidifier H35i", [
         FeatureEnum.TEMPERATURE,
@@ -50,7 +52,8 @@ class ModelEnum(Enum):
         FeatureEnum.PM1,
         FeatureEnum.PM10,
         FeatureEnum.PM25,
-        FeatureEnum.FILTER_EXPIRED
+        FeatureEnum.FILTER_EXPIRED,
+        FeatureEnum.CHILD_LOCK,
     ]
     MAX_211I = "Blueair Blue Pure 211i Max", [
         FeatureEnum.TEMPERATURE,
@@ -59,7 +62,8 @@ class ModelEnum(Enum):
         FeatureEnum.PM1,
         FeatureEnum.PM10,
         FeatureEnum.PM25,
-        FeatureEnum.FILTER_EXPIRED
+        FeatureEnum.FILTER_EXPIRED,
+        FeatureEnum.CHILD_LOCK,
     ]
     MAX_311I = "Blueair Blue Pure 311i Max", [
         FeatureEnum.TEMPERATURE,
@@ -68,5 +72,6 @@ class ModelEnum(Enum):
         FeatureEnum.PM1,
         FeatureEnum.PM10,
         FeatureEnum.PM25,
-        FeatureEnum.FILTER_EXPIRED
+        FeatureEnum.FILTER_EXPIRED,
+        FeatureEnum.CHILD_LOCK,
     ]
