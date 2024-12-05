@@ -1,13 +1,12 @@
 import dataclasses
 import logging
-
+import asyncio
 from .callbacks import CallbacksMixin
 from .http_blueair import HttpBlueair
 
 _LOGGER = logging.getLogger(__name__)
 
-
-@dataclasses.dataclass(init=False, slots=True)
+@dataclasses.dataclass(slots=True)
 class Device(CallbacksMixin):
     api: HttpBlueair
     uuid: str | None = None
@@ -20,7 +19,6 @@ class Device(CallbacksMixin):
     mcu_firmware: str | None = None
     wlan_driver: str | None = None
     room_location: str | None = None
-
     brightness: int | None = None
     child_lock: bool | None = None
     night_mode: bool | None = None
@@ -29,51 +27,55 @@ class Device(CallbacksMixin):
     filter_expired: bool | None = None
     wifi_working: bool | None = None
 
-    def __init__(
-        self,
-        api: HttpBlueair,
-        uuid: str = None,
-        name: str = None,
-        mac: str = None,
-    ):
-        self.api = api
-        self.uuid = uuid
-        self.name = name
-        self.mac = mac
+    def __post_init__(self):
+        _LOGGER.debug(f"Creating Blueair device: {self}")
 
     async def init(self):
         info = await self.api.get_info(self.uuid)
-        self.timezone = info["timezone"]
-        self.compatibility = info["compatibility"]
-        self.model = info["model"]
-        self.firmware = info["firmware"]
-        self.mcu_firmware = info["mcuFirmware"]
-        self.wlan_driver = info["wlanDriver"]
-        self.room_location = info["roomLocation"]
-        _LOGGER.debug(f"init blueair device: {self}")
+        self.timezone = info.get("timezone")
+        self.compatibility = info.get("compatibility")
+        self.model = info.get("model")
+        self.firmware = info.get("firmware")
+        self.mcu_firmware = info.get("mcuFirmware")
+        self.wlan_driver = info.get("wlanDriver")
+        self.room_location = info.get("roomLocation")
+        self.brightness = info.get("brightness")
+        self.child_lock = info.get("child_lock")
+        self.night_mode = info.get("night_mode")
+        self.fan_speed = info.get("fan_speed")
+        self.fan_mode = info.get("fan_mode")
+        self.filter_expired = info.get("filter_expired")
+        self.wifi_working = info.get("wifi_working")
 
-    async def refresh(self):
-        _LOGGER.debug("Requesting current attributes...")
-        attributes = await self.api.get_attributes(self.uuid)
-        _LOGGER.debug(f"result: {attributes}")
-        if "brightness" in attributes:
-            self.brightness = int(attributes["brightness"])
-        else:
-            self.brightness = 0
-        if "child_lock" in attributes:
-            self.child_lock = bool(attributes["child_lock"])
-        if "night_mode" in attributes:
-            self.night_mode = bool(attributes["night_mode"])
-        self.fan_speed = int(attributes["fan_speed"])
-        if "filter_status" in attributes:
-            self.filter_expired = attributes["filter_status"] != "OK"
-        self.fan_mode = attributes["mode"]
-        if "wifi_status" in attributes:
-            self.wifi_working = attributes["wifi_status"] == "1"
-        else:
-            self.wifi_working = False
-        _LOGGER.debug(f"refreshed blueair device: {self}")
-        self.publish_updates()
+    async def set_brightness(self, brightness: int):
+        _LOGGER.debug(f"Setting brightness to {brightness} for device {self.uuid}")
+        await self.api.set_brightness(self.uuid, brightness)
+        self.brightness = brightness
 
-    async def set_fan_speed(self, new_speed):
-        await self.api.set_fan_speed(self.uuid, new_speed)
+    async def set_fan_speed(self, fan_speed: int):
+        _LOGGER.debug(f"Setting fan speed to {fan_speed} for device {self.uuid}")
+        await self.api.set_fan_speed(self.uuid, fan_speed)
+        self.fan_speed = fan_speed
+
+    async def toggle_child_lock(self, enable: bool):
+        _LOGGER.debug(f"Toggling child lock to {'enabled' if enable else 'disabled'} for device {self.uuid}")
+        await self.api.set_child_lock(self.uuid, enable)
+        self.child_lock = enable
+
+    async def update_info(self):
+        _LOGGER.debug(f"Updating device information for {self.uuid}")
+        info = await self.api.get_info(self.uuid)
+        self.timezone = info.get("timezone")
+        self.compatibility = info.get("compatibility")
+        self.model = info.get("model")
+        self.firmware = info.get("firmware")
+        self.mcu_firmware = info.get("mcuFirmware")
+        self.wlan_driver = info.get("wlanDriver")
+        self.room_location = info.get("roomLocation")
+        self.brightness = info.get("brightness")
+        self.child_lock = info.get("child_lock")
+        self.night_mode = info.get("night_mode")
+        self.fan_speed = info.get("fan_speed")
+        self.fan_mode = info.get("fan_mode")
+        self.filter_expired = info.get("filter_expired")
+        self.wifi_working = info.get("wifi_working")
