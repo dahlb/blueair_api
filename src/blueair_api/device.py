@@ -50,7 +50,7 @@ class Device(CallbacksMixin):
         self.mcu_firmware = info["mcuFirmware"]
         self.wlan_driver = info["wlanDriver"]
         self.room_location = info["roomLocation"]
-        _LOGGER.debug(f"creating blueair device: {self}")
+        _LOGGER.debug(f"init blueair device: {self}")
 
     async def refresh(self):
         _LOGGER.debug("Requesting current attributes...")
@@ -72,6 +72,7 @@ class Device(CallbacksMixin):
             self.wifi_working = attributes["wifi_status"] == "1"
         else:
             self.wifi_working = False
+        _LOGGER.debug(f"refreshed blueair device: {self}")
         self.publish_updates()
 
     async def set_fan_speed(self, new_speed):
