@@ -7,7 +7,7 @@ from .http_blueair import HttpBlueair
 _LOGGER = logging.getLogger(__name__)
 
 
-@dataclasses.dataclass(init=False, slots=True)
+@dataclasses.dataclass(slots=True)
 class Device(CallbacksMixin):
     api: HttpBlueair
     uuid: str | None = None
@@ -29,19 +29,7 @@ class Device(CallbacksMixin):
     filter_expired: bool | None = None
     wifi_working: bool | None = None
 
-    def __init__(
-        self,
-        api: HttpBlueair,
-        uuid: str = None,
-        name: str = None,
-        mac: str = None,
-    ):
-        self.api = api
-        self.uuid = uuid
-        self.name = name
-        self.mac = mac
-
-    async def init(self):
+    async def post_init(self):
         info = await self.api.get_info(self.uuid)
         self.timezone = info["timezone"]
         self.compatibility = info["compatibility"]
@@ -50,7 +38,7 @@ class Device(CallbacksMixin):
         self.mcu_firmware = info["mcuFirmware"]
         self.wlan_driver = info["wlanDriver"]
         self.room_location = info["roomLocation"]
-        _LOGGER.debug(f"init blueair device: {self}")
+        _LOGGER.debug(f"post_init blueair device: {self}")
 
     async def refresh(self):
         _LOGGER.debug("Requesting current attributes...")

@@ -37,7 +37,7 @@ async def testing():
     try:
         api, devices = await get_devices(username=username, password=password)
         for device in devices:
-            await device.init()
+            await device.post_init()
             await device.refresh()
             logger.debug(device)
     finally:

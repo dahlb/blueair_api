@@ -8,7 +8,8 @@ from .util import convert_api_array_to_dict, safely_get_json_value
 
 _LOGGER = logging.getLogger(__name__)
 
-@dataclasses.dataclass(init=False, slots=True)
+
+@dataclasses.dataclass(slots=True)
 class DeviceAws(CallbacksMixin):
     api: HttpAwsBlueair
     uuid: str = None
@@ -45,23 +46,8 @@ class DeviceAws(CallbacksMixin):
     water_shortage: bool = None
     auto_regulated_humidity: int = None
 
-    def __init__(
-        self,
-        api: HttpAwsBlueair,
-        uuid: str = None,
-        name_api: str = None,
-        mac: str = None,
-        type_name: str = None,
-    ):
-        self.api = api
-        self.uuid = uuid
-        self.name_api = name_api
-        self.mac = mac
-        self.type_name = type_name
-        _LOGGER.debug(f"creating blueair device aws: {self.uuid}")
-
     async def refresh(self):
-        _LOGGER.debug(f"refreshing blueair device aws: {self.uuid}")
+        _LOGGER.debug(f"refreshing blueair device aws: {self}")
         info = await self.api.device_info(self.name_api, self.uuid)
         sensor_data = convert_api_array_to_dict(info["sensordata"])
         self.pm1 = safely_get_json_value(sensor_data, "pm1", int)
