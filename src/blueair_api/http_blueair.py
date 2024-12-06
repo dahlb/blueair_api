@@ -201,6 +201,29 @@ class HttpBlueair:
         )
         return await response.json()
 
+    async def get_data_points_since(self, device_uuid: str, seconds_ago: int = 0, sample_period: int = 300) -> dict[str, any]:
+        """
+        Fetch the list of data points between a relative timestamp (in seconds) and the current time.
+
+        An optional sample period can be provided to group data points
+        together. The minimum sample period size is 300 (5 minutes).
+
+        Note: the data for the most recent data point is only updated once
+        every 5 minutes.  Calling it more often will return the same respone
+        from the server and should be avoided to limit server load.
+        """
+        url = f"https://{await self.get_home_host()}/v2/device/{device_uuid}/datapoint/{seconds_ago}/last/{sample_period}/"
+        headers = {
+            "X-API-KEY-TOKEN": API_KEY,
+            "X-AUTH-TOKEN": await self.get_auth_token(),
+        }
+        response: ClientResponse = (
+            await self._get_request_with_logging_and_errors_raised(
+                url=url, headers=headers
+            )
+        )
+        return await response.json()
+
     async def set_fan_speed(self, device_uuid, new_speed: str):
         """
         Set the fan speed per @spikeyGG comment at https://community.home-assistant.io/t/blueair-purifier-addon/154456/14
