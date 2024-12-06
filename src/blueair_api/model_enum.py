@@ -72,3 +72,9 @@ class ModelEnum(Enum):
         FeatureEnum.FILTER_EXPIRED,
         FeatureEnum.CHILD_LOCK,
     ]
+    T10I = "T10i ComfortPure 3-in-1 Filter/Heater/Fan", [
+        FeatureEnum.TEMPERATURE,
+        FeatureEnum.HUMIDITY,
+        FeatureEnum.PM25,
+        FeatureEnum.FILTER_EXPIRED,
+    ]
