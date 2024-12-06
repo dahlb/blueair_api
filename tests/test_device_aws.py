@@ -55,7 +55,7 @@ mac="fake-mac", type_name='fake-type-name')
 class UnavailableDeviceAwsTest(DeviceAwsTestBase):
     """Tests for a fake, all attrs are unavailable device.
 
-    Other device types shall override setUp and populate self.info with the 
+    Other device types shall override setUp and populate self.info with the
     golden dataset.
     """
 
@@ -96,7 +96,7 @@ class UnavailableDeviceAwsTest(DeviceAwsTestBase):
         # local cache should work
         assert self.device.brightness == 30
 
-        self.device.brightness == None
+        self.device.brightness = None
         await self.device.refresh()
         assert self.device.brightness == 30
 
