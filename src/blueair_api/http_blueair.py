@@ -177,6 +177,30 @@ class HttpBlueair:
         )
         return await response.json()
 
+    # Note: refreshes every 5 minutes, timestamps are in seconds
+    async def get_current_data_point(self, device_uuid: str) -> dict[str, any]:
+        """
+        Fetch device information for the provided device ID.
+
+        The return value is a dictionary containing key-value pairs for the
+        available device information.
+
+        Note: the data for this API call is only updated once every 5 minutes.
+        Calling it more often will return the same respone from the server and
+        should be avoided to limit server load.
+        """
+        url = f"https://{await self.get_home_host()}/v2/device/{device_uuid}/datapoint/0/last/0/"
+        headers = {
+            "X-API-KEY-TOKEN": API_KEY,
+            "X-AUTH-TOKEN": await self.get_auth_token(),
+        }
+        response: ClientResponse = (
+            await self._get_request_with_logging_and_errors_raised(
+                url=url, headers=headers
+            )
+        )
+        return await response.json()
+
     async def set_fan_speed(self, device_uuid, new_speed: str):
         """
         Set the fan speed per @spikeyGG comment at https://community.home-assistant.io/t/blueair-purifier-addon/154456/14

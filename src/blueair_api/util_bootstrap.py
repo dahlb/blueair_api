@@ -63,7 +63,8 @@ async def get_aws_devices(
             type_name=device["type"],
         )
 
-
-    devices = list(map(create_device, api_devices))
-
-    return (api, devices)
+    devices = map(create_device, api_devices)
+    return (
+        api,
+        list(devices)
+    )
