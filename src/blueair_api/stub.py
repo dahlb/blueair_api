@@ -28,16 +28,16 @@ async def testing():
     password = getpass()
     try:
         api, devices = await get_aws_devices(username=username, password=password)
-        await devices[0].refresh()
-        await devices[0].set_child_lock(True)
-        logger.debug(devices[0])
+        for device in devices:
+            await device.refresh()
+            await device.set_child_lock(True)
+            logger.debug(device)
     finally:
         if api:
             await api.cleanup_client_session()
     try:
         api, devices = await get_devices(username=username, password=password)
         for device in devices:
-            await device.post_init()
             await device.refresh()
             logger.debug(device)
     finally:

@@ -11,6 +11,21 @@ _LOGGER = logging.getLogger(__name__)
 
 @dataclasses.dataclass(slots=True)
 class DeviceAws(CallbacksMixin):
+    @classmethod
+    async def create_device(cls, api, uuid, name, mac, type_name, refresh=False):
+        _LOGGER.debug("UUID:"+uuid)
+        device_aws = DeviceAws(
+            api=api,
+            uuid=uuid,
+            name_api=name,
+            mac=mac,
+            type_name=type_name,
+        )
+        if refresh:
+            await device_aws.refresh()
+        _LOGGER.debug(f"create_device blueair device_aws: {device_aws}")
+        return device_aws
+
     api: HttpAwsBlueair
     uuid: str = None
     name: str = None

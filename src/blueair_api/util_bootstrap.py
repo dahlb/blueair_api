@@ -25,14 +25,13 @@ async def get_devices(
         auth_token=auth_token,
     )
     api_devices = await api.get_devices()
-
     devices = []
     for api_device in api_devices:
         devices.append(await Device.create_device(
-            api,
-            api_device["uuid"],
-            api_device["name"],
-            api_device["mac"]
+            api=api,
+            uuid=api_device["uuid"],
+            name=api_device["name"],
+            mac=api_device["mac"]
         ))
     return (
         api,
@@ -53,18 +52,17 @@ async def get_aws_devices(
         client_session=client_session,
     )
     api_devices = await api.devices()
-
-    def create_device(device):
-        return DeviceAws(
+    devices = []
+    for api_device in api_devices:
+        _LOGGER.debug("api_device: %s", api_device)
+        devices.append(await DeviceAws.create_device(
             api=api,
-            uuid=device["uuid"],
-            name_api=device["name"],
-            mac=device["mac"],
-            type_name=device["type"],
-        )
-
-    devices = map(create_device, api_devices)
+            uuid=api_device["uuid"],
+            name=api_device["name"],
+            mac=api_device["mac"],
+            type_name=api_device["type"]
+        ))
     return (
         api,
-        list(devices)
+        devices
     )
