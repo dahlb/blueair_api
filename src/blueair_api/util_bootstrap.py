@@ -26,18 +26,17 @@ async def get_devices(
     )
     api_devices = await api.get_devices()
 
-    def create_device(device):
-        return Device(
-            api=api,
-            uuid=device["uuid"],
-            name=device["name"],
-            mac=device["mac"],
-        )
-
-    devices = map(create_device, api_devices)
+    devices = list()
+    for api_device in api_devices:
+        devices.append(await Device.create_device(
+            api,
+            api_device["uuid"],
+            api_device["name"],
+            api_device["mac"]
+        ))
     return (
         api,
-        list(devices),
+        devices,
     )
 
 

@@ -9,6 +9,28 @@ _LOGGER = logging.getLogger(__name__)
 
 @dataclasses.dataclass(slots=True)
 class Device(CallbacksMixin):
+    @classmethod
+    async def create_device(cls, api, uuid, name, mac, refresh=False):
+        _LOGGER.debug("UUID:"+uuid)
+        info = await api.get_info(uuid)
+        device = Device(
+            api=api,
+            uuid=uuid,
+            name=name,
+            mac=mac,
+            timezone=info["timezone"],
+            compatibility=info["compatibility"],
+            model=info["model"],
+            firmware=info["firmware"],
+            mcu_firmware=info["mcuFirmware"],
+            wlan_driver=info["wlanDriver"],
+            room_location=info["roomLocation"]
+        )
+        if refresh:
+            await device.refresh()
+        _LOGGER.debug(f"create_device blueair device: {device}")
+        return device
+
     api: HttpBlueair
     uuid: str | None = None
     name: str | None = None
@@ -28,17 +50,6 @@ class Device(CallbacksMixin):
     fan_mode: str | None = None
     filter_expired: bool | None = None
     wifi_working: bool | None = None
-
-    async def post_init(self):
-        info = await self.api.get_info(self.uuid)
-        self.timezone = info["timezone"]
-        self.compatibility = info["compatibility"]
-        self.model = info["model"]
-        self.firmware = info["firmware"]
-        self.mcu_firmware = info["mcuFirmware"]
-        self.wlan_driver = info["wlanDriver"]
-        self.room_location = info["roomLocation"]
-        _LOGGER.debug(f"post_init blueair device: {self}")
 
     async def refresh(self):
         _LOGGER.debug("Requesting current attributes...")
