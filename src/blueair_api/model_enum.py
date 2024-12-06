@@ -69,3 +69,8 @@ class ModelEnum(Enum):
         FeatureEnum.FILTER_EXPIRED,
         FeatureEnum.CHILD_LOCK,
     ]
+    MAX_411I = "Blueair Blue Pure 411i Max", [
+        FeatureEnum.PM25,
+        FeatureEnum.FILTER_EXPIRED,
+        FeatureEnum.CHILD_LOCK,
+    ]
