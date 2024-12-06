@@ -26,7 +26,7 @@ async def get_devices(
     )
     api_devices = await api.get_devices()
 
-    devices = list()
+    devices = []
     for api_device in api_devices:
         devices.append(await Device.create_device(
             api,
