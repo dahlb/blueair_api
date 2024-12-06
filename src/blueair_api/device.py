@@ -55,6 +55,7 @@ class Device(CallbacksMixin):
         _LOGGER.debug("Requesting current attributes...")
         attributes = await self.api.get_attributes(self.uuid)
         _data_points = await self.api.get_current_data_point(self.uuid)
+        _data_points2 = await self.api.get_data_points_since(self.uuid)
         _LOGGER.debug(f"result: {attributes}")
         if "brightness" in attributes:
             self.brightness = int(attributes["brightness"])
