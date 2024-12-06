@@ -39,6 +39,8 @@ mac="fake-mac", type_name='fake-type-name')
             # this function seems to be only updating the states consider rename the method.
             # action_verb seems to be a type annotation:
             # c.f. senml: https://www.rfc-editor.org/rfc/rfc8428.html#section-5
+            # the senml parsing library (utils.py) could use some additional love.
+            # to make it more conformal to the RFC standard.
             for state in self.info['states']:
                 if state['n'] == service_name:
                     break
