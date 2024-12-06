@@ -56,9 +56,6 @@ class ModelEnum(Enum):
         FeatureEnum.CHILD_LOCK,
     ]
     MAX_211I = "Blueair Blue Pure 211i Max", [
-        FeatureEnum.TEMPERATURE,
-        FeatureEnum.HUMIDITY,
-        FeatureEnum.VOC,
         FeatureEnum.PM1,
         FeatureEnum.PM10,
         FeatureEnum.PM25,
@@ -66,9 +63,6 @@ class ModelEnum(Enum):
         FeatureEnum.CHILD_LOCK,
     ]
     MAX_311I = "Blueair Blue Pure 311i Max", [
-        FeatureEnum.TEMPERATURE,
-        FeatureEnum.HUMIDITY,
-        FeatureEnum.VOC,
         FeatureEnum.PM1,
         FeatureEnum.PM10,
         FeatureEnum.PM25,
