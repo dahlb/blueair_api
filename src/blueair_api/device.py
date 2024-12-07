@@ -3,6 +3,7 @@ import logging
 
 from .callbacks import CallbacksMixin
 from .http_blueair import HttpBlueair
+from .util import transform_data_points, safely_get_json_value
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -51,11 +52,18 @@ class Device(CallbacksMixin):
     filter_expired: bool | None = None
     wifi_working: bool | None = None
 
+    pm1: int | None = None
+    pm10: int | None = None
+    pm25: int | None = None
+    voc: int | None = None
+    co2: int | None = None
+    temperature: float | None = None
+    humidity: float | None = None
+    all_pollution: float | None = None
+
     async def refresh(self):
         _LOGGER.debug("Requesting current attributes...")
         attributes = await self.api.get_attributes(self.uuid)
-        _data_points = await self.api.get_current_data_point(self.uuid)
-        _data_points2 = await self.api.get_data_points_since(self.uuid)
         _LOGGER.debug(f"result: {attributes}")
         if "brightness" in attributes:
             self.brightness = int(attributes["brightness"])
@@ -73,6 +81,16 @@ class Device(CallbacksMixin):
             self.wifi_working = attributes["wifi_status"] == "1"
         else:
             self.wifi_working = False
+        for data_point in transform_data_points(await self.api.get_data_points_since(self.uuid)):
+            _LOGGER.debug(data_point)
+            self.pm25 = safely_get_json_value(data_point, "pm25", int)
+            self.pm10 = safely_get_json_value(data_point, "pm10", int)
+            self.pm1 = safely_get_json_value(data_point, "pm1", int)
+            self.voc = safely_get_json_value(data_point, "voc", int)
+            self.co2 = safely_get_json_value(data_point, "co2", int)
+            self.temperature = safely_get_json_value(data_point, "temperature", int)
+            self.humidity = safely_get_json_value(data_point, "humidity", int)
+            self.all_pollution = safely_get_json_value(data_point, "all_pollution", int)
         _LOGGER.debug(f"refreshed blueair device: {self}")
         self.publish_updates()
 

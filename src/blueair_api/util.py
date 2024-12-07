@@ -51,3 +51,22 @@ def safely_get_json_value(json, key, callable_to_cast=None):
     if callable_to_cast is not None and value is not None:
         value = callable_to_cast(value)
     return value
+
+
+def transform_data_points(data):
+    """Transform a measurement list response from the Blueair API to a more pythonic data structure."""
+    key_mapping = {
+        "time": "timestamp",
+        "pm": "pm25",
+        "pm1": "pm1",
+        "pm10": "pm10",
+        "tmp": "temperature",
+        "hum": "humidity",
+        "co2": "co2",
+        "voc": "voc",
+        "allpollu": "all_pollution",
+    }
+
+    keys = [key_mapping[key] for key in data["sensors"]]
+
+    return [dict(zip(keys, values)) for values in data["datapoints"]]

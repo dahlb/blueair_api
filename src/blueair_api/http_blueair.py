@@ -186,7 +186,7 @@ class HttpBlueair:
         available device information.
 
         Note: the data for this API call is only updated once every 5 minutes.
-        Calling it more often will return the same respone from the server and
+        Calling it more often will return the same response from the server and
         should be avoided to limit server load.
         """
         url = f"https://{await self.get_home_host()}/v2/device/{device_uuid}/datapoint/0/last/0/"
@@ -209,7 +209,7 @@ class HttpBlueair:
         together. The minimum sample period size is 300 (5 minutes).
 
         Note: the data for the most recent data point is only updated once
-        every 5 minutes.  Calling it more often will return the same respone
+        every 5 minutes.  Calling it more often will return the same response
         from the server and should be avoided to limit server load.
         """
         url = f"https://{await self.get_home_host()}/v2/device/{device_uuid}/datapoint/{seconds_ago}/last/{sample_period}/"
