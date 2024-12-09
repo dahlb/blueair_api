@@ -45,6 +45,16 @@ class ModelEnum(Enum):
         FeatureEnum.HUMIDITY,
         FeatureEnum.WATER_SHORTAGE,
     ]
+    PROTECT_7440I = "Blueair Protect 7440i", [
+        FeatureEnum.TEMPERATURE,
+        FeatureEnum.HUMIDITY,
+        FeatureEnum.VOC,
+        FeatureEnum.PM1,
+        FeatureEnum.PM10,
+        FeatureEnum.PM25,
+        FeatureEnum.FILTER_EXPIRED,
+        FeatureEnum.CHILD_LOCK,
+    ]
     PROTECT_7470I = "Blueair Protect 7470i", [
         FeatureEnum.TEMPERATURE,
         FeatureEnum.HUMIDITY,
