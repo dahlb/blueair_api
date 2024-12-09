@@ -81,16 +81,17 @@ class Device(CallbacksMixin):
             self.wifi_working = attributes["wifi_status"] == "1"
         else:
             self.wifi_working = False
-        for data_point in transform_data_points(await self.api.get_data_points_since(self.uuid)):
-            _LOGGER.debug(data_point)
-            self.pm25 = safely_get_json_value(data_point, "pm25", int)
-            self.pm10 = safely_get_json_value(data_point, "pm10", int)
-            self.pm1 = safely_get_json_value(data_point, "pm1", int)
-            self.voc = safely_get_json_value(data_point, "voc", int)
-            self.co2 = safely_get_json_value(data_point, "co2", int)
-            self.temperature = safely_get_json_value(data_point, "temperature", int)
-            self.humidity = safely_get_json_value(data_point, "humidity", int)
-            self.all_pollution = safely_get_json_value(data_point, "all_pollution", int)
+        if self.compatibility != "sense+":
+            for data_point in transform_data_points(await self.api.get_data_points_since(self.uuid)):
+                _LOGGER.debug(data_point)
+                self.pm25 = safely_get_json_value(data_point, "pm25", int)
+                self.pm10 = safely_get_json_value(data_point, "pm10", int)
+                self.pm1 = safely_get_json_value(data_point, "pm1", int)
+                self.voc = safely_get_json_value(data_point, "voc", int)
+                self.co2 = safely_get_json_value(data_point, "co2", int)
+                self.temperature = safely_get_json_value(data_point, "temperature", int)
+                self.humidity = safely_get_json_value(data_point, "humidity", int)
+                self.all_pollution = safely_get_json_value(data_point, "all_pollution", int)
         _LOGGER.debug(f"refreshed blueair device: {self}")
         self.publish_updates()
 
