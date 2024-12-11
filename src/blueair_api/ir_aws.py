@@ -3,12 +3,10 @@ from collections.abc import Iterable
 import dataclasses
 import base64
 
-_T = TypeVar("_T")
-
-ScalarType = str | float | bool
-MappingType= dict[str, "ObjectType"]
-SequenceType = list["ObjectType"]
-ObjectType = ScalarType | MappingType | SequenceType
+type ScalarType = str | float | bool
+type MappingType = dict[str, "ObjectType"]
+type SequenceType = list["ObjectType"]
+type ObjectType = ScalarType | MappingType | SequenceType
 
 
 def query_json(jsonobj: ObjectType, path: str):
@@ -34,7 +32,7 @@ def query_json(jsonobj: ObjectType, path: str):
     return value.get(segs[-1])
 
 
-def parse_json(kls: type[_T], jsonobj: MappingType) -> dict[str, _T]:
+def parse_json[T](kls: type[T], jsonobj: MappingType) -> dict[str, T]:
     """Parses a json mapping object to dict.
 
     The key is preserved. The value is parsed as dataclass type kls.
