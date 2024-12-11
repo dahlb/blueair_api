@@ -74,6 +74,7 @@ class DeviceAwsSetterTest(DeviceAwsTestBase):
 
     def setUp(self):
         super().setUp()
+        # minimally populate dc to define the states.
         fake = {"n": "n", "v": 0}
         ir.query_json(self.device_info_helper.info, "configuration.dc").update({
           "brightness": fake,
@@ -195,10 +196,10 @@ class DeviceAwsSetterTest(DeviceAwsTestBase):
         assert self.device.wick_dry_mode is True
 
 
-class UnavailableDeviceAwsTest(DeviceAwsTestBase):
-    """Tests for a fake device.
+class EmptyDeviceAwsTest(DeviceAwsTestBase):
+    """Tests for a emptydevice.
 
-    For this fake device, all attrs are unavailable.
+    This is a made-up device. All attrs are not implemented.
 
     Other device types shall override setUp and populate self.info with the
     golden dataset.
