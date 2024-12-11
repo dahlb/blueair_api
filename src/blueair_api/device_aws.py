@@ -4,7 +4,7 @@ import logging
 from .callbacks import CallbacksMixin
 from .http_aws_blueair import HttpAwsBlueair
 from .model_enum import ModelEnum
-from .device_ir_aws import SensorPack, query_json
+from . import ir_aws as ir
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -64,7 +64,10 @@ class DeviceAws(CallbacksMixin):
     async def refresh(self):
         _LOGGER.debug(f"refreshing blueair device aws: {self}")
         info = await self.api.device_info(self.name_api, self.uuid)
-        sensor_data = SensorPack(info["sensordata"]).to_latest_value()
+        da = ir.parse_json(ir.Attribute, ir.query_json(info, "configuration.da"))
+        ds = ir.parse_json(ir.Sensor, ir.query_json(info, "configuration.ds"))
+        dc = ir.parse_json(ir.Control, ir.query_json(info, "configuration.dc"))
+        sensor_data = ir.SensorPack(info["sensordata"]).to_latest_value()
 
         self.pm1 = sensor_data.get("pm1")
         self.pm2_5 = sensor_data.get("pm2_5")
@@ -73,13 +76,13 @@ class DeviceAws(CallbacksMixin):
         self.temperature = sensor_data.get("t")
         self.humidity = sensor_data.get("h")
 
-        self.name = query_json(info, "configuration.di.name")
-        self.firmware = query_json(info, "configuration.di.cfv")
-        self.mcu_firmware = query_json(info, "configuration.di.mfv")
-        self.serial_number = query_json(info, "configuration.di.ds")
-        self.sku = query_json(info, "configuration.di.sku")
+        self.name = ir.query_json(info, "configuration.di.name")
+        self.firmware = ir.query_json(info, "configuration.di.cfv")
+        self.mcu_firmware = ir.query_json(info, "configuration.di.mfv")
+        self.serial_number = ir.query_json(info, "configuration.di.ds")
+        self.sku = ir.query_json(info, "configuration.di.sku")
 
-        states = SensorPack(info["states"]).to_latest_value()
+        states = ir.SensorPack(info["states"]).to_latest_value()
         self.standby = states.get("standby")
         self.night_mode = states.get("nightmode")
         self.germ_shield = states.get("germshield")

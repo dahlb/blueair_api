@@ -1,13 +1,14 @@
+import dataclasses
 from unittest import TestCase
 
 import pytest
 
-from blueair_api.device_ir_aws import SensorPack, Record, query_json
+from blueair_api import ir_aws as ir
 
 class SensorPackTest(TestCase):
 
   def testSimple(self):
-    sp = SensorPack( [
+    sp = ir.SensorPack( [
             {'n': 'v', 't': 1, 'v': 1},
             {'n': 'vb', 't': 2, 'vb': True},
             {'n': 'vs', 't': 3, 'vs': "s"},
@@ -47,7 +48,7 @@ class SensorPackTest(TestCase):
     assert latest['u'].unit == "unit"
 
   def testToLatestMissingT1None(self):
-    sp = SensorPack( [
+    sp = ir.SensorPack( [
             {'n': 'missing_t', 't': 1, 'v': 1},
             {'n': 'missing_t', 'v': 2},
     ])
@@ -56,7 +57,7 @@ class SensorPackTest(TestCase):
     assert latest['missing_t'].value == 2
 
   def testToLatestMissingTNoneNone(self):
-    sp = SensorPack( [
+    sp = ir.SensorPack( [
             {'n': 'missing_t', 'v': 1},
             {'n': 'missing_t', 'v': 2},
     ])
@@ -65,7 +66,7 @@ class SensorPackTest(TestCase):
     assert latest['missing_t'].value == 2
 
   def testToLatestMissingTNone1(self):
-    sp = SensorPack( [
+    sp = ir.SensorPack( [
             {'n': 'missing_t', 'v': 1},
             {'n': 'missing_t', 't': 1, 'v': 2},
     ])
@@ -74,7 +75,7 @@ class SensorPackTest(TestCase):
     assert latest['missing_t'].value == 2
 
   def testToLatestReversedOrder(self):
-    sp = SensorPack( [
+    sp = ir.SensorPack( [
             {'n': 'missing_t', 't': 2, 'v': 2},
             {'n': 'missing_t', 't': 1, 'v': 1},
     ])
@@ -86,24 +87,41 @@ class SensorPackTest(TestCase):
 class QueryJsonTest(TestCase):
 
     def test_mapping_one(self):
-        assert query_json({"a": 0}, "a") == 0
+        assert ir.query_json({"a": 0}, "a") == 0
 
     def test_mapping_two(self):
-        assert query_json({"a": {"b": 0}}, "a.b") == 0
+        assert ir.query_json({"a": {"b": 0}}, "a.b") == 0
 
     def test_sequence(self):
-        assert query_json([{"a": 1}], "0.a") == 1
+        assert ir.query_json([{"a": 1}], "0.a") == 1
 
     def test_none(self):
         # last segment not found produces None.
-        assert query_json([{"a": 1}], "0.r") is None
+        assert ir.query_json([{"a": 1}], "0.r") is None
 
     def test_scalar_error(self):
         with pytest.raises(KeyError):
-            query_json(3, "0.r")
+            ir.query_json(3, "0.r")
 
     def test_key_error(self):
         with pytest.raises(KeyError):
             # intermediate segment not found produces KeyError
-            query_json({"a": {"b": 3}}, "r.b")
+            ir.query_json({"a": {"b": 3}}, "r.b")
+
+@dataclasses.dataclass
+class FakeObjectType:
+    a : str
+    extra_fields: ir.MappingType
+
+class ParseJsonTest(TestCase):
+
+    def test_mapping_one(self):
+        d = ir.parse_json(FakeObjectType, {
+              "one" :{"a": "1", "e" : 1},
+              "two" :{"a": "2", "e" : 2},
+            })
+        assert d == {
+                "one" : FakeObjectType(a="1", extra_fields={"e":1}),
+                "two" : FakeObjectType(a="2", extra_fields={"e":2}),
+            }
 

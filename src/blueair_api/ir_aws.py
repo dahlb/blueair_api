@@ -1,7 +1,9 @@
-from typing import Any
+from typing import Any, Type, TypeVar
 from collections.abc import Iterable
 import dataclasses
 import base64
+
+_T = TypeVar("_T")
 
 ScalarType = str | float | bool
 MappingType= dict[str, "ObjectType"]
@@ -32,6 +34,29 @@ def query_json(jsonobj: ObjectType, path: str):
     return value.get(segs[-1])
 
 
+def parse_json(kls: Type[_T], jsonobj: MappingType) -> dict[str, _T]:
+    """Parses a json mapping object to dict.
+
+    The key is preserved. The value is parsed as dataclass type kls.
+    """
+    result = {}
+    fields = dataclasses.fields(kls)
+
+    for key, value in jsonobj.items():
+        a = dict(value)  # make a copy.
+        kwargs = {}
+        for field in fields:
+            if field.name == "extra_fields":
+                continue
+            if field.default is dataclasses.MISSING:
+                kwargs[field.name] = a.pop(field.name)
+            else:
+                kwargs[field.name] = a.pop(field.name, field.default)
+
+        result[key] = kls(**kwargs, extra_fields=a)
+    return result
+
+
 ########################
 # Blueair AWS API Schema.
 
@@ -43,6 +68,7 @@ class Attribute:
     also have alias names, likely derived from the 'dc' relation
     e.g. a/sb, a/standby all refer to the 'sb' attribute.
     """
+    extra_fields : MappingType
     n: str   # name
     a: int | bool   # default attribute value, example value?
     e: bool     # ??? always True
@@ -50,7 +76,7 @@ class Attribute:
     ot: str     # object type? topic type?
     p: bool     # only false for reboot and sflu
     tn: str   # topic name a path-like name d/????/a/{n}
-    extra_fields : MappingType
+
 
 @dataclasses.dataclass
 class Sensor:
@@ -60,6 +86,7 @@ class Sensor:
     the schema for 'h', 't', 'pm10' etc that gets returned in
     the sensor_data senml SensorPack.
     """
+    extra_fields : MappingType
     n: str    # name
     i: int    # integration time? in millis
     e: bool   # ???
@@ -68,7 +95,6 @@ class Sensor:
     tf: str   # senml+json; topic format
     tn: str   # topic name a path-like name d/????/s/{n}
     ttl: int  # only seen 0 or -1, not sure if used.
-    extra_fields : MappingType
 
 @dataclasses.dataclass
 class Control:
@@ -78,12 +104,12 @@ class Control:
     in dc. The only exception is 'online' which is not defined
     here.
     """
+    extra_fields : MappingType
     n: str  # name
     v: int | bool
-    a: Attribute | None
-    s: Sensor | None
-    d: str | None   # device info json path
-    extra_fields : MappingType
+    a: Attribute | None = None
+    s: Sensor | None = None
+    d: str | None = None  # device info json path
 
 
 ########################

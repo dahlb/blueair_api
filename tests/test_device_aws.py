@@ -59,7 +59,7 @@ class DeviceAwsTestBase(IsolatedAsyncioTestCase):
 mac="fake-mac", type_name='fake-type-name')
 
         self.device_info_helper = FakeDeviceInfoHelper(
-           {"configuration": {"di" : {}},
+           {"configuration": {"di" : {}, "ds" : {}, "dc" : {}, "da" : {},},
             "sensordata": [],
             "states": [],
            })
