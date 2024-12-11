@@ -1,5 +1,8 @@
 from unittest import TestCase
-from blueair_api.device_ir_aws import SensorPack, Record
+
+import pytest
+
+from blueair_api.device_ir_aws import SensorPack, Record, query_json
 
 class SensorPackTest(TestCase):
 
@@ -16,7 +19,7 @@ class SensorPackTest(TestCase):
             {'n': 'no_u', 'v': 1},
      ])
 
-    latest = sp.to_latest(return_record=True)
+    latest = sp.to_latest()
 
     assert latest['v'].timestamp == 1
     assert latest['v'].value == 1
@@ -49,7 +52,7 @@ class SensorPackTest(TestCase):
             {'n': 'missing_t', 'v': 2},
     ])
 
-    latest = sp.to_latest(return_record=True)
+    latest = sp.to_latest()
     assert latest['missing_t'].value == 2
 
   def testToLatestMissingTNoneNone(self):
@@ -58,7 +61,7 @@ class SensorPackTest(TestCase):
             {'n': 'missing_t', 'v': 2},
     ])
 
-    latest = sp.to_latest(return_record=True)
+    latest = sp.to_latest()
     assert latest['missing_t'].value == 2
 
   def testToLatestMissingTNone1(self):
@@ -67,7 +70,7 @@ class SensorPackTest(TestCase):
             {'n': 'missing_t', 't': 1, 'v': 2},
     ])
 
-    latest = sp.to_latest(return_record=True)
+    latest = sp.to_latest()
     assert latest['missing_t'].value == 2
 
   def testToLatestReversedOrder(self):
@@ -76,6 +79,31 @@ class SensorPackTest(TestCase):
             {'n': 'missing_t', 't': 1, 'v': 1},
     ])
 
-    latest = sp.to_latest(return_record=True)
+    latest = sp.to_latest()
     assert latest['missing_t'].value == 2
+
+
+class QueryJsonTest(TestCase):
+
+    def test_mapping_one(self):
+        assert query_json({"a": 0}, "a") == 0
+
+    def test_mapping_two(self):
+        assert query_json({"a": {"b": 0}}, "a.b") == 0
+
+    def test_sequence(self):
+        assert query_json([{"a": 1}], "0.a") == 1
+
+    def test_none(self):
+        # last segment not found produces None.
+        assert query_json([{"a": 1}], "0.r") is None
+
+    def test_scalar_error(self):
+        with pytest.raises(KeyError):
+            query_json(3, "0.r")
+
+    def test_key_error(self):
+        with pytest.raises(KeyError):
+            # intermediate segment not found produces KeyError
+            query_json({"a": {"b": 3}}, "r.b")
 

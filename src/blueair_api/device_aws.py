@@ -4,8 +4,7 @@ import logging
 from .callbacks import CallbacksMixin
 from .http_aws_blueair import HttpAwsBlueair
 from .model_enum import ModelEnum
-from .device_ir_aws import SensorPack
-from .util import convert_api_array_to_dict, safely_get_json_value
+from .device_ir_aws import SensorPack, query_json
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -65,7 +64,7 @@ class DeviceAws(CallbacksMixin):
     async def refresh(self):
         _LOGGER.debug(f"refreshing blueair device aws: {self}")
         info = await self.api.device_info(self.name_api, self.uuid)
-        sensor_data = SensorPack(info["sensordata"]).to_latest()
+        sensor_data = SensorPack(info["sensordata"]).to_latest_value()
 
         self.pm1 = sensor_data.get("pm1")
         self.pm2_5 = sensor_data.get("pm2_5")
@@ -74,13 +73,13 @@ class DeviceAws(CallbacksMixin):
         self.temperature = sensor_data.get("t")
         self.humidity = sensor_data.get("h")
 
-        self.name = safely_get_json_value(info, "configuration.di.name")
-        self.firmware = safely_get_json_value(info, "configuration.di.cfv")
-        self.mcu_firmware = safely_get_json_value(info, "configuration.di.mfv")
-        self.serial_number = safely_get_json_value(info, "configuration.di.ds")
-        self.sku = safely_get_json_value(info, "configuration.di.sku")
+        self.name = query_json(info, "configuration.di.name")
+        self.firmware = query_json(info, "configuration.di.cfv")
+        self.mcu_firmware = query_json(info, "configuration.di.mfv")
+        self.serial_number = query_json(info, "configuration.di.ds")
+        self.sku = query_json(info, "configuration.di.sku")
 
-        states = SensorPack(info["states"]).to_latest()
+        states = SensorPack(info["states"]).to_latest_value()
         self.standby = states.get("standby")
         self.night_mode = states.get("nightmode")
         self.germ_shield = states.get("germshield")

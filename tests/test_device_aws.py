@@ -58,7 +58,11 @@ class DeviceAwsTestBase(IsolatedAsyncioTestCase):
         self.device = DeviceAws(self.api, name_api="fake-name-api", uuid="fake-uuid", name="fake-name",
 mac="fake-mac", type_name='fake-type-name')
 
-        self.device_info_helper = FakeDeviceInfoHelper({"sensordata": {}, "states": []})
+        self.device_info_helper = FakeDeviceInfoHelper(
+           {"configuration": {"di" : {}},
+            "sensordata": [],
+            "states": [],
+           })
 
         self.api.device_info.side_effect = self.device_info_helper.device_info
         self.api.set_device_info.side_effect = self.device_info_helper.set_device_info
