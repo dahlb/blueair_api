@@ -16,7 +16,7 @@ class SensorPackTest(TestCase):
             {'n': 'no_u', 'v': 1},
      ])
 
-    latest = sp.to_latest()
+    latest = sp.to_latest(return_record=True)
 
     assert latest['v'].timestamp == 1
     assert latest['v'].value == 1
@@ -49,7 +49,7 @@ class SensorPackTest(TestCase):
             {'n': 'missing_t', 'v': 2},
     ])
 
-    latest = sp.to_latest()
+    latest = sp.to_latest(return_record=True)
     assert latest['missing_t'].value == 2
 
   def testToLatestMissingTNoneNone(self):
@@ -58,7 +58,7 @@ class SensorPackTest(TestCase):
             {'n': 'missing_t', 'v': 2},
     ])
 
-    latest = sp.to_latest()
+    latest = sp.to_latest(return_record=True)
     assert latest['missing_t'].value == 2
 
   def testToLatestMissingTNone1(self):
@@ -67,7 +67,7 @@ class SensorPackTest(TestCase):
             {'n': 'missing_t', 't': 1, 'v': 2},
     ])
 
-    latest = sp.to_latest()
+    latest = sp.to_latest(return_record=True)
     assert latest['missing_t'].value == 2
 
   def testToLatestReversedOrder(self):
@@ -76,6 +76,6 @@ class SensorPackTest(TestCase):
             {'n': 'missing_t', 't': 1, 'v': 1},
     ])
 
-    latest = sp.to_latest()
+    latest = sp.to_latest(return_record=True)
     assert latest['missing_t'].value == 2
 

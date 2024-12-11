@@ -30,7 +30,7 @@ class Sensor:
   """
   n: str    # name
   i: int    # integration time? in millis
-  e: bool   # ??? 
+  e: bool   # ???
   fe: bool  # ??? always True.
   ot: str   # object type / topic name
   tf: str   # senml+json; topic format
@@ -97,7 +97,7 @@ class SensorPack(list[Record]):
       seq.append(Record(name=rn, unit=ru, value=rv, integral=rs, timestamp=rt))
     super().__init__(seq)
 
-  def to_latest(self):
+  def to_latest(self, return_record=False):
     latest = {}
     for record in self:
       rn = record.name
@@ -109,5 +109,8 @@ class SensorPack(list[Record]):
         latest[rn] = record
       elif latest[record.name].timestamp < record.timestamp:
         latest[rn] = record
-    return latest
+    if return_record:
+        return latest
+    else:
+        return {rn : record.value for rn, record in latest.items()}
 

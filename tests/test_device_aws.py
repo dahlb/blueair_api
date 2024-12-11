@@ -93,15 +93,27 @@ class DeviceAwsSetterTest(DeviceAwsTestBase):
 
     async def test_running(self):
         # test cache works
-        self.device.running = None
+        self.device.standby = None
         await self.device.set_running(False)
         assert self.device.running is False
 
         # test refresh works
         await self.device.set_running(True)
-        self.device.running = None
+        self.device.standby = None
         await self.device.refresh()
         assert self.device.running is True
+
+    async def test_standby(self):
+        # test cache works
+        self.device.standby = None
+        await self.device.set_standby(False)
+        assert self.device.standby is False
+
+        # test refresh works
+        await self.device.set_standby(True)
+        self.device.standby = None
+        await self.device.refresh()
+        assert self.device.standby is True
 
     async def test_fan_auto_mode(self):
         # test cache works
@@ -194,7 +206,8 @@ class UnavailableDeviceAwsTest(DeviceAwsTestBase):
         assert device.serial_number is None
         assert device.sku is None
 
-        assert device.running is False
+        assert device.running is None
+        assert device.standby is None
         assert device.night_mode is None
         assert device.germ_shield is None
         assert device.brightness is None
@@ -238,6 +251,7 @@ class H35iTest(DeviceAwsTestBase):
         assert device.sku == "111633"
 
         assert device.running is True
+        assert device.standby is False
         assert device.night_mode is False
         assert device.germ_shield is None
         assert device.brightness == 49
@@ -281,6 +295,7 @@ class T10iTest(DeviceAwsTestBase):
         assert device.sku == "112124"
 
         assert device.running is True
+        assert device.standby is False
         assert device.night_mode is None
         assert device.germ_shield is None
         assert device.brightness == 100
