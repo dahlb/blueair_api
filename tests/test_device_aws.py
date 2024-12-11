@@ -22,6 +22,7 @@ import pytest
 from blueair_api.device_aws import DeviceAws
 from blueair_api.model_enum import ModelEnum
 from blueair_api import http_aws_blueair
+from blueair_api import ir_aws as ir
 
 class FakeDeviceInfoHelper:
     """Fake for the 'device info' interface of HttpAwsBlueAir class."""
@@ -70,6 +71,20 @@ mac="fake-mac", type_name='fake-type-name')
 
 class DeviceAwsSetterTest(DeviceAwsTestBase):
     """Tests for all of the setters."""
+
+    def setUp(self):
+        super().setUp()
+        fake = {"n": "n", "v": 0}
+        ir.query_json(self.device_info_helper.info, "configuration.dc").update({
+          "brightness": fake,
+          "fanspeed": fake,
+          "standby": fake,
+          "automode": fake,
+          "autorh": fake,
+          "childlock": fake,
+          "nightmode": fake,
+          "wickdrys": fake,
+        })
 
     async def test_brightness(self):
         # test cache works
@@ -198,31 +213,31 @@ class UnavailableDeviceAwsTest(DeviceAwsTestBase):
 
         assert device.model == ModelEnum.UNKNOWN
 
-        assert device.pm1 is None
-        assert device.pm2_5 is None
-        assert device.pm10 is None
-        assert device.tVOC is None
-        assert device.temperature is None
-        assert device.humidity is None
+        assert device.pm1 is NotImplemented
+        assert device.pm2_5 is NotImplemented
+        assert device.pm10 is NotImplemented
+        assert device.tVOC is NotImplemented
+        assert device.temperature is NotImplemented
+        assert device.humidity is NotImplemented
         assert device.name is None
         assert device.firmware is None
         assert device.mcu_firmware is None
         assert device.serial_number is None
         assert device.sku is None
 
-        assert device.running is None
-        assert device.standby is None
-        assert device.night_mode is None
-        assert device.germ_shield is None
-        assert device.brightness is None
-        assert device.child_lock is None
-        assert device.fan_speed is None
-        assert device.fan_auto_mode is None
-        assert device.filter_usage is None
+        assert device.running is NotImplemented
+        assert device.standby is NotImplemented
+        assert device.night_mode is NotImplemented
+        assert device.germ_shield is NotImplemented
+        assert device.brightness is NotImplemented
+        assert device.child_lock is NotImplemented
+        assert device.fan_speed is NotImplemented
+        assert device.fan_auto_mode is NotImplemented
+        assert device.filter_usage is NotImplemented
         assert device.wifi_working is None
-        assert device.wick_usage is None
-        assert device.auto_regulated_humidity is None
-        assert device.water_shortage is None
+        assert device.wick_usage is NotImplemented
+        assert device.auto_regulated_humidity is NotImplemented
+        assert device.water_shortage is NotImplemented
 
 
 class H35iTest(DeviceAwsTestBase):
@@ -242,10 +257,10 @@ class H35iTest(DeviceAwsTestBase):
 
         assert device.model == ModelEnum.HUMIDIFIER_H35I
 
-        assert device.pm1 is None
-        assert device.pm2_5 is None
-        assert device.pm10 is None
-        assert device.tVOC is None
+        assert device.pm1 is NotImplemented
+        assert device.pm2_5 is NotImplemented
+        assert device.pm10 is NotImplemented
+        assert device.tVOC is NotImplemented
         assert device.temperature == 19
         assert device.humidity == 50
         assert device.name == "Bedroom"
@@ -257,12 +272,12 @@ class H35iTest(DeviceAwsTestBase):
         assert device.running is True
         assert device.standby is False
         assert device.night_mode is False
-        assert device.germ_shield is None
+        assert device.germ_shield is NotImplemented
         assert device.brightness == 49
         assert device.child_lock is False
         assert device.fan_speed == 24
         assert device.fan_auto_mode is False
-        assert device.filter_usage is None
+        assert device.filter_usage is NotImplemented
         assert device.wifi_working is True
         assert device.wick_usage == 13
         assert device.auto_regulated_humidity == 50
@@ -286,10 +301,10 @@ class T10iTest(DeviceAwsTestBase):
 
         assert device.model == ModelEnum.T10I
 
-        assert device.pm1 is None
+        assert device.pm1 is NotImplemented
         assert device.pm2_5 == 0
-        assert device.pm10 is None
-        assert device.tVOC is None
+        assert device.pm10 is NotImplemented
+        assert device.tVOC is NotImplemented
         assert device.temperature == 18
         assert device.humidity == 28
         assert device.name == "Allen's Office"
@@ -300,15 +315,15 @@ class T10iTest(DeviceAwsTestBase):
 
         assert device.running is True
         assert device.standby is False
-        assert device.night_mode is None
-        assert device.germ_shield is None
+        assert device.night_mode is NotImplemented
+        assert device.germ_shield is NotImplemented
         assert device.brightness == 100
         assert device.child_lock is False
-        assert device.fan_speed is None
-        assert device.fan_auto_mode is None
+        assert device.fan_speed is NotImplemented
+        assert device.fan_auto_mode is NotImplemented
         assert device.filter_usage == 0
         assert device.wifi_working is True
-        assert device.wick_usage is None
-        assert device.auto_regulated_humidity is None
-        assert device.water_shortage is None
+        assert device.wick_usage is NotImplemented
+        assert device.auto_regulated_humidity is NotImplemented
+        assert device.water_shortage is NotImplemented
 

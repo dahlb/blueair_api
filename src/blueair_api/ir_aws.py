@@ -107,8 +107,8 @@ class Control:
     extra_fields : MappingType
     n: str  # name
     v: int | bool
-    a: Attribute | None = None
-    s: Sensor | None = None
+    a: str | None = None
+    s: str | None = None
     d: str | None = None  # device info json path
 
 
