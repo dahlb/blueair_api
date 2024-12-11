@@ -229,8 +229,8 @@ class H35iTest(DeviceAwsTestBase):
         assert device.pm2_5 is None
         assert device.pm10 is None
         assert device.tVOC is None
-        assert device.temperature is None
-        assert device.humidity is None
+        assert device.temperature == 19
+        assert device.humidity == 50
         assert device.name == "Bedroom"
         assert device.firmware == "1.0.1"
         assert device.mcu_firmware == "1.0.1"
