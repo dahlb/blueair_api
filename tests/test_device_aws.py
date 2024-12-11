@@ -11,15 +11,19 @@ Then use pytest to drive the tests
     $ pytest tests
 """
 
+import typing
 from typing import Any
 
+import contextlib
+import dataclasses
 from importlib import resources
+
 from unittest import mock
 from unittest import IsolatedAsyncioTestCase
 
 import pytest
 
-from blueair_api.device_aws import DeviceAws
+from blueair_api.device_aws import DeviceAws, AttributeType
 from blueair_api.model_enum import ModelEnum
 from blueair_api import http_aws_blueair
 from blueair_api import ir_aws as ir
@@ -47,6 +51,30 @@ class FakeDeviceInfoHelper:
         # Watch out: mutate after append produces desired mutation to info.
         state[action_verb] = action_value
 
+
+class AssertFullyCheckedHelper:
+
+    def __init__(self, device : DeviceAws):
+        self.device = device
+        self.logs = []
+        self.fields = set()
+        for field in dataclasses.fields(self.device):
+            if typing.get_origin(field.type) is AttributeType:
+                self.fields.add(field.name)
+
+    def __getattr__(self, attr):
+        if attr in self.fields:
+            self.logs.append(attr)
+        return getattr(self.device, attr)
+
+
+@contextlib.contextmanager
+def assert_fully_checked(device):
+    helper = AssertFullyCheckedHelper(device)
+    yield helper
+    assert set(helper.logs) == helper.fields
+
+
 class DeviceAwsTestBase(IsolatedAsyncioTestCase):
 
     def setUp(self):
@@ -56,8 +84,12 @@ class DeviceAwsTestBase(IsolatedAsyncioTestCase):
         self.addCleanup(patcher.stop)
         self.api = self.api_class(username="fake-username", password="fake-password")
 
-        self.device = DeviceAws(self.api, name_api="fake-name-api", uuid="fake-uuid", name="fake-name",
-mac="fake-mac", type_name='fake-type-name')
+        self.device = DeviceAws(self.api,
+             name_api="fake-name-api",
+             uuid="fake-uuid",
+             name="fake-name",
+             mac="fake-mac",
+             type_name='fake-type-name')
 
         self.device_info_helper = FakeDeviceInfoHelper(
            {"configuration": {"di" : {}, "ds" : {}, "dc" : {}, "da" : {},},
@@ -210,36 +242,36 @@ class EmptyDeviceAwsTest(DeviceAwsTestBase):
         await self.device.refresh()
         self.api.device_info.assert_awaited_with("fake-name-api", "fake-uuid")
 
-        device = self.device
+        with assert_fully_checked(self.device) as device:
 
-        assert device.model == ModelEnum.UNKNOWN
+            assert device.model == ModelEnum.UNKNOWN
 
-        assert device.pm1 is NotImplemented
-        assert device.pm2_5 is NotImplemented
-        assert device.pm10 is NotImplemented
-        assert device.tVOC is NotImplemented
-        assert device.temperature is NotImplemented
-        assert device.humidity is NotImplemented
-        assert device.name is None
-        assert device.firmware is None
-        assert device.mcu_firmware is None
-        assert device.serial_number is None
-        assert device.sku is None
+            assert device.pm1 is NotImplemented
+            assert device.pm2_5 is NotImplemented
+            assert device.pm10 is NotImplemented
+            assert device.tVOC is NotImplemented
+            assert device.temperature is NotImplemented
+            assert device.humidity is NotImplemented
+            assert device.name is None
+            assert device.firmware is None
+            assert device.mcu_firmware is None
+            assert device.serial_number is None
+            assert device.sku is None
 
-        assert device.running is NotImplemented
-        assert device.standby is NotImplemented
-        assert device.night_mode is NotImplemented
-        assert device.germ_shield is NotImplemented
-        assert device.brightness is NotImplemented
-        assert device.child_lock is NotImplemented
-        assert device.fan_speed is NotImplemented
-        assert device.fan_auto_mode is NotImplemented
-        assert device.filter_usage is NotImplemented
-        assert device.wifi_working is None
-        assert device.wick_usage is NotImplemented
-        assert device.auto_regulated_humidity is NotImplemented
-        assert device.water_shortage is NotImplemented
-
+            assert device.running is NotImplemented
+            assert device.standby is NotImplemented
+            assert device.night_mode is NotImplemented
+            assert device.germ_shield is NotImplemented
+            assert device.brightness is NotImplemented
+            assert device.child_lock is NotImplemented
+            assert device.fan_speed is NotImplemented
+            assert device.fan_auto_mode is NotImplemented
+            assert device.filter_usage is NotImplemented
+            assert device.wifi_working is None
+            assert device.wick_usage is NotImplemented
+            assert device.auto_regulated_humidity is NotImplemented
+            assert device.water_shortage is NotImplemented
+            assert device.wick_dry_mode is NotImplemented
 
 class H35iTest(DeviceAwsTestBase):
     """Tests for H35i."""
@@ -254,35 +286,36 @@ class H35iTest(DeviceAwsTestBase):
         await self.device.refresh()
         self.api.device_info.assert_awaited_with("fake-name-api", "fake-uuid")
 
-        device = self.device
+        with assert_fully_checked(self.device) as device:
 
-        assert device.model == ModelEnum.HUMIDIFIER_H35I
+            assert device.model == ModelEnum.HUMIDIFIER_H35I
 
-        assert device.pm1 is NotImplemented
-        assert device.pm2_5 is NotImplemented
-        assert device.pm10 is NotImplemented
-        assert device.tVOC is NotImplemented
-        assert device.temperature == 19
-        assert device.humidity == 50
-        assert device.name == "Bedroom"
-        assert device.firmware == "1.0.1"
-        assert device.mcu_firmware == "1.0.1"
-        assert device.serial_number == "111163300201110210004036"
-        assert device.sku == "111633"
+            assert device.pm1 is NotImplemented
+            assert device.pm2_5 is NotImplemented
+            assert device.pm10 is NotImplemented
+            assert device.tVOC is NotImplemented
+            assert device.temperature == 19
+            assert device.humidity == 50
+            assert device.name == "Bedroom"
+            assert device.firmware == "1.0.1"
+            assert device.mcu_firmware == "1.0.1"
+            assert device.serial_number == "111163300201110210004036"
+            assert device.sku == "111633"
 
-        assert device.running is True
-        assert device.standby is False
-        assert device.night_mode is False
-        assert device.germ_shield is NotImplemented
-        assert device.brightness == 49
-        assert device.child_lock is False
-        assert device.fan_speed == 24
-        assert device.fan_auto_mode is False
-        assert device.filter_usage is NotImplemented
-        assert device.wifi_working is True
-        assert device.wick_usage == 13
-        assert device.auto_regulated_humidity == 50
-        assert device.water_shortage is False
+            assert device.running is True
+            assert device.standby is False
+            assert device.night_mode is False
+            assert device.germ_shield is NotImplemented
+            assert device.brightness == 49
+            assert device.child_lock is False
+            assert device.fan_speed == 24
+            assert device.fan_auto_mode is False
+            assert device.filter_usage is NotImplemented
+            assert device.wifi_working is True
+            assert device.wick_usage == 13
+            assert device.auto_regulated_humidity == 50
+            assert device.water_shortage is False
+            assert device.wick_dry_mode is False
 
 
 class T10iTest(DeviceAwsTestBase):
@@ -298,33 +331,34 @@ class T10iTest(DeviceAwsTestBase):
         await self.device.refresh()
         self.api.device_info.assert_awaited_with("fake-name-api", "fake-uuid")
 
-        device = self.device
+        with assert_fully_checked(self.device) as device:
 
-        assert device.model == ModelEnum.T10I
+            assert device.model == ModelEnum.T10I
 
-        assert device.pm1 is NotImplemented
-        assert device.pm2_5 == 0
-        assert device.pm10 is NotImplemented
-        assert device.tVOC is NotImplemented
-        assert device.temperature == 18
-        assert device.humidity == 28
-        assert device.name == "Allen's Office"
-        assert device.firmware == "1.0.4"
-        assert device.mcu_firmware == "1.0.4"
-        assert device.serial_number == "111212400002313210001961"
-        assert device.sku == "112124"
+            assert device.pm1 is NotImplemented
+            assert device.pm2_5 == 0
+            assert device.pm10 is NotImplemented
+            assert device.tVOC is NotImplemented
+            assert device.temperature == 18
+            assert device.humidity == 28
+            assert device.name == "Allen's Office"
+            assert device.firmware == "1.0.4"
+            assert device.mcu_firmware == "1.0.4"
+            assert device.serial_number == "111212400002313210001961"
+            assert device.sku == "112124"
 
-        assert device.running is True
-        assert device.standby is False
-        assert device.night_mode is NotImplemented
-        assert device.germ_shield is NotImplemented
-        assert device.brightness == 100
-        assert device.child_lock is False
-        assert device.fan_speed is NotImplemented
-        assert device.fan_auto_mode is NotImplemented
-        assert device.filter_usage == 0
-        assert device.wifi_working is True
-        assert device.wick_usage is NotImplemented
-        assert device.auto_regulated_humidity is NotImplemented
-        assert device.water_shortage is NotImplemented
+            assert device.running is True
+            assert device.standby is False
+            assert device.night_mode is NotImplemented
+            assert device.germ_shield is NotImplemented
+            assert device.brightness == 100
+            assert device.child_lock is False
+            assert device.fan_speed is NotImplemented
+            assert device.fan_auto_mode is NotImplemented
+            assert device.filter_usage == 0
+            assert device.wifi_working is True
+            assert device.wick_usage is NotImplemented
+            assert device.auto_regulated_humidity is NotImplemented
+            assert device.water_shortage is NotImplemented
+            assert device.wick_dry_mode is NotImplemented
 

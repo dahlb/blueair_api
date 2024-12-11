@@ -28,11 +28,11 @@ class DeviceAws(CallbacksMixin):
         return device_aws
 
     api: HttpAwsBlueair
-    uuid : AttributeType[str] = None
-    name : AttributeType[str] = None
-    name_api : AttributeType[str] = None
-    mac : AttributeType[str] = None
-    type_name : AttributeType[str] = None
+    uuid : str | None = None
+    name : str | None = None
+    name_api : str | None = None
+    mac : str | None = None
+    type_name : str | None = None
 
     sku : AttributeType[str] = None
     firmware : AttributeType[str] = None
