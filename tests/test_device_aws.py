@@ -10,7 +10,7 @@ Then use pytest to drive the tests
 
     $ pytest tests
 """
-
+import json
 from typing import Any
 
 from importlib import resources
@@ -213,7 +213,8 @@ class H35iTest(DeviceAwsTestBase):
 
     def setUp(self):
         super().setUp()
-        info = eval(resources.files().joinpath('device_info/H35i.txt').read_text())
+        with open(resources.files().joinpath('device_info/H35i.json')) as sample_file:
+            info = json.load(sample_file)
         self.device_info_helper.info.update(info)
 
     async def test_attributes(self):
@@ -256,7 +257,8 @@ class T10iTest(DeviceAwsTestBase):
 
     def setUp(self):
         super().setUp()
-        info = eval(resources.files().joinpath('device_info/T10i.txt').read_text())
+        with open(resources.files().joinpath('device_info/T10i.json')) as sample_file:
+            info = json.load(sample_file)
         self.device_info_helper.info.update(info)
 
     async def test_attributes(self):
