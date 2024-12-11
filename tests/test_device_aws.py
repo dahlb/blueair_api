@@ -95,25 +95,25 @@ class DeviceAwsSetterTest(DeviceAwsTestBase):
         # test cache works
         self.device.running = None
         await self.device.set_running(False)
-        assert self.device.running == False
+        assert self.device.running is False
 
         # test refresh works
         await self.device.set_running(True)
         self.device.running = None
         await self.device.refresh()
-        assert self.device.running == True
+        assert self.device.running is True
 
     async def test_fan_auto_mode(self):
         # test cache works
         self.device.fan_auto_mode = None
         await self.device.set_fan_auto_mode(False)
-        assert self.device.fan_auto_mode == False
+        assert self.device.fan_auto_mode is False
 
         # test refresh works
         await self.device.set_fan_auto_mode(True)
         self.device.fan_auto_mode = None
         await self.device.refresh()
-        assert self.device.fan_auto_mode == True
+        assert self.device.fan_auto_mode is True
 
     async def test_auto_regulated_humidity(self):
         # test cache works
@@ -131,37 +131,37 @@ class DeviceAwsSetterTest(DeviceAwsTestBase):
         # test cache works
         self.device.child_lock = None
         await self.device.set_child_lock(False)
-        assert self.device.child_lock == False
+        assert self.device.child_lock is False
 
         # test refresh works
         await self.device.set_child_lock(True)
         self.device.child_lock = None
         await self.device.refresh()
-        assert self.device.child_lock == True
+        assert self.device.child_lock is True
 
     async def test_night_mode(self):
         # test cache works
         self.device.night_mode = None
         await self.device.set_night_mode(False)
-        assert self.device.night_mode == False
+        assert self.device.night_mode is False
 
         # test refresh works
         await self.device.set_night_mode(True)
         self.device.night_mode = None
         await self.device.refresh()
-        assert self.device.night_mode == True
+        assert self.device.night_mode is True
 
     async def test_wick_dry_mode(self):
         # test cache works
         self.device.wick_dry_mode = None
         await self.device.set_wick_dry_mode(False)
-        assert self.device.wick_dry_mode == False
+        assert self.device.wick_dry_mode is False
 
         # test refresh works
         await self.device.set_wick_dry_mode(True)
         self.device.wick_dry_mode = None
         await self.device.refresh()
-        assert self.device.wick_dry_mode == True
+        assert self.device.wick_dry_mode is True
 
 
 class UnavailableDeviceAwsTest(DeviceAwsTestBase):
@@ -237,18 +237,18 @@ class H35iTest(DeviceAwsTestBase):
         assert device.serial_number == "111163300201110210004036"
         assert device.sku == "111633"
 
-        assert device.running == True
-        assert device.night_mode == False
+        assert device.running is True
+        assert device.night_mode is False
         assert device.germ_shield is None
         assert device.brightness == 49
-        assert device.child_lock == False
+        assert device.child_lock is False
         assert device.fan_speed == 24
-        assert device.fan_auto_mode == False
+        assert device.fan_auto_mode is False
         assert device.filter_usage is None
-        assert device.wifi_working == True
+        assert device.wifi_working is True
         assert device.wick_usage == 13
         assert device.auto_regulated_humidity == 50
-        assert device.water_shortage == False
+        assert device.water_shortage is False
 
 
 class T10iTest(DeviceAwsTestBase):
@@ -280,15 +280,15 @@ class T10iTest(DeviceAwsTestBase):
         assert device.serial_number == "111212400002313210001961"
         assert device.sku == "112124"
 
-        assert device.running == True
+        assert device.running is True
         assert device.night_mode is None
         assert device.germ_shield is None
         assert device.brightness == 100
-        assert device.child_lock == False
+        assert device.child_lock is False
         assert device.fan_speed is None
         assert device.fan_auto_mode is None
         assert device.filter_usage == 0
-        assert device.wifi_working == True
+        assert device.wifi_working is True
         assert device.wick_usage is None
         assert device.auto_regulated_humidity is None
         assert device.water_shortage is None
