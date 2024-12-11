@@ -64,9 +64,9 @@ class DeviceAws(CallbacksMixin):
     async def refresh(self):
         _LOGGER.debug(f"refreshing blueair device aws: {self}")
         info = await self.api.device_info(self.name_api, self.uuid)
-        da = ir.parse_json(ir.Attribute, ir.query_json(info, "configuration.da"))
-        ds = ir.parse_json(ir.Sensor, ir.query_json(info, "configuration.ds"))
-        dc = ir.parse_json(ir.Control, ir.query_json(info, "configuration.dc"))
+        ir.parse_json(ir.Attribute, ir.query_json(info, "configuration.da"))
+        ir.parse_json(ir.Sensor, ir.query_json(info, "configuration.ds"))
+        ir.parse_json(ir.Control, ir.query_json(info, "configuration.dc"))
         sensor_data = ir.SensorPack(info["sensordata"]).to_latest_value()
 
         self.pm1 = sensor_data.get("pm1")

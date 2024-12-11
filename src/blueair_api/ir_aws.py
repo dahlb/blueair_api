@@ -1,4 +1,4 @@
-from typing import Any, Type, TypeVar
+from typing import Any, TypeVar
 from collections.abc import Iterable
 import dataclasses
 import base64
@@ -34,7 +34,7 @@ def query_json(jsonobj: ObjectType, path: str):
     return value.get(segs[-1])
 
 
-def parse_json(kls: Type[_T], jsonobj: MappingType) -> dict[str, _T]:
+def parse_json(kls: type[_T], jsonobj: MappingType) -> dict[str, _T]:
     """Parses a json mapping object to dict.
 
     The key is preserved. The value is parsed as dataclass type kls.
