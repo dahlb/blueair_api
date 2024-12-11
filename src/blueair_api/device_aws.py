@@ -34,6 +34,8 @@ class DeviceAws(CallbacksMixin):
     mac : str | None = None
     type_name : str | None = None
 
+    # Attributes are defined below.
+    # We mandate that unittests shall test all fields of AttributeType.
     sku : AttributeType[str] = None
     firmware : AttributeType[str] = None
     mcu_firmware : AttributeType[str] = None
@@ -56,7 +58,6 @@ class DeviceAws(CallbacksMixin):
     filter_usage : AttributeType[int] = None  # percentage
     wifi_working : AttributeType[bool] = None
 
-    # i35
     wick_usage : AttributeType[int] = None  # percentage
     wick_dry_mode : AttributeType[bool] = None
     water_shortage : AttributeType[bool] = None
