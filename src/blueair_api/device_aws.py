@@ -125,7 +125,7 @@ class DeviceAws(CallbacksMixin):
     # FIXME: avoid state translation at the API level and depreate running.
     # replace with standby which is standard across aws devices.
     @property
-    def running(self) -> bool | None:
+    def running(self) -> AttributeType[bool]:
         if self.standby is None or self.standby is NotImplemented:
             return self.standby
         return not self.standby
