@@ -55,10 +55,10 @@ class DeviceAws(CallbacksMixin):
     tVOC : AttributeType[int] = None
     temperature : AttributeType[int] = None
     humidity : AttributeType[int] = None
-    filter_usage : AttributeType[int] = None  # percentage
+    filter_usage_percentage : AttributeType[int] = None
     wifi_working : AttributeType[bool] = None
 
-    wick_usage : AttributeType[int] = None  # percentage
+    wick_usage_percentage : AttributeType[int] = None
     wick_dry_mode : AttributeType[bool] = None
     water_shortage : AttributeType[bool] = None
     auto_regulated_humidity : AttributeType[int] = None
@@ -99,8 +99,8 @@ class DeviceAws(CallbacksMixin):
         self.child_lock = getter(states, dc, "childlock")
         self.fan_speed = getter(states, dc, "fanspeed")
         self.fan_auto_mode = getter(states, dc, "automode")
-        self.filter_usage = getter(states, dc, "filterusage")
-        self.wick_usage = getter(states, dc, "wickusage")
+        self.filter_usage_percentage = getter(states, dc, "filterusage")
+        self.wick_usage_percentage = getter(states, dc, "wickusage")
         self.wick_dry_mode = getter(states, dc, "wickdrys")
         self.auto_regulated_humidity = getter(states, dc, "autorh")
         self.water_shortage = getter(states, dc, "wshortage")

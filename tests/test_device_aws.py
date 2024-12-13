@@ -266,9 +266,9 @@ class EmptyDeviceAwsTest(DeviceAwsTestBase):
             assert device.child_lock is NotImplemented
             assert device.fan_speed is NotImplemented
             assert device.fan_auto_mode is NotImplemented
-            assert device.filter_usage is NotImplemented
+            assert device.filter_usage_percentage is NotImplemented
             assert device.wifi_working is None
-            assert device.wick_usage is NotImplemented
+            assert device.wick_usage_percentage is NotImplemented
             assert device.auto_regulated_humidity is NotImplemented
             assert device.water_shortage is NotImplemented
             assert device.wick_dry_mode is NotImplemented
@@ -310,9 +310,9 @@ class H35iTest(DeviceAwsTestBase):
             assert device.child_lock is False
             assert device.fan_speed == 24
             assert device.fan_auto_mode is False
-            assert device.filter_usage is NotImplemented
+            assert device.filter_usage_percentage is NotImplemented
             assert device.wifi_working is True
-            assert device.wick_usage == 13
+            assert device.wick_usage_percentage == 13
             assert device.auto_regulated_humidity == 50
             assert device.water_shortage is False
             assert device.wick_dry_mode is False
@@ -355,9 +355,9 @@ class T10iTest(DeviceAwsTestBase):
             assert device.child_lock is False
             assert device.fan_speed is NotImplemented
             assert device.fan_auto_mode is NotImplemented
-            assert device.filter_usage == 0
+            assert device.filter_usage_percentage == 0
             assert device.wifi_working is True
-            assert device.wick_usage is NotImplemented
+            assert device.wick_usage_percentage is NotImplemented
             assert device.auto_regulated_humidity is NotImplemented
             assert device.water_shortage is NotImplemented
             assert device.wick_dry_mode is NotImplemented
