@@ -15,14 +15,14 @@ jobs:
         python-version: ["3.13"]
     steps:
       - uses: actions/checkout@v3
-      - name: developer mode install
-        run: pip install -e .
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install pytest dependencies
         run: pip install pytest pytest-md pytest-emoji
+      - name: developer mode install
+        run: pip install -e .
       - uses: pavelzw/pytest-action@v2
         with:
           emoji: false
