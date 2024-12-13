@@ -53,7 +53,7 @@ class FakeDeviceInfoHelper:
 
 
 class AssertFullyCheckedHelper:
-
+    """Assert that all attributes of AttributeType are accessed once."""
     def __init__(self, device : DeviceAws):
         self.device = device
         self.logs = []
