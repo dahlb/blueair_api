@@ -1,7 +1,10 @@
 name: "PyTest PR"
 
 on:
-  pull_request_target:
+  # Use pull_request, not pull_request_target because we run arbitrary code in
+  # this workflow. c.f.
+  # https://nathandavison.com/blog/github-actions-and-the-threat-of-malicious-pull-requests
+  pull_request:
     types:
       - opened
       - edited
