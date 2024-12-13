@@ -72,38 +72,50 @@ class DeviceAws(CallbacksMixin):
 
         sensor_data = ir.SensorPack(info["sensordata"]).to_latest_value()
 
-        def getter(data_dict, decl_dict, key):
-            return data_dict.get(key) if key in decl_dict else NotImplemented
+        def sensor_data_safe_get(key):
+            return sensor_data.get(key) if key in ds else NotImplemented
 
-        self.pm1 = getter(sensor_data, ds, "pm1")
-        self.pm2_5 = getter(sensor_data, ds, "pm2_5")
-        self.pm10 = getter(sensor_data, ds, "pm10")
-        self.tVOC = getter(sensor_data, ds, "tVOC")
-        self.temperature = getter(sensor_data, ds, "t")
-        self.humidity = getter(sensor_data, ds, "h")
+        self.pm1 = sensor_data_safe_get("pm1")
+        self.pm2_5 = sensor_data_safe_get("pm2_5")
+        self.pm10 = sensor_data_safe_get("pm10")
+        self.tVOC = sensor_data_safe_get("tVOC")
+        self.temperature = sensor_data_safe_get("t")
+        self.humidity = sensor_data_safe_get("h")
 
-        self.name = ir.query_json(info, "configuration.di.name")
-        self.firmware = ir.query_json(info, "configuration.di.cfv")
-        self.mcu_firmware = ir.query_json(info, "configuration.di.mfv")
-        self.serial_number = ir.query_json(info, "configuration.di.ds")
-        self.sku = ir.query_json(info, "configuration.di.sku")
+        def info_safe_get(path):
+            # directly reads for the schema. If the schema field is
+            # undefined, it is NotImplemented, not merely unavailable.
+            value = ir.query_json(info, path)
+            if value is None:
+                return NotImplemented
+            return value
+
+        self.name = info_safe_get("configuration.di.name")
+        self.firmware = info_safe_get("configuration.di.cfv")
+        self.mcu_firmware = info_safe_get("configuration.di.mfv")
+        self.serial_number = info_safe_get("configuration.di.ds")
+        self.sku = info_safe_get("configuration.di.sku")
 
         states = ir.SensorPack(info["states"]).to_latest_value()
-        # "online" is not defined in the schema.
-        self.wifi_working = getter(states, {"online"}, "online")
 
-        self.standby = getter(states, dc, "standby")
-        self.night_mode = getter(states, dc, "nightmode")
-        self.germ_shield = getter(states, dc, "germshield")
-        self.brightness = getter(states, dc, "brightness")
-        self.child_lock = getter(states, dc, "childlock")
-        self.fan_speed = getter(states, dc, "fanspeed")
-        self.fan_auto_mode = getter(states, dc, "automode")
-        self.filter_usage_percentage = getter(states, dc, "filterusage")
-        self.wick_usage_percentage = getter(states, dc, "wickusage")
-        self.wick_dry_mode = getter(states, dc, "wickdrys")
-        self.auto_regulated_humidity = getter(states, dc, "autorh")
-        self.water_shortage = getter(states, dc, "wshortage")
+        def states_safe_get(key):
+            return states.get(key) if key in dc else NotImplemented
+
+        # "online" is not defined in the schema.
+        self.wifi_working = states.get("online")
+
+        self.standby = states_safe_get("standby")
+        self.night_mode = states_safe_get("nightmode")
+        self.germ_shield = states_safe_get("germshield")
+        self.brightness = states_safe_get("brightness")
+        self.child_lock = states_safe_get("childlock")
+        self.fan_speed = states_safe_get("fanspeed")
+        self.fan_auto_mode = states_safe_get("automode")
+        self.filter_usage_percentage = states_safe_get("filterusage")
+        self.wick_usage_percentage = states_safe_get("wickusage")
+        self.wick_dry_mode = states_safe_get("wickdrys")
+        self.auto_regulated_humidity = states_safe_get("autorh")
+        self.water_shortage = states_safe_get("wshortage")
 
         self.publish_updates()
         _LOGGER.debug(f"refreshed blueair device aws: {self}")

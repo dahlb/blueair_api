@@ -252,11 +252,11 @@ class EmptyDeviceAwsTest(DeviceAwsTestBase):
             assert device.tVOC is NotImplemented
             assert device.temperature is NotImplemented
             assert device.humidity is NotImplemented
-            assert device.name is None
-            assert device.firmware is None
-            assert device.mcu_firmware is None
-            assert device.serial_number is None
-            assert device.sku is None
+            assert device.name is NotImplemented
+            assert device.firmware is NotImplemented
+            assert device.mcu_firmware is NotImplemented
+            assert device.serial_number is NotImplemented
+            assert device.sku is NotImplemented
 
             assert device.running is NotImplemented
             assert device.standby is NotImplemented
