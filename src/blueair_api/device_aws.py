@@ -1,5 +1,6 @@
 import dataclasses
 import logging
+from json import dumps
 
 from .callbacks import CallbacksMixin
 from .http_aws_blueair import HttpAwsBlueair
@@ -66,6 +67,8 @@ class DeviceAws(CallbacksMixin):
     async def refresh(self):
         _LOGGER.debug(f"refreshing blueair device aws: {self}")
         info = await self.api.device_info(self.name_api, self.uuid)
+        _LOGGER.debug(dumps(info, indent=2))
+
         # ir.parse_json(ir.Attribute, ir.query_json(info, "configuration.da"))
         ds = ir.parse_json(ir.Sensor, ir.query_json(info, "configuration.ds"))
         dc = ir.parse_json(ir.Control, ir.query_json(info, "configuration.dc"))

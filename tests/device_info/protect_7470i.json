@@ -1,0 +1,691 @@
+{
+  "id": "1b41a7c6-8f02-42fa-9af8-868d",
+  "configuration": {
+    "df": {
+      "a": 877,
+      "ot": "G4Filter",
+      "alg": "FilterAlg1"
+    },
+    "di": {
+      "cfv": "2.1.1",
+      "cma": "3c:61:05:45:56:98",
+      "mt": "2",
+      "name": "air filter in room",
+      "sku": "105826",
+      "mfv": "1.0.12",
+      "ofv": "2.1.1",
+      "hw": "high_1.5",
+      "ds": "110582600000110110016855"
+    },
+    "_ot": "CmConfig",
+    "_f": false,
+    "_it": "urn:blueair:openapi:version:healthprotect:0.0.5",
+    "_eid": "9e88402a-a10a-4c67-bd53-f2a041247296",
+    "_sc": "Instance",
+    "ds": {
+      "tVOC": {
+        "tf": "senml+json",
+        "ot": "TVOC",
+        "e": true,
+        "i": 0,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/s/tVOC",
+        "ttl": 0,
+        "n": "tVOC",
+        "fe": true
+      },
+      "fu0": {
+        "tf": "senml+json",
+        "ot": "FU",
+        "e": false,
+        "i": 0,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/s/fu0",
+        "ttl": -1,
+        "n": "fu0",
+        "fe": true
+      },
+      "ledb": {
+        "tf": "senml+json",
+        "ot": "Led",
+        "e": false,
+        "i": 0,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/s/ledb",
+        "ttl": 0,
+        "n": "ledb",
+        "fe": true
+      },
+      "co2": {
+        "tf": "senml+json",
+        "ot": "Co2",
+        "e": false,
+        "i": 0,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/s/co2",
+        "ttl": 0,
+        "n": "co2",
+        "fe": true
+      },
+      "pm2_5c": {
+        "tf": "senml+json",
+        "ot": "PMParticleCount",
+        "e": false,
+        "i": 0,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/s/pm2_5c",
+        "ttl": 0,
+        "n": "pm2_5c",
+        "fe": true
+      },
+      "sb": {
+        "tf": "senml+json",
+        "ot": "Standby",
+        "e": true,
+        "i": 0,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/s/sb",
+        "ttl": -1,
+        "n": "sb",
+        "fe": true
+      },
+      "ss0": {
+        "tf": "senml+json",
+        "ot": "SafetySwitch",
+        "e": true,
+        "i": 0,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/s/ss0",
+        "ttl": -1,
+        "n": "ss0",
+        "fe": true
+      },
+      "rt1s": {
+        "tf": "senml+json",
+        "ot": "RT1s",
+        "e": true,
+        "i": 1000,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/s/1s",
+        "sn": [
+          "pm1",
+          "pm2_5",
+          "pm10",
+          "t",
+          "h",
+          "tVOC",
+          "rssi"
+        ],
+        "ttl": 0,
+        "n": "rt1s",
+        "fe": true
+      },
+      "rt5s": {
+        "tf": "senml+json",
+        "ot": "RT5s",
+        "e": false,
+        "i": 0,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/s/5s",
+        "sn": [
+          "pm1",
+          "pm2_5",
+          "pm10",
+          "t",
+          "h",
+          "tVOC",
+          "rssi"
+        ],
+        "ttl": -1,
+        "n": "rt5s",
+        "fe": true
+      },
+      "pm1": {
+        "tf": "senml+json",
+        "ot": "PM1",
+        "e": true,
+        "i": 0,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/s/pm1",
+        "ttl": 0,
+        "n": "pm1",
+        "fe": true
+      },
+      "pm2_5": {
+        "tf": "senml+json",
+        "ot": "PM2_5",
+        "e": true,
+        "i": 0,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/s/pm2_5",
+        "ttl": 0,
+        "n": "pm2_5",
+        "fe": true
+      },
+      "pm10c": {
+        "tf": "senml+json",
+        "ot": "PMParticleCount",
+        "e": false,
+        "i": 0,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/s/pm10c",
+        "ttl": 0,
+        "n": "pm10c",
+        "fe": true
+      },
+      "sp": {
+        "tf": "senml+json",
+        "ot": "SensorBoxPresense",
+        "e": false,
+        "i": 0,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/s/sp",
+        "ttl": -1,
+        "n": "sp",
+        "fe": true
+      },
+      "rssi": {
+        "tf": "senml+json",
+        "ot": "RSSI",
+        "e": true,
+        "i": 0,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/s/rssi",
+        "ttl": 0,
+        "n": "rssi",
+        "fe": true
+      },
+      "chl": {
+        "tf": "senml+json",
+        "ot": "ChildLock",
+        "e": true,
+        "i": 0,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/s/chl",
+        "ttl": -1,
+        "n": "chl",
+        "fe": true
+      },
+      "fp0": {
+        "tf": "senml+json",
+        "ot": "FilterPresence",
+        "e": false,
+        "i": 0,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/s/fp0",
+        "ttl": -1,
+        "n": "fp0",
+        "fe": true
+      },
+      "pm10": {
+        "tf": "senml+json",
+        "ot": "PM10",
+        "e": true,
+        "i": 0,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/s/pm10",
+        "ttl": 0,
+        "n": "pm10",
+        "fe": true
+      },
+      "h": {
+        "tf": "senml+json",
+        "ot": "Humidity",
+        "e": false,
+        "i": 0,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/s/h",
+        "ttl": 0,
+        "n": "h",
+        "fe": true
+      },
+      "is": {
+        "tf": "senml+json",
+        "ot": "IonizerState",
+        "e": false,
+        "i": 0,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/s/is",
+        "ttl": -1,
+        "n": "is",
+        "fe": true
+      },
+      "gs": {
+        "tf": "senml+json",
+        "ot": "GermShield",
+        "e": true,
+        "i": 0,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/s/gs",
+        "ttl": -1,
+        "n": "gs",
+        "fe": true
+      },
+      "am": {
+        "tf": "senml+json",
+        "ot": "AutoMode",
+        "e": true,
+        "i": 0,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/s/am",
+        "ttl": -1,
+        "n": "am",
+        "fe": true
+      },
+      "tVOCbaseline": {
+        "t": 0,
+        "e": false,
+        "ot": "TVOCbaseline",
+        "i": 60000,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/s/TVOCbaseline",
+        "ttl": 600,
+        "n": "tVOCbaseline",
+        "fe": true
+      },
+      "rt5m": {
+        "tf": "senml+json",
+        "ot": "RT5m",
+        "e": true,
+        "i": 300000,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/s/5m",
+        "sn": [
+          "pm1",
+          "pm2_5",
+          "pm10",
+          "t",
+          "h",
+          "tVOC"
+        ],
+        "ttl": 0,
+        "n": "rt5m",
+        "fe": true
+      },
+      "t": {
+        "tf": "senml+json",
+        "ot": "Temperature",
+        "e": true,
+        "i": 0,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/s/t",
+        "ttl": 0,
+        "n": "t",
+        "fe": true
+      },
+      "pm1c": {
+        "tf": "senml+json",
+        "ot": "PMParticleCount",
+        "e": false,
+        "i": 0,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/s/pm1c",
+        "ttl": 0,
+        "n": "pm1c",
+        "fe": true
+      },
+      "b5m": {
+        "tf": "senml+json",
+        "th": [
+          "5kb",
+          "4h"
+        ],
+        "ot": "Batch5m",
+        "e": true,
+        "i": 300000,
+        "tn": "$aws/rules/telemetry_ingest_rule/d/1b41a7c6-8f02-42fa-9af8-868d/s/batch/b5m",
+        "sn": [
+          "pm1",
+          "pm2_5",
+          "pm10",
+          "t",
+          "h",
+          "tVOC",
+          "fsp0"
+        ],
+        "ttl": -1,
+        "n": "b5m",
+        "fe": true
+      },
+      "fsp0": {
+        "st": "fsp0",
+        "tf": "senml+json",
+        "t": 10,
+        "ot": "Fanspeed",
+        "e": true,
+        "i": 0,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/s/fsp0",
+        "sn": [
+          "fsp0"
+        ],
+        "ttl": -1,
+        "n": "fsp0",
+        "fe": true
+      },
+      "nm": {
+        "tf": "senml+json",
+        "ot": "NightMode",
+        "e": true,
+        "i": 0,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/s/nm",
+        "ttl": -1,
+        "n": "nm",
+        "fe": true
+      }
+    },
+    "_r": "us-east-2",
+    "_s": {
+      "sig": "c2274860ba5b95ffff02c38860a2a42b7d7db040e9e8505f36f466b2af2c4543",
+      "salg": "SHA256"
+    },
+    "_t": "Partial",
+    "_v": 1732420602,
+    "_cas": 1729807940,
+    "_id": "1b41a7c6-8f02-42fa-9af8-868d",
+    "fc": {
+      "bssid": "",
+      "pwd": "9102revreSyrotcaF",
+      "ssid": "",
+      "url": ""
+    },
+    "da": {
+      "reboot": {
+        "p": false,
+        "a": false,
+        "ot": "Reboot",
+        "e": true,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/a/reboot",
+        "n": "reboot",
+        "fe": true
+      },
+      "uitest": {
+        "a": "off",
+        "ot": "UiTest",
+        "e": true,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/a/uitest",
+        "n": "uitest",
+        "fe": true
+      },
+      "ledb": {
+        "p": true,
+        "a": 0,
+        "tf": "senml+json",
+        "ot": "LedBrightness",
+        "e": true,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/a/ledb",
+        "n": "ledb",
+        "fe": true
+      },
+      "chl": {
+        "p": true,
+        "a": false,
+        "tf": "senml+json",
+        "ot": "ChildLock",
+        "e": true,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/a/chl",
+        "n": "chl",
+        "fe": true
+      },
+      "sflu": {
+        "p": false,
+        "a": false,
+        "ot": "SensorFlush",
+        "e": true,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/a/sflu",
+        "n": "sflu",
+        "fe": true
+      },
+      "buttontest": {
+        "p": false,
+        "a": false,
+        "ot": "ButtonTest",
+        "e": true,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/a/buttontest",
+        "n": "buttontest",
+        "fe": true
+      },
+      "is": {
+        "p": true,
+        "a": false,
+        "tf": "senml+json",
+        "ot": "IonizerState",
+        "e": true,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/a/is",
+        "n": "is",
+        "fe": true
+      },
+      "gs": {
+        "p": true,
+        "a": false,
+        "tf": "senml+json",
+        "ot": "GermShield",
+        "e": true,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/a/gs",
+        "n": "gs",
+        "fe": true
+      },
+      "am": {
+        "p": true,
+        "a": false,
+        "tf": "senml+json",
+        "ot": "AutoMode",
+        "e": true,
+        "amt": "PM",
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/a/am",
+        "n": "am",
+        "fe": true
+      },
+      "tVOCbaseline": {
+        "a": 0,
+        "ot": "TVOCbaseline",
+        "e": true,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/a/tVOCbaseline",
+        "n": "tVOCbaseline",
+        "fe": true
+      },
+      "sb": {
+        "p": true,
+        "a": false,
+        "tf": "senml+json",
+        "sbt": "sensor_on",
+        "ot": "Standby",
+        "e": true,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/a/sb",
+        "n": "sb",
+        "fe": true
+      },
+      "fsp0": {
+        "p": true,
+        "st": "fsp0",
+        "a": 20,
+        "tf": "senml+json",
+        "ot": "Fanspeed",
+        "e": true,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/a/fsp0",
+        "n": "fsp0",
+        "fe": true
+      },
+      "nm": {
+        "p": true,
+        "maxfsp": 25,
+        "a": false,
+        "tf": "senml+json",
+        "nmt": "PM",
+        "ot": "NightMode",
+        "ledb": 12,
+        "e": true,
+        "tn": "d/1b41a7c6-8f02-42fa-9af8-868d/a/nm",
+        "n": "nm",
+        "fe": true
+      }
+    },
+    "dc": {
+      "cfv": {
+        "d": "di.cfv",
+        "t": "integer",
+        "v": 0,
+        "n": "cfv"
+      },
+      "germshield": {
+        "a": "gs",
+        "s": "gs",
+        "t": "boolean",
+        "v": false,
+        "n": "germshield"
+      },
+      "filterusage": {
+        "s": "fu0",
+        "t": "integer",
+        "v": 0,
+        "n": "filterusage"
+      },
+      "brightness": {
+        "a": "ledb",
+        "s": "ledb",
+        "t": "integer",
+        "v": 100,
+        "n": "brightness"
+      },
+      "standby": {
+        "a": "sb",
+        "s": "sb",
+        "t": "boolean",
+        "v": false,
+        "n": "standby"
+      },
+      "fanspeed": {
+        "a": "fsp0",
+        "s": "fsp0",
+        "t": "integer",
+        "v": 11,
+        "n": "fanspeed"
+      },
+      "nightmode": {
+        "a": "nm",
+        "s": "nm",
+        "t": "boolean",
+        "v": false,
+        "n": "nightmode"
+      },
+      "childlock": {
+        "a": "chl",
+        "s": "chl",
+        "t": "boolean",
+        "v": false,
+        "n": "childlock"
+      },
+      "safetyswitch": {
+        "s": "ss0",
+        "t": "boolean",
+        "v": true,
+        "n": "safetyswitch"
+      },
+      "mfv": {
+        "d": "di.mfv",
+        "t": "integer",
+        "v": 0,
+        "n": "mfv"
+      },
+      "ofv": {
+        "d": "di.ofv",
+        "t": "integer",
+        "v": 0,
+        "n": "ofv"
+      },
+      "automode": {
+        "a": "am",
+        "s": "am",
+        "t": "boolean",
+        "v": false,
+        "n": "automode"
+      }
+    }
+  },
+  "alarms": [],
+  "events": [],
+  "sensordata": [
+    {
+      "v": "0",
+      "n": "pm1",
+      "t": 1733935487
+    },
+    {
+      "v": "0",
+      "n": "pm2_5",
+      "t": 1733935487
+    },
+    {
+      "v": "0",
+      "n": "pm10",
+      "t": 1733935487
+    },
+    {
+      "v": "23",
+      "n": "t",
+      "t": 1733935487
+    },
+    {
+      "v": "46",
+      "n": "h",
+      "t": 1733935487
+    },
+    {
+      "v": "59",
+      "n": "tVOC",
+      "t": 1733935487
+    },
+    {
+      "v": "91",
+      "n": "fsp0",
+      "t": 1733935487
+    }
+  ],
+  "states": [
+    {
+      "n": "cfv",
+      "v": 33554689,
+      "t": 1733344193
+    },
+    {
+      "n": "germshield",
+      "vb": true,
+      "t": 1733360023
+    },
+    {
+      "n": "filterusage",
+      "v": 50,
+      "t": 1733737116
+    },
+    {
+      "n": "brightness",
+      "v": 100,
+      "t": 1733344193
+    },
+    {
+      "n": "standby",
+      "vb": false,
+      "t": 1733355643
+    },
+    {
+      "n": "fanspeed",
+      "v": 91,
+      "t": 1733925213
+    },
+    {
+      "n": "nightmode",
+      "vb": false,
+      "t": 1733344193
+    },
+    {
+      "n": "childlock",
+      "vb": true,
+      "t": 1733392883
+    },
+    {
+      "n": "safetyswitch",
+      "vb": true,
+      "t": 1733344193
+    },
+    {
+      "n": "mfv",
+      "v": 16777228,
+      "t": 1733344193
+    },
+    {
+      "n": "ofv",
+      "v": 33554689,
+      "t": 1733344193
+    },
+    {
+      "n": "automode",
+      "vb": false,
+      "t": 1733360023
+    },
+    {
+      "t": 1733360023,
+      "vb": true,
+      "n": "online"
+    }
+  ],
+  "welcomehome": {
+    "setting": []
+  },
+  "fleet_info": [],
+  "location_id": "",
+  "timezone": "America/New_York"
+}

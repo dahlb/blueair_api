@@ -10,14 +10,13 @@ Then use pytest to drive the tests
 
     $ pytest tests
 """
-
 import typing
 from typing import Any
 
 import contextlib
 import dataclasses
 from importlib import resources
-
+import json
 from unittest import mock
 from unittest import IsolatedAsyncioTestCase
 
@@ -27,6 +26,7 @@ from blueair_api.device_aws import DeviceAws, AttributeType
 from blueair_api.model_enum import ModelEnum
 from blueair_api import http_aws_blueair
 from blueair_api import intermediate_representation_aws as ir
+
 
 class FakeDeviceInfoHelper:
     """Fake for the 'device info' interface of HttpAwsBlueAir class."""
@@ -273,12 +273,14 @@ class EmptyDeviceAwsTest(DeviceAwsTestBase):
             assert device.water_shortage is NotImplemented
             assert device.wick_dry_mode is NotImplemented
 
+
 class H35iTest(DeviceAwsTestBase):
     """Tests for H35i."""
 
     def setUp(self):
         super().setUp()
-        info = eval(resources.files().joinpath('device_info/H35i.txt').read_text())
+        with open(resources.files().joinpath('device_info/H35i.json')) as sample_file:
+            info = json.load(sample_file)
         self.device_info_helper.info.update(info)
 
     async def test_attributes(self):
@@ -323,7 +325,8 @@ class T10iTest(DeviceAwsTestBase):
 
     def setUp(self):
         super().setUp()
-        info = eval(resources.files().joinpath('device_info/T10i.txt').read_text())
+        with open(resources.files().joinpath('device_info/T10i.json')) as sample_file:
+            info = json.load(sample_file)
         self.device_info_helper.info.update(info)
 
     async def test_attributes(self):
@@ -361,4 +364,3 @@ class T10iTest(DeviceAwsTestBase):
             assert device.auto_regulated_humidity is NotImplemented
             assert device.water_shortage is NotImplemented
             assert device.wick_dry_mode is NotImplemented
-
