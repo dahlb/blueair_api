@@ -26,7 +26,7 @@ import pytest
 from blueair_api.device_aws import DeviceAws, AttributeType
 from blueair_api.model_enum import ModelEnum
 from blueair_api import http_aws_blueair
-from blueair_api import ir_aws as ir
+from blueair_api import intermediate_representation_aws as ir
 
 class FakeDeviceInfoHelper:
     """Fake for the 'device info' interface of HttpAwsBlueAir class."""

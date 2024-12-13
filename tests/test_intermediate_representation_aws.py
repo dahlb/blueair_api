@@ -3,7 +3,7 @@ from unittest import TestCase
 
 import pytest
 
-from blueair_api import ir_aws as ir
+from blueair_api import intermediate_representation_aws as ir
 
 class SensorPackTest(TestCase):
 

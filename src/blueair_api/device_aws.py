@@ -4,7 +4,7 @@ import logging
 from .callbacks import CallbacksMixin
 from .http_aws_blueair import HttpAwsBlueair
 from .model_enum import ModelEnum
-from . import ir_aws as ir
+from . import intermediate_representation_aws as ir
 
 _LOGGER = logging.getLogger(__name__)
 
