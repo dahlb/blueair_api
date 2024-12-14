@@ -1,5 +1,5 @@
 from collections.abc import Mapping
-from typing_extensions import TypedDict
+from typing import TypedDict
 
 SENSITIVE_FIELD_NAMES = [
     "username",
