@@ -5,10 +5,11 @@ from json import dumps
 from .callbacks import CallbacksMixin
 from .http_aws_blueair import HttpAwsBlueair
 from .model_enum import ModelEnum
-from .util import convert_api_array_to_dict, safely_get_json_value
+from . import intermediate_representation_aws as ir
 
 _LOGGER = logging.getLogger(__name__)
 
+type AttributeType[T] = T | None | type[NotImplemented]
 
 @dataclasses.dataclass(slots=True)
 class DeviceAws(CallbacksMixin):
@@ -28,72 +29,96 @@ class DeviceAws(CallbacksMixin):
         return device_aws
 
     api: HttpAwsBlueair
-    uuid: str = None
-    name: str = None
-    name_api: str = None
-    mac: str = None
-    type_name: str = None
+    uuid : str | None = None
+    name : str | None = None
+    name_api : str | None = None
+    mac : str | None = None
+    type_name : str | None = None
 
-    sku: str = None
-    firmware: str = None
-    mcu_firmware: str = None
-    serial_number: str = None
+    # Attributes are defined below.
+    # We mandate that unittests shall test all fields of AttributeType.
+    sku : AttributeType[str] = None
+    firmware : AttributeType[str] = None
+    mcu_firmware : AttributeType[str] = None
+    serial_number : AttributeType[str] = None
 
-    brightness: int = None
-    child_lock: bool = None
-    fan_speed: int = None
-    fan_auto_mode: bool = None
-    running: bool = None
-    night_mode: bool = None
-    germ_shield: bool = None
+    brightness : AttributeType[int] = None
+    child_lock : AttributeType[bool] = None
+    fan_speed : AttributeType[int] = None
+    fan_auto_mode : AttributeType[bool] = None
+    standby : AttributeType[bool] = None
+    night_mode : AttributeType[bool] = None
+    germ_shield : AttributeType[bool] = None
 
-    pm1: int = None
-    pm2_5: int = None
-    pm10: int = None
-    tVOC: int = None
-    temperature: int = None
-    humidity: int = None
-    filter_usage: int = None  # percentage
-    wifi_working: bool = None
+    pm1 : AttributeType[int] = None
+    pm2_5 : AttributeType[int] = None
+    pm10 : AttributeType[int] = None
+    tVOC : AttributeType[int] = None
+    temperature : AttributeType[int] = None
+    humidity : AttributeType[int] = None
+    filter_usage_percentage : AttributeType[int] = None
+    wifi_working : AttributeType[bool] = None
 
-    # i35
-    wick_usage: int = None  # percentage
-    wick_dry_mode: bool = None
-    water_shortage: bool = None
-    auto_regulated_humidity: int = None
+    wick_usage_percentage : AttributeType[int] = None
+    wick_dry_mode : AttributeType[bool] = None
+    water_shortage : AttributeType[bool] = None
+    auto_regulated_humidity : AttributeType[int] = None
 
     async def refresh(self):
         _LOGGER.debug(f"refreshing blueair device aws: {self}")
         info = await self.api.device_info(self.name_api, self.uuid)
         _LOGGER.debug(dumps(info, indent=2))
-        sensor_data = convert_api_array_to_dict(info["sensordata"])
-        self.pm1 = safely_get_json_value(sensor_data, "pm1", int)
-        self.pm2_5 = safely_get_json_value(sensor_data, "pm2_5", int)
-        self.pm10 = safely_get_json_value(sensor_data, "pm10", int)
-        self.tVOC = safely_get_json_value(sensor_data, "tVOC", int)
-        self.temperature = safely_get_json_value(sensor_data, "t", int)
-        self.humidity = safely_get_json_value(sensor_data, "h", int)
 
-        self.name = safely_get_json_value(info, "configuration.di.name")
-        self.firmware = safely_get_json_value(info, "configuration.di.cfv")
-        self.mcu_firmware = safely_get_json_value(info, "configuration.di.mfv")
-        self.serial_number = safely_get_json_value(info, "configuration.di.ds")
-        self.sku = safely_get_json_value(info, "configuration.di.sku")
+        # ir.parse_json(ir.Attribute, ir.query_json(info, "configuration.da"))
+        ds = ir.parse_json(ir.Sensor, ir.query_json(info, "configuration.ds"))
+        dc = ir.parse_json(ir.Control, ir.query_json(info, "configuration.dc"))
 
-        states = convert_api_array_to_dict(info["states"])
-        self.running = safely_get_json_value(states, "standby") is False
-        self.night_mode = safely_get_json_value(states, "nightmode", bool)
-        self.germ_shield = safely_get_json_value(states, "germshield", bool)
-        self.brightness = safely_get_json_value(states, "brightness", int)
-        self.child_lock = safely_get_json_value(states, "childlock", bool)
-        self.fan_speed = safely_get_json_value(states, "fanspeed", int)
-        self.fan_auto_mode = safely_get_json_value(states, "automode", bool)
-        self.filter_usage = safely_get_json_value(states, "filterusage", int)
-        self.wifi_working = safely_get_json_value(states, "online", bool)
-        self.wick_usage = safely_get_json_value(states, "wickusage", int)
-        self.wick_dry_mode = safely_get_json_value(states, "wickdrys", bool)
-        self.auto_regulated_humidity = safely_get_json_value(states, "autorh", int)
-        self.water_shortage = safely_get_json_value(states, "wshortage", bool)
+        sensor_data = ir.SensorPack(info["sensordata"]).to_latest_value()
+
+        def sensor_data_safe_get(key):
+            return sensor_data.get(key) if key in ds else NotImplemented
+
+        self.pm1 = sensor_data_safe_get("pm1")
+        self.pm2_5 = sensor_data_safe_get("pm2_5")
+        self.pm10 = sensor_data_safe_get("pm10")
+        self.tVOC = sensor_data_safe_get("tVOC")
+        self.temperature = sensor_data_safe_get("t")
+        self.humidity = sensor_data_safe_get("h")
+
+        def info_safe_get(path):
+            # directly reads for the schema. If the schema field is
+            # undefined, it is NotImplemented, not merely unavailable.
+            value = ir.query_json(info, path)
+            if value is None:
+                return NotImplemented
+            return value
+
+        self.name = info_safe_get("configuration.di.name")
+        self.firmware = info_safe_get("configuration.di.cfv")
+        self.mcu_firmware = info_safe_get("configuration.di.mfv")
+        self.serial_number = info_safe_get("configuration.di.ds")
+        self.sku = info_safe_get("configuration.di.sku")
+
+        states = ir.SensorPack(info["states"]).to_latest_value()
+
+        def states_safe_get(key):
+            return states.get(key) if key in dc else NotImplemented
+
+        # "online" is not defined in the schema.
+        self.wifi_working = states.get("online")
+
+        self.standby = states_safe_get("standby")
+        self.night_mode = states_safe_get("nightmode")
+        self.germ_shield = states_safe_get("germshield")
+        self.brightness = states_safe_get("brightness")
+        self.child_lock = states_safe_get("childlock")
+        self.fan_speed = states_safe_get("fanspeed")
+        self.fan_auto_mode = states_safe_get("automode")
+        self.filter_usage_percentage = states_safe_get("filterusage")
+        self.wick_usage_percentage = states_safe_get("wickusage")
+        self.wick_dry_mode = states_safe_get("wickdrys")
+        self.auto_regulated_humidity = states_safe_get("autorh")
+        self.water_shortage = states_safe_get("wshortage")
 
         self.publish_updates()
         _LOGGER.debug(f"refreshed blueair device aws: {self}")
@@ -108,10 +133,21 @@ class DeviceAws(CallbacksMixin):
         await self.api.set_device_info(self.uuid, "fanspeed", "v", value)
         self.publish_updates()
 
-    async def set_running(self, running: bool):
-        self.running = running
-        await self.api.set_device_info(self.uuid, "standby", "vb", not running)
+    async def set_standby(self, value: bool):
+        self.standby = value
+        await self.api.set_device_info(self.uuid, "standby", "vb", value)
         self.publish_updates()
+
+    # FIXME: avoid state translation at the API level and depreate running.
+    # replace with standby which is standard across aws devices.
+    @property
+    def running(self) -> AttributeType[bool]:
+        if self.standby is None or self.standby is NotImplemented:
+            return self.standby
+        return not self.standby
+
+    async def set_running(self, running: bool):
+        await self.set_standby(not running)
 
     async def set_fan_auto_mode(self, fan_auto_mode: bool):
         self.fan_auto_mode = fan_auto_mode
