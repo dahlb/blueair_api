@@ -364,3 +364,49 @@ class T10iTest(DeviceAwsTestBase):
             assert device.auto_regulated_humidity is NotImplemented
             assert device.water_shortage is NotImplemented
             assert device.wick_dry_mode is NotImplemented
+
+
+class Protect7470iTest(DeviceAwsTestBase):
+    """Tests for protect7470i."""
+
+    def setUp(self):
+        super().setUp()
+        with open(resources.files().joinpath('device_info/protect_7470i.json')) as sample_file:
+            info = json.load(sample_file)
+        self.device_info_helper.info.update(info)
+
+    async def test_attributes(self):
+
+        await self.device.refresh()
+        self.api.device_info.assert_awaited_with("fake-name-api", "fake-uuid")
+
+        with assert_fully_checked(self.device) as device:
+
+            assert device.model == ModelEnum.PROTECT_7470I
+
+            assert device.pm1 == 0
+            assert device.pm2_5 == 0
+            assert device.pm10 == 0
+            assert device.tVOC == 59
+            assert device.temperature == 23
+            assert device.humidity == 46
+            assert device.name == "air filter in room"
+            assert device.firmware == "2.1.1"
+            assert device.mcu_firmware == "1.0.12"
+            assert device.serial_number == "110582600000110110016855"
+            assert device.sku == "105826"
+
+            assert device.running is True
+            assert device.standby is False
+            assert device.night_mode is False
+            assert device.germ_shield is True
+            assert device.brightness == 100
+            assert device.child_lock is True
+            assert device.fan_speed == 91
+            assert device.fan_auto_mode is False
+            assert device.filter_usage_percentage == 50
+            assert device.wifi_working is True
+            assert device.wick_usage_percentage is NotImplemented
+            assert device.auto_regulated_humidity is NotImplemented
+            assert device.water_shortage is NotImplemented
+            assert device.wick_dry_mode is NotImplemented

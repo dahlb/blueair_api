@@ -90,9 +90,9 @@ class Sensor:
     e: bool   # ???
     fe: bool  # ??? always True.
     ot: str   # object type / topic name
-    tf: str   # senml+json; topic format
     tn: str   # topic name a path-like name d/????/s/{n}
     ttl: int  # only seen 0 or -1, not sure if used.
+    tf: str | None = None   # senml+json; topic format
 
 @dataclasses.dataclass
 class Control:
