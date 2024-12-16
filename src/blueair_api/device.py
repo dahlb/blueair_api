@@ -96,4 +96,6 @@ class Device(CallbacksMixin):
         self.publish_updates()
 
     async def set_fan_speed(self, new_speed):
+        self.fan_speed = new_speed
         await self.api.set_fan_speed(self.uuid, new_speed)
+        self.publish_updates()
