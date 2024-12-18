@@ -50,7 +50,7 @@ def parse_json[T](kls: type[T], jsonobj: MappingType) -> dict[str, T]:
         for field in fields:
             if field.name == "extra_fields":
                 kwargs[field.name] = extra_fields
-            if field.default is dataclasses.MISSING:
+            elif field.default is dataclasses.MISSING:
                 kwargs[field.name] = extra_fields.pop(field.name)
             else:
                 kwargs[field.name] = extra_fields.pop(field.name, field.default)
@@ -170,10 +170,11 @@ class SensorPack(list[Record]):
         latest : dict[str, Record] = {}
         for record in self:
             rn = record.name
-            lt = latest[record.name].timestamp
             if record.name not in latest:
                 latest[rn] = record
-            elif record.timestamp is None:
+                continue
+            lt = latest[record.name].timestamp
+            if record.timestamp is None:
                 latest[rn] = record
             elif lt is None:
                 latest[rn] = record
