@@ -17,9 +17,9 @@ class HttpBlueair:
         self,
         username: str,
         password: str,
-        home_host: Optional[str] = None,
-        auth_token: Optional[str] = None,
-        client_session: Optional[ClientSession] = None,
+        home_host: str | None = None,
+        auth_token: str | None = None,
+        client_session: ClientSession | None = None,
     ):
         self.username = username
         self.password = password
@@ -46,13 +46,13 @@ class HttpBlueair:
 
     @request_with_logging
     async def _get_request_with_logging_and_errors_raised(
-        self, url: str, headers: Optional[dict] = None
+        self, url: str, headers: dict | None = None
     ) -> ClientResponse:
         return await self.api_session.get(url=url, headers=headers)
 
     @request_with_logging
     async def _post_request_with_logging_and_errors_raised(
-        self, url: str, json_body: dict, headers: Optional[dict] = None
+        self, url: str, json_body: dict, headers: dict | None = None
     ) -> ClientResponse:
         return await self.api_session.post(url=url, json=json_body, headers=headers)
 

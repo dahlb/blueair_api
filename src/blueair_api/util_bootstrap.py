@@ -14,9 +14,9 @@ _LOGGER = logging.getLogger(__name__)
 async def get_devices(
     username: str,
     password: str,
-    home_host: Optional[str] = None,
-    auth_token: Optional[str] = None,
-    client_session: Optional[ClientSession] = None,
+    home_host: str | None = None,
+    auth_token: str | None = None,
+    client_session: ClientSession | None = None,
 ) -> tuple[HttpBlueair, list[Device]]:
     api = HttpBlueair(
         client_session=client_session,
@@ -44,7 +44,7 @@ async def get_aws_devices(
     username: str,
     password: str,
     region: str = "us",
-    client_session: Optional[ClientSession] = None,
+    client_session: ClientSession | None = None,
 ) -> tuple[HttpAwsBlueair, list[Device]]:
     api = HttpAwsBlueair(
         username=username,
