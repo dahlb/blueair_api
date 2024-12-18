@@ -9,7 +9,7 @@ from . import intermediate_representation_aws as ir
 
 _LOGGER = logging.getLogger(__name__)
 
-type AttributeType[T] = T | None | type[NotImplemented]
+type AttributeType[T] = T | None
 
 @dataclasses.dataclass(slots=True)
 class DeviceAws(CallbacksMixin):
