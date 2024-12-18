@@ -44,7 +44,7 @@ def parse_json[T](kls: type[T], jsonobj: MappingType) -> dict[str, T]:
 
     for key, value in jsonobj.items():
         if not isinstance(value, dict):
-            raise ValueError("expecting mapping value to be dict.")
+            raise TypeError("expecting mapping value to be dict.")
         extra_fields = dict(value)  # make extra_fields copy.
         kwargs : dict[str, Any] = {}
         for field in fields:
@@ -140,7 +140,7 @@ class SensorPack(list[Record]):
             ru = None
             rv : float | bool | str | bytes
             for label, value in record.items():
-                assert isinstance(value, (str, int, float, bool))
+                assert isinstance(value, str | int | float | bool)
                 match label:
                     case 'bn' | 'bt' | 'bu' | 'bv' | 'bs' | 'bver':
                         raise ValueError("TODO: base fields not supported. c.f. RFC8428, 4.1")
