@@ -1,3 +1,4 @@
+from typing import Any
 import logging
 
 from aiohttp import ClientSession, ClientResponse
@@ -6,6 +7,7 @@ import base64
 from .util_http import request_with_logging
 from .const import API_KEY
 from .errors import LoginError
+from typing import Optional
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -15,9 +17,9 @@ class HttpBlueair:
         self,
         username: str,
         password: str,
-        home_host: str = None,
-        auth_token: str = None,
-        client_session: ClientSession = None,
+        home_host: str | None = None,
+        auth_token: str | None = None,
+        client_session: ClientSession | None = None,
     ):
         self.username = username
         self.password = password
@@ -44,13 +46,13 @@ class HttpBlueair:
 
     @request_with_logging
     async def _get_request_with_logging_and_errors_raised(
-        self, url: str, headers: dict = None
+        self, url: str, headers: dict | None = None
     ) -> ClientResponse:
         return await self.api_session.get(url=url, headers=headers)
 
     @request_with_logging
     async def _post_request_with_logging_and_errors_raised(
-        self, url: str, json_body: dict, headers: dict = None
+        self, url: str, json_body: dict, headers: dict | None = None
     ) -> ClientResponse:
         return await self.api_session.post(url=url, json=json_body, headers=headers)
 
@@ -99,7 +101,7 @@ class HttpBlueair:
         else:
             raise LoginError("invalid password")
 
-    async def get_devices(self) -> list[dict[str, any]]:
+    async def get_devices(self) -> list[dict[str, Any]]:
         """
         Fetch a list of devices.
 
@@ -123,7 +125,7 @@ class HttpBlueair:
         return await response.json()
 
     # Note: refreshes every 5 minutes
-    async def get_attributes(self, device_uuid: str) -> dict[str, any]:
+    async def get_attributes(self, device_uuid: str) -> dict[str, Any]:
         """
         Fetch a list of attributes for the provided device ID.
 
@@ -154,7 +156,7 @@ class HttpBlueair:
         return attributes
 
     # Note: refreshes every 5 minutes, timestamps are in seconds
-    async def get_info(self, device_uuid: str) -> dict[str, any]:
+    async def get_info(self, device_uuid: str) -> dict[str, Any]:
         """
         Fetch device information for the provided device ID.
 
@@ -178,7 +180,7 @@ class HttpBlueair:
         return await response.json()
 
     # Note: refreshes every 5 minutes, timestamps are in seconds
-    async def get_current_data_point(self, device_uuid: str) -> dict[str, any]:
+    async def get_current_data_point(self, device_uuid: str) -> dict[str, Any]:
         """
         Fetch device information for the provided device ID.
 
@@ -201,7 +203,7 @@ class HttpBlueair:
         )
         return await response.json()
 
-    async def get_data_points_since(self, device_uuid: str, seconds_ago: int = 0, sample_period: int = 300) -> dict[str, any]:
+    async def get_data_points_since(self, device_uuid: str, seconds_ago: int = 0, sample_period: int = 300) -> dict[str, Any]:
         """
         Fetch the list of data points between a relative timestamp (in seconds) and the current time.
 
