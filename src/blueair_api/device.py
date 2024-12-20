@@ -70,7 +70,7 @@ class Device(CallbacksMixin):
         else:
             self.brightness = 0
         if "child_lock" in attributes:
-            self.child_lock = bool(attributes["child_lock"])
+            self.child_lock = attributes["child_lock"] == "1"
         if "night_mode" in attributes:
             self.night_mode = bool(attributes["night_mode"])
         self.fan_speed = int(attributes["fan_speed"])
