@@ -112,6 +112,7 @@ class DeviceAwsSetterTest(DeviceAwsTestBase):
           "brightness": fake,
           "fanspeed": fake,
           "standby": fake,
+          "germshield": fake,
           "automode": fake,
           "autorh": fake,
           "childlock": fake,
@@ -143,17 +144,17 @@ class DeviceAwsSetterTest(DeviceAwsTestBase):
         await self.device.refresh()
         assert self.device.fan_speed == 2
 
-    async def test_running(self):
+    async def test_germ_shield(self):
         # test cache works
-        self.device.standby = None
-        await self.device.set_running(False)
-        assert self.device.running is False
+        self.device.germ_shield = None
+        await self.device.set_germ_shield(False)
+        assert self.device.germ_shield is False
 
         # test refresh works
-        await self.device.set_running(True)
-        self.device.standby = None
+        await self.device.set_germ_shield(True)
+        self.device.germ_shield = None
         await self.device.refresh()
-        assert self.device.running is True
+        assert self.device.germ_shield is True
 
     async def test_standby(self):
         # test cache works
@@ -258,7 +259,6 @@ class EmptyDeviceAwsTest(DeviceAwsTestBase):
             assert device.serial_number is NotImplemented
             assert device.sku is NotImplemented
 
-            assert device.running is NotImplemented
             assert device.standby is NotImplemented
             assert device.night_mode is NotImplemented
             assert device.germ_shield is NotImplemented
@@ -304,7 +304,6 @@ class H35iTest(DeviceAwsTestBase):
             assert device.serial_number == "111163300201110210004036"
             assert device.sku == "111633"
 
-            assert device.running is True
             assert device.standby is False
             assert device.night_mode is False
             assert device.germ_shield is NotImplemented
@@ -350,7 +349,6 @@ class T10iTest(DeviceAwsTestBase):
             assert device.serial_number == "111212400002313210001961"
             assert device.sku == "112124"
 
-            assert device.running is True
             assert device.standby is False
             assert device.night_mode is NotImplemented
             assert device.germ_shield is NotImplemented
@@ -396,7 +394,6 @@ class Protect7470iTest(DeviceAwsTestBase):
             assert device.serial_number == "110582600000110110016855"
             assert device.sku == "105826"
 
-            assert device.running is True
             assert device.standby is False
             assert device.night_mode is False
             assert device.germ_shield is True
