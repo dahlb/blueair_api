@@ -68,15 +68,27 @@ class Device(CallbacksMixin):
         if "brightness" in attributes:
             self.brightness = int(attributes["brightness"])
         else:
-            self.brightness = 0
+            self.brightness = NotImplemented
         if "child_lock" in attributes:
             self.child_lock = attributes["child_lock"] == "1"
+        else:
+            self.child_lock = NotImplemented
         if "night_mode" in attributes:
             self.night_mode = attributes["night_mode"] == "1"
-        self.fan_speed = int(attributes["fan_speed"])
+        else:
+            self.night_mode = NotImplemented
+        if "fan_speed" in attributes:
+            self.fan_speed = int(attributes["fan_speed"])
+        else:
+            self.fan_speed = NotImplemented
         if "filter_status" in attributes:
             self.filter_expired = attributes["filter_status"] != "OK"
-        self.fan_mode = attributes["mode"]
+        else:
+            self.filter_expired = NotImplemented
+        if "mode" in attributes:
+            self.fan_mode = attributes["mode"]
+        else:
+            self.fan_mode = NotImplemented
         if "wifi_status" in attributes:
             self.wifi_working = attributes["wifi_status"] == "1"
         else:
