@@ -254,3 +254,44 @@ class HttpBlueair:
             )
         )
         return await response.json()
+
+    async def set_brightness(self, device_uuid, new_brightness: int):
+        if new_brightness not in [0, 1, 2, 3, 4]:
+            raise Exception("Brightness not supported")
+        url = f"https://{await self.get_home_host()}/v2/device/{device_uuid}/attribute/brightness/"
+        headers = {
+            "X-API-KEY-TOKEN": API_KEY,
+            "X-AUTH-TOKEN": await self.get_auth_token(),
+        }
+        json_body = {
+            "currentValue": new_brightness,
+            "scope": "device",
+            "name": "brightness",
+            "uuid": str(device_uuid),
+        }
+        response: ClientResponse = (
+            await self._post_request_with_logging_and_errors_raised(
+                url=url, json_body=json_body, headers=headers
+            )
+        )
+        return await response.json()
+
+    async def set_child_lock(self, device_uuid, enabled: bool):
+        url = f"https://{await self.get_home_host()}/v2/device/{device_uuid}/attribute/child_lock/"
+        new_value = "1" if enabled else "0"
+        headers = {
+            "X-API-KEY-TOKEN": API_KEY,
+            "X-AUTH-TOKEN": await self.get_auth_token(),
+        }
+        json_body = {
+            "currentValue": new_value,
+            "scope": "device",
+            "name": "child_lock",
+            "uuid": str(device_uuid),
+        }
+        response: ClientResponse = (
+            await self._post_request_with_logging_and_errors_raised(
+                url=url, json_body=json_body, headers=headers
+            )
+        )
+        return await response.json()

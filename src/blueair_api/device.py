@@ -72,7 +72,7 @@ class Device(CallbacksMixin):
         if "child_lock" in attributes:
             self.child_lock = attributes["child_lock"] == "1"
         if "night_mode" in attributes:
-            self.night_mode = bool(attributes["night_mode"])
+            self.night_mode = attributes["night_mode"] == "1"
         self.fan_speed = int(attributes["fan_speed"])
         if "filter_status" in attributes:
             self.filter_expired = attributes["filter_status"] != "OK"
@@ -95,7 +95,17 @@ class Device(CallbacksMixin):
         _LOGGER.debug(f"refreshed blueair device: {self}")
         self.publish_updates()
 
-    async def set_fan_speed(self, new_speed):
-        self.fan_speed = new_speed
+    async def set_fan_speed(self, new_speed: str):
+        self.fan_speed = int(new_speed)
         await self.api.set_fan_speed(self.uuid, new_speed)
+        self.publish_updates()
+
+    async def set_brightness(self, new_brightness: int):
+        self.brightness = new_brightness
+        await self.api.set_brightness(self.uuid, new_brightness)
+        self.publish_updates()
+
+    async def set_child_lock(self, enabled: bool):
+        self.child_lock = enabled
+        await self.api.set_child_lock(self.uuid, enabled)
         self.publish_updates()
