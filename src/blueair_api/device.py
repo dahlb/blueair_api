@@ -85,10 +85,7 @@ class Device(CallbacksMixin):
             self.filter_expired = attributes["filter_status"] != "OK"
         else:
             self.filter_expired = NotImplemented
-        if "mode" in attributes:
-            self.fan_mode = attributes["mode"]
-        else:
-            self.fan_mode = NotImplemented
+        self.fan_mode = attributes.get("mode", NotImplemented)
         if "wifi_status" in attributes:
             self.wifi_working = attributes["wifi_status"] == "1"
         else:
