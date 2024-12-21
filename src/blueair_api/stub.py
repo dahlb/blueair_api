@@ -1,17 +1,14 @@
 # run with "python3 src/blueair_api/stub.py"
 import logging
 import asyncio
-from threading import Event
 
 from getpass import getpass
 from pathlib import Path
 import sys
 
-# import blueair_api
-
 path_root = Path(__file__).parents[2]
 sys.path.append(str(path_root))
-from src.blueair_api import get_devices, get_aws_devices
+from src.blueair_api import get_devices, get_aws_devices, DeviceAws
 
 
 logger = logging.getLogger("src.blueair_api")
@@ -30,7 +27,6 @@ async def testing():
         api, devices = await get_aws_devices(username=username, password=password)
         for device in devices:
             await device.refresh()
-            await device.set_child_lock(True)
             logger.debug(device)
     finally:
         if api:

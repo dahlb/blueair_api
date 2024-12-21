@@ -138,17 +138,6 @@ class DeviceAws(CallbacksMixin):
         await self.api.set_device_info(self.uuid, "standby", "vb", value)
         self.publish_updates()
 
-    # FIXME: avoid state translation at the API level and depreate running.
-    # replace with standby which is standard across aws devices.
-    @property
-    def running(self) -> AttributeType[bool]:
-        if self.standby is None or self.standby is NotImplemented:
-            return self.standby
-        return not self.standby
-
-    async def set_running(self, running: bool):
-        await self.set_standby(not running)
-
     async def set_fan_auto_mode(self, fan_auto_mode: bool):
         self.fan_auto_mode = fan_auto_mode
         await self.api.set_device_info(self.uuid, "automode", "vb", fan_auto_mode)
@@ -172,6 +161,11 @@ class DeviceAws(CallbacksMixin):
     async def set_wick_dry_mode(self, value: bool):
         self.wick_dry_mode = value
         await self.api.set_device_info(self.uuid, "wickdrys", "vb", value)
+        self.publish_updates()
+
+    async def set_germ_shield(self, value: bool):
+        self.germ_shield = value
+        await self.api.set_device_info(self.uuid, "germshield", "vb", value)
         self.publish_updates()
 
     @property
