@@ -7,7 +7,6 @@ import base64
 from .util_http import request_with_logging
 from .const import API_KEY
 from .errors import LoginError
-from typing import Optional
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -287,6 +286,26 @@ class HttpBlueair:
             "currentValue": new_value,
             "scope": "device",
             "name": "child_lock",
+            "uuid": str(device_uuid),
+        }
+        response: ClientResponse = (
+            await self._post_request_with_logging_and_errors_raised(
+                url=url, json_body=json_body, headers=headers
+            )
+        )
+        return await response.json()
+
+    async def set_fan_mode(self, device_uuid, auto: bool):
+        url = f"https://{await self.get_home_host()}/v2/device/{device_uuid}/attribute/mode/"
+        new_value = "auto" if auto else "manual"
+        headers = {
+            "X-API-KEY-TOKEN": API_KEY,
+            "X-AUTH-TOKEN": await self.get_auth_token(),
+        }
+        json_body = {
+            "currentValue": new_value,
+            "scope": "device",
+            "name": "mode",
             "uuid": str(device_uuid),
         }
         response: ClientResponse = (
