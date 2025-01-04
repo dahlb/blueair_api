@@ -295,7 +295,7 @@ class HttpBlueair:
         )
         return await response.json()
 
-    async def set_fan_mode(self, device_uuid, auto: bool):
+    async def set_fan_auto_mode(self, device_uuid, auto: bool):
         url = f"https://{await self.get_home_host()}/v2/device/{device_uuid}/attribute/mode/"
         new_value = "auto" if auto else "manual"
         headers = {

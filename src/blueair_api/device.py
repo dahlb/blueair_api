@@ -48,7 +48,7 @@ class Device(CallbacksMixin):
     child_lock: bool | None = None
     night_mode: bool | None = None
     fan_speed: int | None = None
-    fan_mode: str | None = None
+    fan_auto_mode: bool | None = None
     filter_expired: bool | None = None
     wifi_working: bool | None = None
 
@@ -85,7 +85,10 @@ class Device(CallbacksMixin):
             self.filter_expired = attributes["filter_status"] != "OK"
         else:
             self.filter_expired = NotImplemented
-        self.fan_mode = attributes.get("mode", NotImplemented)
+        if "mode" in attributes:
+            self.fan_auto_mode = attributes["mode"] == "auto"
+        else:
+            self.fan_auto_mode = NotImplemented
         if "wifi_status" in attributes:
             self.wifi_working = attributes["wifi_status"] == "1"
         else:
