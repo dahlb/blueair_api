@@ -121,3 +121,9 @@ class Device(CallbacksMixin):
         self.child_lock = enabled
         await self.api.set_child_lock(self.uuid, enabled)
         self.publish_updates()
+
+    async def set_fan_auto_mode(self, fan_auto_mode: bool):
+        self.fan_auto_mode = fan_auto_mode
+        await self.api.set_fan_auto_mode(self.uuid, fan_auto_mode)
+        self.publish_updates()
+
