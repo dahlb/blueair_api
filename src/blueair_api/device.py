@@ -53,14 +53,14 @@ class Device(CallbacksMixin):
     filter_expired: bool | None = None
     wifi_working: bool | None = None
 
-    pm1: int | None = None
-    pm10: int | None = None
-    pm25: int | None = None
-    voc: int | None = None
-    co2: int | None = None
-    temperature: float | None = None
-    humidity: float | None = None
-    all_pollution: float | None = None
+    pm1: int | None = NotImplemented
+    pm10: int | None = NotImplemented
+    pm25: int | None = NotImplemented
+    voc: int | None = NotImplemented
+    co2: int | None = NotImplemented
+    temperature: float | None = NotImplemented
+    humidity: float | None = NotImplemented
+    all_pollution: float | None = NotImplemented
 
     async def refresh(self):
         _LOGGER.debug("Requesting current attributes...")
@@ -101,14 +101,14 @@ class Device(CallbacksMixin):
             self.raw_info["datapoints"] = datapoints
             for data_point in datapoints:
                 _LOGGER.debug(data_point)
-                self.pm25 = safely_get_json_value(data_point, "pm25", int)
-                self.pm10 = safely_get_json_value(data_point, "pm10", int)
-                self.pm1 = safely_get_json_value(data_point, "pm1", int)
-                self.voc = safely_get_json_value(data_point, "voc", int)
-                self.co2 = safely_get_json_value(data_point, "co2", int)
-                self.temperature = safely_get_json_value(data_point, "temperature", int)
-                self.humidity = safely_get_json_value(data_point, "humidity", int)
-                self.all_pollution = safely_get_json_value(data_point, "all_pollution", int)
+                self.pm25 = safely_get_json_value(data_point, "pm25", int) or NotImplemented
+                self.pm10 = safely_get_json_value(data_point, "pm10", int) or NotImplemented
+                self.pm1 = safely_get_json_value(data_point, "pm1", int) or NotImplemented
+                self.voc = safely_get_json_value(data_point, "voc", int) or NotImplemented
+                self.co2 = safely_get_json_value(data_point, "co2", int) or NotImplemented
+                self.temperature = safely_get_json_value(data_point, "temperature", int) or NotImplemented
+                self.humidity = safely_get_json_value(data_point, "humidity", int) or NotImplemented
+                self.all_pollution = safely_get_json_value(data_point, "all_pollution", int) or NotImplemented
         _LOGGER.debug(f"refreshed blueair device: {self}")
         self.publish_updates()
 
