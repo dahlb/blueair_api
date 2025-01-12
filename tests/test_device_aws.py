@@ -109,15 +109,23 @@ class DeviceAwsSetterTest(DeviceAwsTestBase):
         # minimally populate dc to define the states.
         fake = {"n": "n", "v": 0}
         ir.query_json(self.device_info_helper.info, "configuration.dc").update({
-          "brightness": fake,
-          "fanspeed": fake,
-          "standby": fake,
-          "germshield": fake,
-          "automode": fake,
-          "autorh": fake,
-          "childlock": fake,
-          "nightmode": fake,
-          "wickdrys": fake,
+            "brightness": fake,
+            "fanspeed": fake,
+            "standby": fake,
+            "germshield": fake,
+            "automode": fake,
+            "autorh": fake,
+            "childlock": fake,
+            "nightmode": fake,
+            "wickdrys": fake,
+            "mainmode": fake,
+            "heattemp": fake,
+            "heatsubmode": fake,
+            "heatfs": fake,
+            "coolsubmode": fake,
+            "coolfs": fake,
+            "apsubmode": fake,
+            "fsp0": fake,
         })
 
     async def test_brightness(self):
@@ -228,6 +236,102 @@ class DeviceAwsSetterTest(DeviceAwsTestBase):
         await self.device.refresh()
         assert self.device.wick_dry_mode is True
 
+    async def test_main_mode(self):
+        # test cache works
+        self.device.main_mode = None
+        await self.device.set_main_mode(1)
+        assert self.device.main_mode == 1
+
+        # test refresh works
+        await self.device.set_main_mode(2)
+        self.device.main_mode = None
+        await self.device.refresh()
+        assert self.device.main_mode == 2
+
+    async def test_heat_temp(self):
+        # test cache works
+        self.device.heat_temp = None
+        await self.device.set_heat_temp(1)
+        assert self.device.heat_temp == 1
+
+        # test refresh works
+        await self.device.set_heat_temp(2)
+        self.device.heat_temp = None
+        await self.device.refresh()
+        assert self.device.heat_temp == 2
+
+    async def test_heat_sub_mode(self):
+        # test cache works
+        self.device.heat_sub_mode = None
+        await self.device.set_heat_sub_mode(1)
+        assert self.device.heat_sub_mode == 1
+
+        # test refresh works
+        await self.device.set_heat_sub_mode(2)
+        self.device.heat_sub_mode = None
+        await self.device.refresh()
+        assert self.device.heat_sub_mode == 2
+
+    async def test_heat_fan_speed(self):
+        # test cache works
+        self.device.heat_fan_speed = None
+        await self.device.set_heat_fan_speed(1)
+        assert self.device.heat_fan_speed == 1
+
+        # test refresh works
+        await self.device.set_heat_fan_speed(2)
+        self.device.heat_fan_speed = None
+        await self.device.refresh()
+        assert self.device.heat_fan_speed == 2
+
+    async def test_cool_sub_mode(self):
+        # test cache works
+        self.device.cool_sub_mode = None
+        await self.device.set_cool_sub_mode(1)
+        assert self.device.cool_sub_mode == 1
+
+        # test refresh works
+        await self.device.set_cool_sub_mode(2)
+        self.device.cool_sub_mode = None
+        await self.device.refresh()
+        assert self.device.cool_sub_mode == 2
+
+    async def test_cool_fan_speed(self):
+        # test cache works
+        self.device.cool_fan_speed = None
+        await self.device.set_cool_fan_speed(1)
+        assert self.device.cool_fan_speed == 1
+
+        # test refresh works
+        await self.device.set_cool_fan_speed(2)
+        self.device.cool_fan_speed = None
+        await self.device.refresh()
+        assert self.device.cool_fan_speed == 2
+
+    async def test_ap_sub_mode(self):
+        # test cache works
+        self.device.ap_sub_mode = None
+        await self.device.set_ap_sub_mode(1)
+        assert self.device.ap_sub_mode == 1
+
+        # test refresh works
+        await self.device.set_ap_sub_mode(2)
+        self.device.ap_sub_mode = None
+        await self.device.refresh()
+        assert self.device.ap_sub_mode == 2
+
+    async def test_fan_speed_0(self):
+        # test cache works
+        self.device.fan_speed_0 = None
+        await self.device.set_fan_speed_0(1)
+        assert self.device.fan_speed_0 == 1
+
+        # test refresh works
+        await self.device.set_fan_speed_0(2)
+        self.device.fan_speed_0 = None
+        await self.device.refresh()
+        assert self.device.fan_speed_0 == 2
+
 
 class EmptyDeviceAwsTest(DeviceAwsTestBase):
     """Tests for a emptydevice.
@@ -272,6 +376,14 @@ class EmptyDeviceAwsTest(DeviceAwsTestBase):
             assert device.auto_regulated_humidity is NotImplemented
             assert device.water_shortage is NotImplemented
             assert device.wick_dry_mode is NotImplemented
+            assert device.main_mode is NotImplemented
+            assert device.ap_sub_mode is NotImplemented
+            assert device.heat_temp is NotImplemented
+            assert device.heat_sub_mode is NotImplemented
+            assert device.heat_fan_speed is NotImplemented
+            assert device.cool_sub_mode is NotImplemented
+            assert device.cool_fan_speed is NotImplemented
+            assert device.fan_speed_0 is NotImplemented
 
 
 class H35iTest(DeviceAwsTestBase):
@@ -317,7 +429,14 @@ class H35iTest(DeviceAwsTestBase):
             assert device.auto_regulated_humidity == 50
             assert device.water_shortage is False
             assert device.wick_dry_mode is False
-
+            assert device.main_mode is NotImplemented
+            assert device.ap_sub_mode is NotImplemented
+            assert device.heat_temp is NotImplemented
+            assert device.heat_sub_mode is NotImplemented
+            assert device.heat_fan_speed is NotImplemented
+            assert device.cool_sub_mode is NotImplemented
+            assert device.cool_fan_speed is NotImplemented
+            assert device.fan_speed_0 is NotImplemented
 
 class T10iTest(DeviceAwsTestBase):
     """Tests for T10i."""
@@ -362,6 +481,14 @@ class T10iTest(DeviceAwsTestBase):
             assert device.auto_regulated_humidity is NotImplemented
             assert device.water_shortage is NotImplemented
             assert device.wick_dry_mode is NotImplemented
+            assert device.main_mode == 1
+            assert device.heat_temp == 230
+            assert device.heat_sub_mode == 2
+            assert device.heat_fan_speed == 11
+            assert device.cool_sub_mode == 1
+            assert device.cool_fan_speed == 11
+            assert device.ap_sub_mode == 1
+            assert device.fan_speed_0 == 11
 
 
 class Protect7470iTest(DeviceAwsTestBase):
@@ -407,3 +534,11 @@ class Protect7470iTest(DeviceAwsTestBase):
             assert device.auto_regulated_humidity is NotImplemented
             assert device.water_shortage is NotImplemented
             assert device.wick_dry_mode is NotImplemented
+            assert device.main_mode is NotImplemented
+            assert device.heat_temp is NotImplemented
+            assert device.heat_sub_mode is NotImplemented
+            assert device.heat_fan_speed is NotImplemented
+            assert device.cool_sub_mode is NotImplemented
+            assert device.cool_fan_speed is NotImplemented
+            assert device.ap_sub_mode is NotImplemented
+            assert device.fan_speed_0 is NotImplemented

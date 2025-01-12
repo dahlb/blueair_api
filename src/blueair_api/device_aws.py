@@ -66,6 +66,15 @@ class DeviceAws(CallbacksMixin):
     water_shortage : AttributeType[bool] = None
     auto_regulated_humidity : AttributeType[int] = None
 
+    main_mode: AttributeType[int] = None # api value 0 purify only, 1 heat on, 2 cool on
+    heat_sub_mode: AttributeType[int] = None # api value 1 heat on, 2 heat on with fan auto
+    heat_fan_speed: AttributeType[int] = None # api value 11/37/64/91
+    heat_temp: AttributeType[int] = None # api value is celsius * 10
+    cool_sub_mode: AttributeType[int] = None # api value 1 cool on, 2 cool on with fan auto
+    cool_fan_speed: AttributeType[int] = None # api value 11/37/64/91
+    ap_sub_mode: AttributeType[int] = None # api value 1 manual speeed, 2 auto fan speed
+    fan_speed_0: AttributeType[int] = None # api value 11/37/64/91
+
     async def refresh(self):
         _LOGGER.debug(f"refreshing blueair device aws: {self}")
         self.raw_info = await self.api.device_info(self.name_api, self.uuid)
@@ -117,10 +126,20 @@ class DeviceAws(CallbacksMixin):
         self.fan_speed = states_safe_get("fanspeed")
         self.fan_auto_mode = states_safe_get("automode")
         self.filter_usage_percentage = states_safe_get("filterusage")
+
         self.wick_usage_percentage = states_safe_get("wickusage")
         self.wick_dry_mode = states_safe_get("wickdrys")
         self.auto_regulated_humidity = states_safe_get("autorh")
         self.water_shortage = states_safe_get("wshortage")
+
+        self.main_mode = states_safe_get("mainmode")
+        self.heat_temp = states_safe_get("heattemp")
+        self.heat_sub_mode = states_safe_get("heatsubmode")
+        self.heat_fan_speed = states_safe_get("heatfs")
+        self.cool_sub_mode = states_safe_get("coolsubmode")
+        self.cool_fan_speed = states_safe_get("coolfs")
+        self.ap_sub_mode = states_safe_get("apsubmode")
+        self.fan_speed_0 = states_safe_get("fsp0")
 
         self.publish_updates()
         _LOGGER.debug(f"refreshed blueair device aws: {self}")
@@ -168,6 +187,46 @@ class DeviceAws(CallbacksMixin):
     async def set_germ_shield(self, value: bool):
         self.germ_shield = value
         await self.api.set_device_info(self.uuid, "germshield", "vb", value)
+        self.publish_updates()
+
+    async def set_main_mode(self, value: int):
+        self.main_mode = value
+        await self.api.set_device_info(self.uuid, "mainmode", "v", value)
+        self.publish_updates()
+
+    async def set_heat_temp(self, value: int):
+        self.heat_temp = value
+        await self.api.set_device_info(self.uuid, "heattemp", "v", value)
+        self.publish_updates()
+
+    async def set_heat_sub_mode(self, value: int):
+        self.heat_sub_mode = value
+        await self.api.set_device_info(self.uuid, "heatsubmode", "v", value)
+        self.publish_updates()
+
+    async def set_heat_fan_speed(self, value: int):
+        self.heat_fan_speed = value
+        await self.api.set_device_info(self.uuid, "heatfs", "v", value)
+        self.publish_updates()
+
+    async def set_cool_sub_mode(self, value: int):
+        self.cool_sub_mode = value
+        await self.api.set_device_info(self.uuid, "coolsubmode", "v", value)
+        self.publish_updates()
+
+    async def set_cool_fan_speed(self, value: int):
+        self.cool_fan_speed = value
+        await self.api.set_device_info(self.uuid, "coolfs", "v", value)
+        self.publish_updates()
+
+    async def set_ap_sub_mode(self, value: int):
+        self.ap_sub_mode = value
+        await self.api.set_device_info(self.uuid, "apsubmode", "v", value)
+        self.publish_updates()
+
+    async def set_fan_speed_0(self, value: int):
+        self.fan_speed_0 = value
+        await self.api.set_device_info(self.uuid, "fsp0", "v", value)
         self.publish_updates()
 
     @property
