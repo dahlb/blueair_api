@@ -384,6 +384,7 @@ class EmptyDeviceAwsTest(DeviceAwsTestBase):
             assert device.cool_sub_mode is NotImplemented
             assert device.cool_fan_speed is NotImplemented
             assert device.fan_speed_0 is NotImplemented
+            assert device.temperature_unit is NotImplemented
 
 
 class H35iTest(DeviceAwsTestBase):
@@ -437,6 +438,7 @@ class H35iTest(DeviceAwsTestBase):
             assert device.cool_sub_mode is NotImplemented
             assert device.cool_fan_speed is NotImplemented
             assert device.fan_speed_0 is NotImplemented
+            assert device.temperature_unit is NotImplemented
 
 class T10iTest(DeviceAwsTestBase):
     """Tests for T10i."""
@@ -489,6 +491,7 @@ class T10iTest(DeviceAwsTestBase):
             assert device.cool_fan_speed == 11
             assert device.ap_sub_mode == 1
             assert device.fan_speed_0 == 11
+            assert device.temperature_unit == 1
 
 
 class Protect7470iTest(DeviceAwsTestBase):
@@ -542,3 +545,4 @@ class Protect7470iTest(DeviceAwsTestBase):
             assert device.cool_fan_speed is NotImplemented
             assert device.ap_sub_mode is NotImplemented
             assert device.fan_speed_0 is NotImplemented
+            assert device.temperature_unit is NotImplemented

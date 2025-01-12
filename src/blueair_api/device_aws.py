@@ -74,6 +74,7 @@ class DeviceAws(CallbacksMixin):
     cool_fan_speed: AttributeType[int] = None # api value 11/37/64/91
     ap_sub_mode: AttributeType[int] = None # api value 1 manual speeed, 2 auto fan speed
     fan_speed_0: AttributeType[int] = None # api value 11/37/64/91
+    temperature_unit: AttributeType[int] = None # api value of 1 is celcius
 
     async def refresh(self):
         _LOGGER.debug(f"refreshing blueair device aws: {self}")
@@ -140,6 +141,7 @@ class DeviceAws(CallbacksMixin):
         self.cool_fan_speed = states_safe_get("coolfs")
         self.ap_sub_mode = states_safe_get("apsubmode")
         self.fan_speed_0 = states_safe_get("fsp0")
+        self.temperature_unit = states_safe_get("tu")
 
         self.publish_updates()
         _LOGGER.debug(f"refreshed blueair device aws: {self}")
