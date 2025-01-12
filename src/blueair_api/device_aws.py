@@ -1,4 +1,3 @@
-import dataclasses
 import logging
 from json import dumps
 
@@ -6,12 +5,13 @@ from .callbacks import CallbacksMixin
 from .http_aws_blueair import HttpAwsBlueair
 from .model_enum import ModelEnum
 from . import intermediate_representation_aws as ir
+from dataclasses import dataclass, field
 
 _LOGGER = logging.getLogger(__name__)
 
 type AttributeType[T] = T | None
 
-@dataclasses.dataclass(slots=True)
+@dataclass(slots=True)
 class DeviceAws(CallbacksMixin):
     @classmethod
     async def create_device(cls, api, uuid, name, mac, type_name, refresh=False):
@@ -29,6 +29,8 @@ class DeviceAws(CallbacksMixin):
         return device_aws
 
     api: HttpAwsBlueair
+    raw_info : dict[str: any] = field(repr=False, init=False)
+
     uuid : str | None = None
     name : str | None = None
     name_api : str | None = None
@@ -66,14 +68,14 @@ class DeviceAws(CallbacksMixin):
 
     async def refresh(self):
         _LOGGER.debug(f"refreshing blueair device aws: {self}")
-        info = await self.api.device_info(self.name_api, self.uuid)
-        _LOGGER.debug(dumps(info, indent=2))
+        self.raw_info = await self.api.device_info(self.name_api, self.uuid)
+        _LOGGER.debug(dumps(self.raw_info, indent=2))
 
         # ir.parse_json(ir.Attribute, ir.query_json(info, "configuration.da"))
-        ds = ir.parse_json(ir.Sensor, ir.query_json(info, "configuration.ds"))
-        dc = ir.parse_json(ir.Control, ir.query_json(info, "configuration.dc"))
+        ds = ir.parse_json(ir.Sensor, ir.query_json(self.raw_info, "configuration.ds"))
+        dc = ir.parse_json(ir.Control, ir.query_json(self.raw_info, "configuration.dc"))
 
-        sensor_data = ir.SensorPack(info["sensordata"]).to_latest_value()
+        sensor_data = ir.SensorPack(self.raw_info["sensordata"]).to_latest_value()
 
         def sensor_data_safe_get(key):
             return sensor_data.get(key) if key in ds else NotImplemented
@@ -88,7 +90,7 @@ class DeviceAws(CallbacksMixin):
         def info_safe_get(path):
             # directly reads for the schema. If the schema field is
             # undefined, it is NotImplemented, not merely unavailable.
-            value = ir.query_json(info, path)
+            value = ir.query_json(self.raw_info, path)
             if value is None:
                 return NotImplemented
             return value
@@ -99,7 +101,7 @@ class DeviceAws(CallbacksMixin):
         self.serial_number = info_safe_get("configuration.di.ds")
         self.sku = info_safe_get("configuration.di.sku")
 
-        states = ir.SensorPack(info["states"]).to_latest_value()
+        states = ir.SensorPack(self.raw_info["states"]).to_latest_value()
 
         def states_safe_get(key):
             return states.get(key) if key in dc else NotImplemented
@@ -185,4 +187,3 @@ class DeviceAws(CallbacksMixin):
         if self.sku == "112124":
             return ModelEnum.T10I
         return ModelEnum.UNKNOWN
-
