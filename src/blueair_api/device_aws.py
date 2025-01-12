@@ -28,7 +28,7 @@ class DeviceAws(CallbacksMixin):
         _LOGGER.debug(f"create_device blueair device_aws: {device_aws}")
         return device_aws
 
-    api: HttpAwsBlueair
+    api: HttpAwsBlueair = field(repr=False)
     raw_info : dict[str: any] = field(repr=False, init=False)
 
     uuid : str | None = None

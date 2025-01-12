@@ -31,7 +31,7 @@ class Device(CallbacksMixin):
         _LOGGER.debug(f"create_device blueair device: {device}")
         return device
 
-    api: HttpBlueair
+    api: HttpBlueair = field(repr=False)
     raw_info : dict[str: any] = field(repr=False, init=False)
 
     uuid: str | None = None
