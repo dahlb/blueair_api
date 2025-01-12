@@ -1,14 +1,13 @@
-import dataclasses
-import logging
-
 from .callbacks import CallbacksMixin
 from .http_blueair import HttpBlueair
 from .util import transform_data_points, safely_get_json_value
+from dataclasses import dataclass, field
+from logging import getLogger
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = getLogger(__name__)
 
 
-@dataclasses.dataclass(slots=True)
+@dataclass(slots=True)
 class Device(CallbacksMixin):
     @classmethod
     async def create_device(cls, api, uuid, name, mac, refresh=False):
@@ -33,6 +32,8 @@ class Device(CallbacksMixin):
         return device
 
     api: HttpBlueair
+    raw_info : dict[str: any] = field(repr=False, init=False)
+
     uuid: str | None = None
     name: str | None = None
     timezone: str | None = None
@@ -63,7 +64,9 @@ class Device(CallbacksMixin):
 
     async def refresh(self):
         _LOGGER.debug("Requesting current attributes...")
+        self.raw_info = {}
         attributes = await self.api.get_attributes(self.uuid)
+        self.raw_info["attributes"] = attributes
         _LOGGER.debug(f"result: {attributes}")
         if "brightness" in attributes:
             self.brightness = int(attributes["brightness"])
@@ -94,7 +97,9 @@ class Device(CallbacksMixin):
         else:
             self.wifi_working = False
         if self.compatibility != "sense+":
-            for data_point in transform_data_points(await self.api.get_data_points_since(self.uuid)):
+            datapoints = transform_data_points(await self.api.get_data_points_since(self.uuid))
+            self.raw_info["datapoints"] = datapoints
+            for data_point in datapoints:
                 _LOGGER.debug(data_point)
                 self.pm25 = safely_get_json_value(data_point, "pm25", int)
                 self.pm10 = safely_get_json_value(data_point, "pm10", int)
