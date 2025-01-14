@@ -1,6 +1,6 @@
 from .callbacks import CallbacksMixin
 from .http_blueair import HttpBlueair
-from .util import transform_data_points, safely_get_json_value
+from .util import transform_data_points, safely_get_json_value, convert_none_to_not_implemented
 from dataclasses import dataclass, field
 from logging import getLogger
 
@@ -101,14 +101,14 @@ class Device(CallbacksMixin):
             self.raw_info["datapoints"] = datapoints
             for data_point in datapoints:
                 _LOGGER.debug(data_point)
-                self.pm25 = safely_get_json_value(data_point, "pm25", int) or NotImplemented
-                self.pm10 = safely_get_json_value(data_point, "pm10", int) or NotImplemented
-                self.pm1 = safely_get_json_value(data_point, "pm1", int) or NotImplemented
-                self.voc = safely_get_json_value(data_point, "voc", int) or NotImplemented
-                self.co2 = safely_get_json_value(data_point, "co2", int) or NotImplemented
-                self.temperature = safely_get_json_value(data_point, "temperature", int) or NotImplemented
-                self.humidity = safely_get_json_value(data_point, "humidity", int) or NotImplemented
-                self.all_pollution = safely_get_json_value(data_point, "all_pollution", int) or NotImplemented
+                self.pm25 = convert_none_to_not_implemented(safely_get_json_value(data_point, "pm25", int))
+                self.pm10 = convert_none_to_not_implemented(safely_get_json_value(data_point, "pm10", int))
+                self.pm1 = convert_none_to_not_implemented(safely_get_json_value(data_point, "pm1", int))
+                self.voc = convert_none_to_not_implemented(safely_get_json_value(data_point, "voc", int))
+                self.co2 = convert_none_to_not_implemented(safely_get_json_value(data_point, "co2", int))
+                self.temperature = convert_none_to_not_implemented(safely_get_json_value(data_point, "temperature", int))
+                self.humidity = convert_none_to_not_implemented(safely_get_json_value(data_point, "humidity", int))
+                self.all_pollution = convert_none_to_not_implemented(safely_get_json_value(data_point, "all_pollution", int))
         _LOGGER.debug(f"refreshed blueair device: {self}")
         self.publish_updates()
 

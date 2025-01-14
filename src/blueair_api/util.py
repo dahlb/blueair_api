@@ -42,6 +42,9 @@ def safely_get_json_value(json, key, callable_to_cast=None):
         value = callable_to_cast(value)
     return value
 
+def convert_none_to_not_implemented(value):
+    if value is None:
+        return NotImplemented
 
 def transform_data_points(data):
     """Transform a measurement list response from the Blueair API to a more pythonic data structure."""
