@@ -546,3 +546,57 @@ class Protect7470iTest(DeviceAwsTestBase):
             assert device.ap_sub_mode is NotImplemented
             assert device.fan_speed_0 is NotImplemented
             assert device.temperature_unit is NotImplemented
+
+
+class Max211iTest(DeviceAwsTestBase):
+    """Tests for Max 211i."""
+
+    def setUp(self):
+        super().setUp()
+        with open(resources.files().joinpath('device_info/max_211i.json')) as sample_file:
+            info = json.load(sample_file)
+        self.device_info_helper.info.update(info)
+
+    async def test_attributes(self):
+
+        await self.device.refresh()
+        self.api.device_info.assert_awaited_with("fake-name-api", "fake-uuid")
+
+        with assert_fully_checked(self.device) as device:
+
+            assert device.model == ModelEnum.MAX_211I
+
+            assert device.pm1 == 0
+            assert device.pm2_5 == 0
+            assert device.pm10 == 0
+            assert device.tVOC is NotImplemented
+            assert device.temperature is NotImplemented
+            assert device.humidity is NotImplemented
+            assert device.name == "Bedroom Purifier"
+            assert device.firmware == "1.1.6"
+            assert device.mcu_firmware == "1.1.6"
+            assert device.serial_number == "111005900201111210085956"
+            assert device.sku == "110059"
+
+            assert device.standby is False
+            assert device.night_mode is False
+            assert device.germ_shield is NotImplemented
+            assert device.brightness == 0
+            assert device.child_lock is False
+            assert device.fan_speed == 15
+            assert device.fan_auto_mode is False
+            assert device.filter_usage_percentage == 55
+            assert device.wifi_working is True
+            assert device.wick_usage_percentage is NotImplemented
+            assert device.auto_regulated_humidity is NotImplemented
+            assert device.water_shortage is NotImplemented
+            assert device.wick_dry_mode is NotImplemented
+            assert device.main_mode is NotImplemented
+            assert device.heat_temp is NotImplemented
+            assert device.heat_sub_mode is NotImplemented
+            assert device.heat_fan_speed is NotImplemented
+            assert device.cool_sub_mode is NotImplemented
+            assert device.cool_fan_speed is NotImplemented
+            assert device.ap_sub_mode is NotImplemented
+            assert device.fan_speed_0 is NotImplemented
+            assert device.temperature_unit is NotImplemented
