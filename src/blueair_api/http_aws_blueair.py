@@ -1,4 +1,3 @@
-from typing import Any
 import functools
 import logging
 
@@ -180,7 +179,7 @@ class HttpAwsBlueair:
         return response_json["devices"]
 
     @request_with_active_session
-    async def device_info(self, device_name, device_uuid) -> dict[str, Any]:
+    async def device_info(self, device_name, device_uuid) -> dict[str, any]:
         _LOGGER.debug("device_info")
         url = f"https://{AWS_APIKEYS[self.region]['restApiId']}.execute-api.{AWS_APIKEYS[self.region]['awsRegion']}.amazonaws.com/prod/c/{device_name}/r/initial"
         headers = {

@@ -32,7 +32,7 @@ class Device(CallbacksMixin):
         return device
 
     api: HttpBlueair = field(repr=False)
-    raw_info : dict[str: any] = field(repr=False, init=False)
+    raw_info: dict[str, any] = field(repr=False, init=False)
 
     uuid: str | None = None
     name: str | None = None

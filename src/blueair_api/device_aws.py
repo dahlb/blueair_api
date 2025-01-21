@@ -29,7 +29,7 @@ class DeviceAws(CallbacksMixin):
         return device_aws
 
     api: HttpAwsBlueair = field(repr=False)
-    raw_info : dict[str: any] = field(repr=False, init=False)
+    raw_info : dict[str, any] = field(repr=False, init=False)
 
     uuid : str | None = None
     name : str | None = None
