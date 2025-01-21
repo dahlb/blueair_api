@@ -164,7 +164,7 @@ class HttpAwsBlueair:
         return self.access_token
 
     @request_with_active_session
-    async def devices(self) -> dict[str, Any]:
+    async def devices(self) -> dict[str, any]:
         _LOGGER.debug("devices")
         url = f"https://{AWS_APIKEYS[self.region]['restApiId']}.execute-api.{AWS_APIKEYS[self.region]['awsRegion']}.amazonaws.com/prod/c/registered-devices"
         headers = {
