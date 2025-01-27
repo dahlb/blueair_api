@@ -1,4 +1,6 @@
-import logging
+from typing import Any
+
+from logging import getLogger
 from json import dumps
 
 from .callbacks import CallbacksMixin
@@ -7,7 +9,7 @@ from .model_enum import ModelEnum
 from . import intermediate_representation_aws as ir
 from dataclasses import dataclass, field
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = getLogger(__name__)
 
 type AttributeType[T] = T | None
 
@@ -29,7 +31,7 @@ class DeviceAws(CallbacksMixin):
         return device_aws
 
     api: HttpAwsBlueair = field(repr=False)
-    raw_info : dict[str, any] = field(repr=False, init=False)
+    raw_info : dict[str, Any] = field(repr=False, init=False)
 
     uuid : str | None = None
     name : str | None = None

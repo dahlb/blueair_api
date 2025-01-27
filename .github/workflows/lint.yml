@@ -15,15 +15,29 @@ jobs:
     steps:
         - name: "Checkout the repository"
           uses: "actions/checkout@v4"
-
         - name: "Set up Python"
           uses: actions/setup-python@v5
           with:
-            python-version: "3.10"
+            python-version: "3.13"
             cache: "pip"
-
         - name: "Install requirements"
           run: python3 -m pip install -r requirements.txt
-
         - name: "Run"
           run: python3 -m ruff check .
+  mypy:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: developer mode install  # to pull in all dependencies.
+        run: pip install -e .
+      - name: Install mypy dependencies
+        run: pip install mypy
+      - name: Runs mypy
+        run: mypy src/blueair_api --explicit-package-bases

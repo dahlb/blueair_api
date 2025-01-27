@@ -1,3 +1,5 @@
+from typing import Any
+
 from .callbacks import CallbacksMixin
 from .http_blueair import HttpBlueair
 from .util import transform_data_points, safely_get_json_value, convert_none_to_not_implemented
@@ -32,7 +34,7 @@ class Device(CallbacksMixin):
         return device
 
     api: HttpBlueair = field(repr=False)
-    raw_info: dict[str, any] = field(repr=False, init=False)
+    raw_info: dict[str, Any] = field(repr=False, init=False)
 
     uuid: str | None = None
     name: str | None = None

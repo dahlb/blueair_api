@@ -1,13 +1,14 @@
 import functools
-import logging
 
+from logging import getLogger
+from typing import Any
 from aiohttp import ClientSession, ClientResponse, FormData
-from .const import AWS_APIKEYS
 
+from .const import AWS_APIKEYS
 from .util_http import request_with_logging
 from .errors import SessionError, LoginError
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = getLogger(__name__)
 
 
 def request_with_active_session(func):
@@ -164,7 +165,7 @@ class HttpAwsBlueair:
         return self.access_token
 
     @request_with_active_session
-    async def devices(self) -> dict[str, any]:
+    async def devices(self) -> dict[str, Any]:
         _LOGGER.debug("devices")
         url = f"https://{AWS_APIKEYS[self.region]['restApiId']}.execute-api.{AWS_APIKEYS[self.region]['awsRegion']}.amazonaws.com/prod/c/registered-devices"
         headers = {
@@ -179,7 +180,7 @@ class HttpAwsBlueair:
         return response_json["devices"]
 
     @request_with_active_session
-    async def device_info(self, device_name, device_uuid) -> dict[str, any]:
+    async def device_info(self, device_name, device_uuid) -> dict[str, Any]:
         _LOGGER.debug("device_info")
         url = f"https://{AWS_APIKEYS[self.region]['restApiId']}.execute-api.{AWS_APIKEYS[self.region]['awsRegion']}.amazonaws.com/prod/c/{device_name}/r/initial"
         headers = {
