@@ -1,7 +1,5 @@
 [build-system]
 requires = [
-    "setuptools>=68.0.0",
-    "wheel",
     "aiohttp>=3.8.1",
 ]
 build-backend = "setuptools.build_meta"
