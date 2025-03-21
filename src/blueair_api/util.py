@@ -62,6 +62,6 @@ def transform_data_points(data):
         "allpollu": "all_pollution",
     }
 
-    keys = [key_mapping[key] for key in data["sensors"]]
+    keys = [key_mapping[key] for key in data.get("sensors", {})]
 
-    return [dict(zip(keys, values)) for values in data["datapoints"]]
+    return [dict(zip(keys, values)) for values in data.get("datapoints", {})]
