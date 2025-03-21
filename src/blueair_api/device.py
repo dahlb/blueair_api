@@ -15,14 +15,19 @@ class Device(CallbacksMixin):
     async def create_device(cls, api, uuid, name, mac, refresh=False):
         _LOGGER.debug("UUID:"+uuid)
         info = await api.get_info(uuid)
-        device_data = {
-            "api":api,
-            "uuid":uuid,
-            "name":name,
-            "mac":mac
-        }
-        device_data.update(info)
-        device = Device(**device_data)
+        device = Device(
+            api=api,
+            uuid=uuid,
+            name=name,
+            mac=mac,
+            timezone=info.get("timezone", None),
+            compatibility=info.get("compatibility", None),
+            model=info.get("model",None),
+            firmware=info.get('firmware', None),
+            mcu_firmware=info.get("mcuFirmware",None),
+            wlan_driver=info.get("wlanDriver",None),
+            room_location=info["roomLocation"]
+        )
         if refresh:
             await device.refresh()
         _LOGGER.debug(f"create_device blueair device: {device}")
