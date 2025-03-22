@@ -20,12 +20,12 @@ class Device(CallbacksMixin):
             uuid=uuid,
             name=name,
             mac=mac,
-            timezone=info["timezone"],
-            compatibility=info["compatibility"],
-            model=info["model"],
-            firmware=info["firmware"],
-            mcu_firmware=info["mcuFirmware"],
-            wlan_driver=info["wlanDriver"],
+            timezone=info.get("timezone", None),
+            compatibility=info.get("compatibility", None),
+            model=info.get("model",None),
+            firmware=info.get('firmware', None),
+            mcu_firmware=info.get("mcuFirmware",None),
+            wlan_driver=info.get("wlanDriver",None),
             room_location=info["roomLocation"]
         )
         if refresh:
