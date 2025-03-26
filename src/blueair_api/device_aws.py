@@ -247,6 +247,8 @@ class DeviceAws(CallbacksMixin):
             return ModelEnum.MAX_311I
         if self.sku == "110057":
             return ModelEnum.MAX_411I
+        if self.sku == "112637":
+            return ModelEnum.MAX_511I
         if self.sku == "112124":
             return ModelEnum.T10I
         if self.sku == "109539":
