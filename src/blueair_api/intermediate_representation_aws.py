@@ -117,7 +117,7 @@ class Control:
 
 @dataclasses.dataclass
 class SensorRecord:
-    values: typing.Dict[str, int]
+    values: dict[str, int]
     timestamp: float | None
 
 
