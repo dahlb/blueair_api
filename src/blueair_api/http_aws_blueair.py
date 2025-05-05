@@ -3,6 +3,7 @@ import functools
 from logging import getLogger
 from typing import Any
 from aiohttp import ClientSession, ClientResponse, FormData
+from datetime import datetime, timedelta
 
 from .const import AWS_APIKEYS
 from .util_http import request_with_logging
@@ -92,9 +93,9 @@ class HttpAwsBlueair:
     @request_with_errors
     @request_with_logging
     async def _get_request_with_logging_and_errors_raised(
-        self, url: str, headers: dict | None = None
+        self, url: str, headers: dict | None = None, params: dict | None = None
     ) -> ClientResponse:
-        return await self.api_session.get(url=url, headers=headers)
+        return await self.api_session.get(url=url, headers=headers, params=params)
 
     @request_with_errors
     @request_with_logging
@@ -111,7 +112,7 @@ class HttpAwsBlueair:
 
     async def refresh_session(self) -> None:
         _LOGGER.debug("refresh_session")
-        url = f"https://accounts.{AWS_APIKEYS[self.region]['gigyaRegion']}.gigya.com/accounts.login"
+        url = f"https://{AWS_APIKEYS[self.region]['gigyaRegion']}/accounts.login"
         form_data = FormData()
         form_data.add_field("apikey", AWS_APIKEYS[self.region]["apiKey"])
         form_data.add_field("loginID", self.username)
@@ -130,7 +131,7 @@ class HttpAwsBlueair:
         _LOGGER.debug("refresh_jwt")
         if self.session_token is None or self.session_secret is None:
             await self.refresh_session()
-        url = f"https://accounts.{AWS_APIKEYS[self.region]['gigyaRegion']}.gigya.com/accounts.getJWT"
+        url = f"https://{AWS_APIKEYS[self.region]['gigyaRegion']}/accounts.getJWT"
         form_data = FormData()
         form_data.add_field("oauth_token", self.session_token)
         form_data.add_field("secret", self.session_secret)
@@ -147,7 +148,7 @@ class HttpAwsBlueair:
         _LOGGER.debug("refresh_access_token")
         if self.jwt is None:
             await self.refresh_jwt()
-        url = f"https://{AWS_APIKEYS[self.region]['restApiId']}.execute-api.{AWS_APIKEYS[self.region]['awsRegion']}.amazonaws.com/prod/c/login"
+        url = f"https://{AWS_APIKEYS[self.region]['restApiId']}.execute-api.{AWS_APIKEYS[self.region]['awsRegion']}/prod/c/login"
         headers = {"idtoken": self.jwt}
         response: ClientResponse = (
             await self._post_request_with_logging_and_errors_raised(
@@ -167,7 +168,7 @@ class HttpAwsBlueair:
     @request_with_active_session
     async def devices(self) -> dict[str, Any]:
         _LOGGER.debug("devices")
-        url = f"https://{AWS_APIKEYS[self.region]['restApiId']}.execute-api.{AWS_APIKEYS[self.region]['awsRegion']}.amazonaws.com/prod/c/registered-devices"
+        url = f"https://{AWS_APIKEYS[self.region]['restApiId']}.execute-api.{AWS_APIKEYS[self.region]['awsRegion']}/prod/c/registered-devices"
         headers = {
             "Authorization": f"Bearer {await self.get_access_token()}",
         }
@@ -180,9 +181,29 @@ class HttpAwsBlueair:
         return response_json["devices"]
 
     @request_with_active_session
+    async def device_sensors(self, device_name, device_uuid, duration: timedelta = timedelta(hours=10)):
+        url = f"https://{AWS_APIKEYS[self.region]['restApiId']}.execute-api.{AWS_APIKEYS[self.region]['awsRegion']}/prod/c/{device_name}/r/telemetry/5m/historical"
+        headers = {
+            "Authorization": f"Bearer {await self.get_access_token()}",
+        }
+        params = {
+            "did": device_uuid,
+            "from": int((datetime.now()-duration).timestamp()),
+            "to": int(datetime.now().timestamp()),
+            "s": ["pm1", "pm2_5", "pm10", "tVOC", "hcho", "h", "t", "fsp0"]
+        }
+        response: ClientResponse = (
+            await self._get_request_with_logging_and_errors_raised(
+                url=url, headers=headers, params=params
+            )
+        )
+        response_json = await response.json()
+        return response_json
+
+    @request_with_active_session
     async def device_info(self, device_name, device_uuid) -> dict[str, Any]:
         _LOGGER.debug("device_info")
-        url = f"https://{AWS_APIKEYS[self.region]['restApiId']}.execute-api.{AWS_APIKEYS[self.region]['awsRegion']}.amazonaws.com/prod/c/{device_name}/r/initial"
+        url = f"https://{AWS_APIKEYS[self.region]['restApiId']}.execute-api.{AWS_APIKEYS[self.region]['awsRegion']}/prod/c/{device_name}/r/initial"
         headers = {
             "Authorization": f"Bearer {await self.get_access_token()}",
         }
@@ -212,7 +233,7 @@ class HttpAwsBlueair:
         self, device_uuid, service_name, action_verb, action_value
     ) -> bool:
         _LOGGER.debug("set_device_info")
-        url = f"https://{AWS_APIKEYS[self.region]['restApiId']}.execute-api.{AWS_APIKEYS[self.region]['awsRegion']}.amazonaws.com/prod/c/{device_uuid}/a/{service_name}"
+        url = f"https://{AWS_APIKEYS[self.region]['restApiId']}.execute-api.{AWS_APIKEYS[self.region]['awsRegion']}/prod/c/{device_uuid}/a/{service_name}"
         headers = {
             "Authorization": f"Bearer {await self.get_access_token()}",
         }

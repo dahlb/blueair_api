@@ -5,6 +5,78 @@ import pytest
 
 from blueair_api import intermediate_representation_aws as ir
 
+
+class SensorHistoryTest(TestCase):
+    def test_history_simple(self):
+        sh = ir.SensorHistory([
+                {
+                    "datapoints": [
+                        [
+                            "1",
+                            "4",
+                            "5",
+                            "6",
+                            "42",
+                            None,
+                            "51",
+                            "27",
+                            "87"
+                        ],
+                        [
+                            "3",
+                            "1",
+                            "2",
+                            "3",
+                            "43",
+                            None,
+                            "50",
+                            "24",
+                            "91"
+                        ],
+                    ],
+                    "sensors": [
+                      "pm1",
+                      "pm2_5",
+                      "pm10",
+                      "tVOC",
+                      "hcho",
+                      "h",
+                      "t",
+                      "fsp0"
+                    ],
+                    "start": "1746401990",
+                    "end": "1746409190",
+                    "did": "1d528642-56a9"
+                  }
+                ])
+        assert sh[0].timestamp == 1
+        assert sh[0].values == {
+            "pm1": 4,
+            "pm2_5": 5,
+            "pm10": 6,
+            "tVOC": 42,
+            "h": 51,
+            "t": 27,
+            "fsp0": 87
+        }
+        assert sh[1].timestamp == 3
+        assert sh[1].values == {
+            "pm1": 1,
+            "pm2_5": 2,
+            "pm10": 3,
+            "tVOC": 43,
+            "h": 50,
+            "t": 24,
+            "fsp0": 91
+        }
+
+        assert sh.to_latest().timestamp == 1
+
+#        assert latest['v'].timestamp == 1
+#        assert latest['v'].value == 1
+#        assert isinstance(latest['v'].value, float)
+
+
 class SensorPackTest(TestCase):
 
   def testSimple(self):

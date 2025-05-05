@@ -12,6 +12,9 @@ def request_with_logging(func):
         headers = kwargs.get("headers")
         if headers is not None:
             request_message = request_message + f"headers: {headers}"
+        params = kwargs.get("params")
+        if params is not None:
+            request_message = request_message + f"params: {params}"
         json_body = kwargs.get("json_body")
         if json_body is not None:
             request_message = (

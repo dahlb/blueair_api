@@ -11,16 +11,28 @@ API_KEY = "eyJhbGciOiJIUzI1NiJ9.eyJncmFudGVlIjoiYmx1ZWFpciIsImlhdCI6MTQ1MzEyNTYz
 
 AWS_APIKEYS = {
     "us": {
-        "gigyaRegion": "us1",
+        "gigyaRegion": "accounts.us1.gigya.com",
         "restApiId": "on1keymlmh",
-        "awsRegion": "us-east-2",
+        "awsRegion": "us-east-2.amazonaws.com",
         "apiKey": "3_-xUbbrIY8QCbHDWQs1tLXE-CZBQ50SGElcOY5hF1euE11wCoIlNbjMGAFQ6UwhMY",
     },
     "eu": {
-        "gigyaRegion": "eu1",
+        "gigyaRegion": "accounts.eu1.gigya.com",
         "restApiId": "hkgmr8v960",
-        "awsRegion": "eu-west-1",
+        "awsRegion": "eu-west-1.amazonaws.com",
         "apiKey": "3_qRseYzrUJl1VyxvSJANalu_kNgQ83swB1B9uzgms58--5w1ClVNmrFdsDnWVQQCl",
+    },
+    "cn": {
+        "gigyaRegion": "accounts.cn1.sapcdm.cn",
+        "restApiId": "ftbkyp79si",
+        "awsRegion": "cn-north-1.amazonaws.com.cn",
+        "apiKey": "3_h3UEfJnA-zDpFPR9L4412HO7Mz2VVeN4wprbWYafPN1gX0kSnLcZ9VSfFi7bEIIU",
+    },
+    "au": {
+        "gigyaRegion": "accounts.au1.gigya.com",
+        "restApiId": "hkgmr8v960",
+        "awsRegion": "eu-west-1.amazonaws.com",
+        "apiKey": "3_Z2N0mIFC6j2fx1z2sq76R3pwkCMaMX2y9btPb0_PgI_3wfjSJoofFnBbxbtuQksN",
     },
 }
 

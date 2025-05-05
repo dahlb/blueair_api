@@ -32,6 +32,7 @@ class DeviceAws(CallbacksMixin):
 
     api: HttpAwsBlueair = field(repr=False)
     raw_info : dict[str, Any] = field(repr=False, init=False)
+    raw_sensors : dict[str, Any] = field(repr=False, init=False)
 
     uuid : str | None = None
     name : str | None = None
@@ -81,16 +82,18 @@ class DeviceAws(CallbacksMixin):
     async def refresh(self):
         _LOGGER.debug(f"refreshing blueair device aws: {self}")
         self.raw_info = await self.api.device_info(self.name_api, self.uuid)
+        self.raw_sensors = await self.api.device_sensors(self.name_api, self.uuid)
         _LOGGER.debug(dumps(self.raw_info, indent=2))
+        if self.raw_sensors is not None:
+            _LOGGER.debug(dumps(self.raw_sensors, indent=2))
 
-        # ir.parse_json(ir.Attribute, ir.query_json(info, "configuration.da"))
         ds = ir.parse_json(ir.Sensor, ir.query_json(self.raw_info, "configuration.ds"))
         dc = ir.parse_json(ir.Control, ir.query_json(self.raw_info, "configuration.dc"))
 
-        sensor_data = ir.SensorPack(self.raw_info["sensordata"]).to_latest_value()
+        sensor_data = ir.SensorHistory(self.raw_sensors).to_latest()
 
         def sensor_data_safe_get(key):
-            return sensor_data.get(key) if key in ds else NotImplemented
+            return sensor_data.values.get(key) if key in ds else NotImplemented
 
         self.pm1 = sensor_data_safe_get("pm1")
         self.pm2_5 = sensor_data_safe_get("pm2_5")
@@ -142,7 +145,10 @@ class DeviceAws(CallbacksMixin):
         self.cool_sub_mode = states_safe_get("coolsubmode")
         self.cool_fan_speed = states_safe_get("coolfs")
         self.ap_sub_mode = states_safe_get("apsubmode")
-        self.fan_speed_0 = states_safe_get("fsp0")
+        if states_safe_get("fsp0") is NotImplemented:
+            self.fan_speed_0 = sensor_data_safe_get("fsp0")
+        else:
+            self.fan_speed_0 = states_safe_get("fsp0")
         self.temperature_unit = states_safe_get("tu")
 
         self.publish_updates()

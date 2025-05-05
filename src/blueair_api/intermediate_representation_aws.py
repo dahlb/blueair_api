@@ -1,5 +1,5 @@
 import typing
-from typing import Any, TypeVar
+from typing import Any
 from collections.abc import Iterable
 import dataclasses
 import base64
@@ -85,7 +85,7 @@ class Attribute:
 class Sensor:
     """DeviceSensor(ds); seems to define a sensor.
 
-    We never directly access these objects. Thos this defines
+    We never directly access these objects. Though this defines
     the schema for 'h', 't', 'pm10' etc that gets returned in
     the sensor_data senml SensorPack.
     """
@@ -113,6 +113,36 @@ class Control:
     a: str | None = None
     s: str | None = None
     d: str | None = None  # device info json path
+
+
+@dataclasses.dataclass
+class SensorRecord:
+    values: typing.Dict[str, int]
+    timestamp: float | None
+
+
+class SensorHistory(list[SensorRecord]):
+    def __init__(self, response):
+        sensors = response[0]["sensors"]
+        datapoints = response[0]["datapoints"]
+        sensor_records = []
+        for datapoint in datapoints:
+            values = {}
+            for idx, sensor in enumerate(sensors):
+                if datapoint[idx+1] is not None:
+                    values[sensor] = int(datapoint[idx+1])
+            sensor_records.append(SensorRecord(timestamp=int(datapoint[0]), values=values))
+        super().__init__(sensor_records)
+
+    def to_latest(self) -> SensorRecord:
+        def key(e):
+            return e.timestamp
+        self.sort(key=key)
+        if len(self) > 0:
+            return self[0]
+        else:
+            return SensorRecord(values={},  timestamp=0)
+
 
 
 ########################

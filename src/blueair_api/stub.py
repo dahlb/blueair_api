@@ -8,7 +8,7 @@ import sys
 
 path_root = Path(__file__).parents[2]
 sys.path.append(str(path_root))
-from src.blueair_api import get_devices, get_aws_devices, DeviceAws
+from src.blueair_api import get_devices, get_aws_devices
 
 
 logger = logging.getLogger("src.blueair_api")

@@ -97,6 +97,13 @@ class DeviceAwsTestBase(IsolatedAsyncioTestCase):
             "states": [],
            })
 
+        async def fake_sensors(device_name, device_uuid):
+            return [{
+                "datapoints": [],
+                "sensors": []
+            }]
+
+        self.api.device_sensors.side_effect = fake_sensors
         self.api.device_info.side_effect = self.device_info_helper.device_info
         self.api.set_device_info.side_effect = self.device_info_helper.set_device_info
 
@@ -409,8 +416,8 @@ class H35iTest(DeviceAwsTestBase):
             assert device.pm2_5 is NotImplemented
             assert device.pm10 is NotImplemented
             assert device.tVOC is NotImplemented
-            assert device.temperature == 19
-            assert device.humidity == 50
+            assert device.temperature is None
+            assert device.humidity is None
             assert device.name == "Bedroom"
             assert device.firmware == "1.0.1"
             assert device.mcu_firmware == "1.0.1"
@@ -437,7 +444,7 @@ class H35iTest(DeviceAwsTestBase):
             assert device.heat_fan_speed is NotImplemented
             assert device.cool_sub_mode is NotImplemented
             assert device.cool_fan_speed is NotImplemented
-            assert device.fan_speed_0 is NotImplemented
+            assert device.fan_speed_0 is None
             assert device.temperature_unit is NotImplemented
 
 
@@ -459,7 +466,7 @@ class Max311iTest(DeviceAwsTestBase):
             assert device.model == ModelEnum.MAX_311I
 
             assert device.pm1 is NotImplemented
-            assert device.pm2_5 == 0
+            assert device.pm2_5 is None
             assert device.pm10 is NotImplemented
             assert device.tVOC is NotImplemented
             assert device.temperature is NotImplemented
@@ -490,7 +497,7 @@ class Max311iTest(DeviceAwsTestBase):
             assert device.heat_fan_speed is NotImplemented
             assert device.cool_sub_mode is NotImplemented
             assert device.cool_fan_speed is NotImplemented
-            assert device.fan_speed_0 is NotImplemented
+            assert device.fan_speed_0 is None
             assert device.temperature_unit is NotImplemented
 
 
@@ -513,11 +520,11 @@ class T10iTest(DeviceAwsTestBase):
             assert device.model == ModelEnum.T10I
 
             assert device.pm1 is NotImplemented
-            assert device.pm2_5 == 0
+            assert device.pm2_5 is None
             assert device.pm10 is NotImplemented
             assert device.tVOC is NotImplemented
-            assert device.temperature == 18
-            assert device.humidity == 28
+            assert device.temperature is None
+            assert device.humidity is None
             assert device.name == "Allen's Office"
             assert device.firmware == "1.0.4"
             assert device.mcu_firmware == "1.0.4"
@@ -566,12 +573,12 @@ class Protect7470iTest(DeviceAwsTestBase):
 
             assert device.model == ModelEnum.PROTECT_7470I
 
-            assert device.pm1 == 0
-            assert device.pm2_5 == 0
-            assert device.pm10 == 0
-            assert device.tVOC == 59
-            assert device.temperature == 23
-            assert device.humidity == 46
+            assert device.pm1 is None
+            assert device.pm2_5 is None
+            assert device.pm10 is None
+            assert device.tVOC is None
+            assert device.temperature is None
+            assert device.humidity is None
             assert device.name == "air filter in room"
             assert device.firmware == "2.1.1"
             assert device.mcu_firmware == "1.0.12"
@@ -598,7 +605,7 @@ class Protect7470iTest(DeviceAwsTestBase):
             assert device.cool_sub_mode is NotImplemented
             assert device.cool_fan_speed is NotImplemented
             assert device.ap_sub_mode is NotImplemented
-            assert device.fan_speed_0 is NotImplemented
+            assert device.fan_speed_0 is None
             assert device.temperature_unit is NotImplemented
 
 
@@ -620,9 +627,9 @@ class Max211iTest(DeviceAwsTestBase):
 
             assert device.model == ModelEnum.MAX_211I
 
-            assert device.pm1 == 0
-            assert device.pm2_5 == 0
-            assert device.pm10 == 0
+            assert device.pm1 is None
+            assert device.pm2_5 is None
+            assert device.pm10 is None
             assert device.tVOC is NotImplemented
             assert device.temperature is NotImplemented
             assert device.humidity is NotImplemented
@@ -652,5 +659,5 @@ class Max211iTest(DeviceAwsTestBase):
             assert device.cool_sub_mode is NotImplemented
             assert device.cool_fan_speed is NotImplemented
             assert device.ap_sub_mode is NotImplemented
-            assert device.fan_speed_0 is NotImplemented
+            assert device.fan_speed_0 is None
             assert device.temperature_unit is NotImplemented
