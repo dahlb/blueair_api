@@ -137,7 +137,7 @@ class SensorHistory(list[SensorRecord]):
     def to_latest(self) -> SensorRecord:
         def key(e):
             return e.timestamp
-        self.sort(key=key)
+        self.sort(key=key, reverse=True)
         if len(self) > 0:
             return self[0]
         else:

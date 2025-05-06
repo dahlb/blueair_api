@@ -70,15 +70,10 @@ class SensorHistoryTest(TestCase):
             "fsp0": 91
         }
 
-        assert sh.to_latest().timestamp == 1
-
-#        assert latest['v'].timestamp == 1
-#        assert latest['v'].value == 1
-#        assert isinstance(latest['v'].value, float)
+        assert sh.to_latest().timestamp == 3
 
 
 class SensorPackTest(TestCase):
-
   def testSimple(self):
     sp = ir.SensorPack( [
             {'n': 'v', 't': 1, 'v': 1},
