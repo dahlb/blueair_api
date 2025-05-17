@@ -97,11 +97,12 @@ class DeviceAwsTestBase(IsolatedAsyncioTestCase):
             "states": [],
            })
 
-        async def fake_sensors(device_name, device_uuid):
-            return [{
+        self.device_sensor_helper = {"mock_data": [{
                 "datapoints": [],
                 "sensors": []
-            }]
+            }]}
+        async def fake_sensors(device_name, device_uuid):
+            return self.device_sensor_helper["mock_data"]
 
         self.api.device_sensors.side_effect = fake_sensors
         self.api.device_info.side_effect = self.device_info_helper.device_info
@@ -563,6 +564,9 @@ class Protect7470iTest(DeviceAwsTestBase):
         with open(resources.files().joinpath('device_info/protect_7470i.json')) as sample_file:
             info = json.load(sample_file)
         self.device_info_helper.info.update(info)
+        with open(resources.files().joinpath('device_info/protect_7470i_sensors.json')) as sample_file:
+            sensors = json.load(sample_file)
+        self.device_sensor_helper["mock_data"] = sensors
 
     async def test_attributes(self):
 
@@ -572,13 +576,12 @@ class Protect7470iTest(DeviceAwsTestBase):
         with assert_fully_checked(self.device) as device:
 
             assert device.model == ModelEnum.PROTECT_7470I
-
-            assert device.pm1 is None
-            assert device.pm2_5 is None
-            assert device.pm10 is None
-            assert device.tVOC is None
-            assert device.temperature is None
-            assert device.humidity is None
+            assert device.pm1 == 0
+            assert device.pm2_5 == 0
+            assert device.pm10 == 0
+            assert device.tVOC == 134
+            assert device.temperature == 23
+            assert device.humidity == 55
             assert device.name == "air filter in room"
             assert device.firmware == "2.1.1"
             assert device.mcu_firmware == "1.0.12"
@@ -605,7 +608,7 @@ class Protect7470iTest(DeviceAwsTestBase):
             assert device.cool_sub_mode is NotImplemented
             assert device.cool_fan_speed is NotImplemented
             assert device.ap_sub_mode is NotImplemented
-            assert device.fan_speed_0 is None
+            assert device.fan_speed_0 is 91
             assert device.temperature_unit is NotImplemented
 
 

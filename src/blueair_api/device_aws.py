@@ -101,6 +101,7 @@ class DeviceAws(CallbacksMixin):
         self.tVOC = sensor_data_safe_get("tVOC")
         self.temperature = sensor_data_safe_get("t")
         self.humidity = sensor_data_safe_get("h")
+        self.fan_speed_0 = sensor_data_safe_get("fsp0")
 
         def info_safe_get(path):
             # directly reads for the schema. If the schema field is
