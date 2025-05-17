@@ -608,7 +608,7 @@ class Protect7470iTest(DeviceAwsTestBase):
             assert device.cool_sub_mode is NotImplemented
             assert device.cool_fan_speed is NotImplemented
             assert device.ap_sub_mode is NotImplemented
-            assert device.fan_speed_0 is 91
+            assert device.fan_speed_0 == 91
             assert device.temperature_unit is NotImplemented
 
 
