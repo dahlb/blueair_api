@@ -39,9 +39,10 @@ def request_with_errors(func):
         status_code = response.status
         try:
             response_json = await response.json(content_type=None)
-            if "statusCode" in response_json:
-                _LOGGER.debug("response json found, checking status code from response")
-                status_code = response_json["statusCode"]
+            if response_json is not None:
+                if "statusCode" in response_json:
+                    _LOGGER.debug("response json found, checking status code from response")
+                    status_code = response_json["statusCode"]
         except Exception as e:
             _LOGGER.error(f"Error parsing response for errors {e}")
             raise e
@@ -49,7 +50,7 @@ def request_with_errors(func):
             _LOGGER.debug("response 200")
             return response
         if 400 <= status_code <= 500:
-            _LOGGER.debug("auth error")
+            _LOGGER.debug(f"auth error, {status_code}")
             url = kwargs["url"]
             response_text = await response.text()
             if "accounts.login" in url:

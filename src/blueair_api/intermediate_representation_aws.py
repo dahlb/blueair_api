@@ -123,8 +123,12 @@ class SensorRecord:
 
 class SensorHistory(list[SensorRecord]):
     def __init__(self, response):
-        sensors = response[0]["sensors"]
-        datapoints = response[0]["datapoints"]
+        if response is None:
+            sensors = []
+            datapoints = []
+        else:
+            sensors = response[0]["sensors"]
+            datapoints = response[0]["datapoints"]
         sensor_records = []
         for datapoint in datapoints:
             values = {}
