@@ -59,6 +59,7 @@ class DeviceAws(CallbacksMixin):
     pm2_5 : AttributeType[int] = None
     pm10 : AttributeType[int] = None
     tVOC : AttributeType[int] = None
+    VOC : AttributeType[int] = None
     temperature : AttributeType[int] = None
     humidity : AttributeType[int] = None
     filter_usage_percentage : AttributeType[int] = None
@@ -99,6 +100,7 @@ class DeviceAws(CallbacksMixin):
         self.pm2_5 = sensor_data_safe_get("pm2_5")
         self.pm10 = sensor_data_safe_get("pm10")
         self.tVOC = sensor_data_safe_get("tVOC")
+        self.VOC = sensor_data_safe_get("VOC")
         self.temperature = sensor_data_safe_get("t")
         self.humidity = sensor_data_safe_get("h")
         self.fan_speed_0 = sensor_data_safe_get("fsp0")
@@ -262,4 +264,6 @@ class DeviceAws(CallbacksMixin):
             return ModelEnum.MAX_311I_PLUS
         if self.sku == "112929":
             return ModelEnum.BLUE_SIGNATURE
+        if self.sku == "112793":
+            return ModelEnum.PET_AIR_PRO
         return ModelEnum.UNKNOWN

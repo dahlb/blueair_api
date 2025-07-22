@@ -363,6 +363,7 @@ class EmptyDeviceAwsTest(DeviceAwsTestBase):
             assert device.pm2_5 is NotImplemented
             assert device.pm10 is NotImplemented
             assert device.tVOC is NotImplemented
+            assert device.VOC is NotImplemented
             assert device.temperature is NotImplemented
             assert device.humidity is NotImplemented
             assert device.name is NotImplemented
@@ -417,6 +418,7 @@ class H35iTest(DeviceAwsTestBase):
             assert device.pm2_5 is NotImplemented
             assert device.pm10 is NotImplemented
             assert device.tVOC is NotImplemented
+            assert device.VOC is NotImplemented
             assert device.temperature is None
             assert device.humidity is None
             assert device.name == "Bedroom"
@@ -470,6 +472,7 @@ class Max311iTest(DeviceAwsTestBase):
             assert device.pm2_5 is None
             assert device.pm10 is NotImplemented
             assert device.tVOC is NotImplemented
+            assert device.VOC is NotImplemented
             assert device.temperature is NotImplemented
             assert device.humidity is NotImplemented
             assert device.name == "Loft"
@@ -524,6 +527,7 @@ class T10iTest(DeviceAwsTestBase):
             assert device.pm2_5 is None
             assert device.pm10 is NotImplemented
             assert device.tVOC is NotImplemented
+            assert device.VOC is NotImplemented
             assert device.temperature is None
             assert device.humidity is None
             assert device.name == "Allen's Office"
@@ -580,6 +584,7 @@ class Protect7470iTest(DeviceAwsTestBase):
             assert device.pm2_5 == 0
             assert device.pm10 == 0
             assert device.tVOC == 134
+            assert device.VOC is NotImplemented
             assert device.temperature == 23
             assert device.humidity == 55
             assert device.name == "air filter in room"
@@ -634,6 +639,7 @@ class Max211iTest(DeviceAwsTestBase):
             assert device.pm2_5 is None
             assert device.pm10 is None
             assert device.tVOC is NotImplemented
+            assert device.VOC is NotImplemented
             assert device.temperature is NotImplemented
             assert device.humidity is NotImplemented
             assert device.name == "Bedroom Purifier"
@@ -662,5 +668,60 @@ class Max211iTest(DeviceAwsTestBase):
             assert device.cool_sub_mode is NotImplemented
             assert device.cool_fan_speed is NotImplemented
             assert device.ap_sub_mode is NotImplemented
+            assert device.fan_speed_0 is None
+            assert device.temperature_unit is NotImplemented
+
+
+class PetAirProTest(DeviceAwsTestBase):
+    """Tests for PetPro."""
+
+    def setUp(self):
+        super().setUp()
+        with open(resources.files().joinpath('device_info/pet_air_pro.json')) as sample_file:
+            info = json.load(sample_file)
+        self.device_info_helper.info.update(info)
+
+    async def test_attributes(self):
+
+        await self.device.refresh()
+        self.api.device_info.assert_awaited_with("fake-name-api", "fake-uuid")
+
+        with assert_fully_checked(self.device) as device:
+
+            assert device.model == ModelEnum.PET_AIR_PRO
+
+            assert device.pm1 is None
+            assert device.pm2_5 is None
+            assert device.pm10 is None
+            assert device.tVOC is NotImplemented
+            assert device.VOC is NotImplemented
+            assert device.temperature is NotImplemented
+            assert device.humidity is NotImplemented
+            assert device.name == "PetAir Pro"
+            assert device.firmware == "1.0.3"
+            assert device.mcu_firmware == "1.0.3"
+            assert device.serial_number == "111279300002313310000090"
+            assert device.sku == "112793"
+
+            assert device.standby is False
+            assert device.night_mode is NotImplemented
+            assert device.germ_shield is NotImplemented
+            assert device.brightness == 100.0
+            assert device.child_lock is False
+            assert device.fan_speed == 91.0
+            assert device.fan_auto_mode is NotImplemented
+            assert device.filter_usage_percentage == 5.0
+            assert device.wifi_working is False
+            assert device.wick_usage_percentage is NotImplemented
+            assert device.auto_regulated_humidity is NotImplemented
+            assert device.water_shortage is NotImplemented
+            assert device.wick_dry_mode is NotImplemented
+            assert device.main_mode == 0.0
+            assert device.heat_temp is NotImplemented
+            assert device.heat_sub_mode is NotImplemented
+            assert device.heat_fan_speed is NotImplemented
+            assert device.cool_sub_mode is NotImplemented
+            assert device.cool_fan_speed is NotImplemented
+            assert device.ap_sub_mode == 1.0
             assert device.fan_speed_0 is None
             assert device.temperature_unit is NotImplemented
