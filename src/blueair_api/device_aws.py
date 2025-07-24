@@ -58,8 +58,8 @@ class DeviceAws(CallbacksMixin):
     pm1 : AttributeType[int] = None
     pm2_5 : AttributeType[int] = None
     pm10 : AttributeType[int] = None
-    tVOC : AttributeType[int] = None
-    VOC : AttributeType[int] = None
+    total_voc : AttributeType[int] = None
+    voc : AttributeType[int] = None
     temperature : AttributeType[int] = None
     humidity : AttributeType[int] = None
     filter_usage_percentage : AttributeType[int] = None
@@ -99,8 +99,8 @@ class DeviceAws(CallbacksMixin):
         self.pm1 = sensor_data_safe_get("pm1")
         self.pm2_5 = sensor_data_safe_get("pm2_5")
         self.pm10 = sensor_data_safe_get("pm10")
-        self.tVOC = sensor_data_safe_get("tVOC")
-        self.VOC = sensor_data_safe_get("VOC")
+        self.total_voc = sensor_data_safe_get("tVOC")
+        self.voc = sensor_data_safe_get("voc")
         self.temperature = sensor_data_safe_get("t")
         self.humidity = sensor_data_safe_get("h")
         self.fan_speed_0 = sensor_data_safe_get("fsp0")

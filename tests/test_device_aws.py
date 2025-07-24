@@ -362,8 +362,8 @@ class EmptyDeviceAwsTest(DeviceAwsTestBase):
             assert device.pm1 is NotImplemented
             assert device.pm2_5 is NotImplemented
             assert device.pm10 is NotImplemented
-            assert device.tVOC is NotImplemented
-            assert device.VOC is NotImplemented
+            assert device.total_voc is NotImplemented
+            assert device.voc is NotImplemented
             assert device.temperature is NotImplemented
             assert device.humidity is NotImplemented
             assert device.name is NotImplemented
@@ -417,8 +417,8 @@ class H35iTest(DeviceAwsTestBase):
             assert device.pm1 is NotImplemented
             assert device.pm2_5 is NotImplemented
             assert device.pm10 is NotImplemented
-            assert device.tVOC is NotImplemented
-            assert device.VOC is NotImplemented
+            assert device.total_voc is NotImplemented
+            assert device.voc is NotImplemented
             assert device.temperature is None
             assert device.humidity is None
             assert device.name == "Bedroom"
@@ -471,8 +471,8 @@ class Max311iTest(DeviceAwsTestBase):
             assert device.pm1 is NotImplemented
             assert device.pm2_5 is None
             assert device.pm10 is NotImplemented
-            assert device.tVOC is NotImplemented
-            assert device.VOC is NotImplemented
+            assert device.total_voc is NotImplemented
+            assert device.voc is NotImplemented
             assert device.temperature is NotImplemented
             assert device.humidity is NotImplemented
             assert device.name == "Loft"
@@ -526,8 +526,8 @@ class T10iTest(DeviceAwsTestBase):
             assert device.pm1 is NotImplemented
             assert device.pm2_5 is None
             assert device.pm10 is NotImplemented
-            assert device.tVOC is NotImplemented
-            assert device.VOC is NotImplemented
+            assert device.total_voc is NotImplemented
+            assert device.voc is NotImplemented
             assert device.temperature is None
             assert device.humidity is None
             assert device.name == "Allen's Office"
@@ -583,8 +583,8 @@ class Protect7470iTest(DeviceAwsTestBase):
             assert device.pm1 == 0
             assert device.pm2_5 == 0
             assert device.pm10 == 0
-            assert device.tVOC == 134
-            assert device.VOC is NotImplemented
+            assert device.total_voc == 134
+            assert device.voc is NotImplemented
             assert device.temperature == 23
             assert device.humidity == 55
             assert device.name == "air filter in room"
@@ -638,8 +638,8 @@ class Max211iTest(DeviceAwsTestBase):
             assert device.pm1 is None
             assert device.pm2_5 is None
             assert device.pm10 is None
-            assert device.tVOC is NotImplemented
-            assert device.VOC is NotImplemented
+            assert device.total_voc is NotImplemented
+            assert device.voc is NotImplemented
             assert device.temperature is NotImplemented
             assert device.humidity is NotImplemented
             assert device.name == "Bedroom Purifier"
@@ -693,8 +693,8 @@ class PetAirProTest(DeviceAwsTestBase):
             assert device.pm1 is None
             assert device.pm2_5 is None
             assert device.pm10 is None
-            assert device.tVOC is NotImplemented
-            assert device.VOC is NotImplemented
+            assert device.total_voc is NotImplemented
+            assert device.voc is None
             assert device.temperature is NotImplemented
             assert device.humidity is NotImplemented
             assert device.name == "PetAir Pro"
