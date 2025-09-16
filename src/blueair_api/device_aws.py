@@ -268,4 +268,6 @@ class DeviceAws(CallbacksMixin):
             return ModelEnum.PET_AIR_PRO
         if self.sku == "110178":
             return ModelEnum.MAX_3250I
+        if self.sku == "111905":
+            return ModelEnum.MAX_3650I
         return ModelEnum.UNKNOWN
