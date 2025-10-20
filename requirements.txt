@@ -1,4 +1,4 @@
-ruff==0.14.0
+ruff==0.14.1
 aiohttp>=3.8.1
 typing-extensions
 pytest
