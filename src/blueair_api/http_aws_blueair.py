@@ -150,7 +150,7 @@ class HttpAwsBlueair:
         if self.jwt is None:
             await self.refresh_jwt()
         url = f"https://{AWS_APIKEYS[self.region]['restApiId']}.execute-api.{AWS_APIKEYS[self.region]['awsRegion']}/prod/c/login"
-        headers = {"idtoken": self.jwt}
+        headers = {"idtoken": self.jwt, "authorization": f"Bearer {self.jwt}"}
         response: ClientResponse = (
             await self._post_request_with_logging_and_errors_raised(
                 url=url, headers=headers
