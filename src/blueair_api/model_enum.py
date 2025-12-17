@@ -6,6 +6,7 @@ class ModelEnum(StrEnum):
     HUMIDIFIER_H35I = "Blueair Humidifier H35i"
     PROTECT_7440I = "Blueair Protect 7440i"
     PROTECT_7470I = "Blueair Protect 7470i"
+    PROTECT_7770I = "Blueair Protect 7770i"
     MAX_211I = "Blueair Blue Pure 211i Max"
     MAX_311I = "Blueair Blue Pure 311i Max"
     MAX_311I_PLUS = "Blueair Blue Pure 311i+ Max"
