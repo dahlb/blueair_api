@@ -133,6 +133,16 @@ class DeviceAws(CallbacksMixin):
         self.brightness = states_safe_get("brightness")
         self.child_lock = states_safe_get("childlock")
         self.fan_speed = states_safe_get("fanspeed")
+        if self.model in [
+            ModelEnum.HUMIDIFIER_H35I,
+            ModelEnum.HUMIDIFIER_H76I,
+        ]:
+            if self.fan_speed == 11:
+                self.fan_speed = 1
+            elif self.fan_speed == 37:
+                self.fan_speed = 2
+            elif self.fan_speed == 64:
+                self.fan_speed = 3
         self.fan_auto_mode = states_safe_get("automode")
         self.filter_usage_percentage = states_safe_get("filterusage")
 
@@ -164,6 +174,16 @@ class DeviceAws(CallbacksMixin):
 
     async def set_fan_speed(self, value: int):
         self.fan_speed = value
+        if self.model in [
+            ModelEnum.HUMIDIFIER_H35I,
+            ModelEnum.HUMIDIFIER_H76I,
+        ]:
+            if value == 1:
+                value = 11
+            elif value == 2:
+                value = 37
+            elif value == 3:
+                value = 64
         await self.api.set_device_info(self.uuid, "fanspeed", "v", value)
         self.publish_updates()
 
