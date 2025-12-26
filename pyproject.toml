@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "blueair_api"
-version = "1.43.0"
+version = "1.44.0"
 authors = [
   { name="Brendan Dahl", email="dahl.brendan@gmail.com" },
 ]
