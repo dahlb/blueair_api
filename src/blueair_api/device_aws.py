@@ -48,6 +48,7 @@ class DeviceAws(CallbacksMixin):
     serial_number : AttributeType[str] = None
 
     brightness : AttributeType[int] = None
+    mood_brightness : AttributeType[int] = None
     child_lock : AttributeType[bool] = None
     fan_speed : AttributeType[int] = None
     fan_auto_mode : AttributeType[bool] = None
@@ -66,8 +67,10 @@ class DeviceAws(CallbacksMixin):
     wifi_working : AttributeType[bool] = None
 
     wick_usage_percentage : AttributeType[int] = None
+    water_refresher_usage_percentage : AttributeType[int] = None
     wick_dry_mode : AttributeType[bool] = None
     water_shortage : AttributeType[bool] = None
+    water_level: AttributeType[int] = None
     auto_regulated_humidity : AttributeType[int] = None
 
     main_mode: AttributeType[int] = None # api value 0 purify only, 1 heat on, 2 cool on
@@ -88,8 +91,33 @@ class DeviceAws(CallbacksMixin):
         if self.raw_sensors is not None:
             _LOGGER.debug(dumps(self.raw_sensors, indent=2))
 
+        def info_safe_get(path):
+            # directly reads for the schema. If the schema field is
+            # undefined, it is NotImplemented, not merely unavailable.
+            value = ir.query_json(self.raw_info, path)
+            if value is None:
+                return NotImplemented
+            return value
+
+        self.name = info_safe_get("configuration.di.name")
+        self.firmware = info_safe_get("configuration.di.cfv")
+        self.mcu_firmware = info_safe_get("configuration.di.mfv")
+        self.serial_number = info_safe_get("configuration.di.ds")
+        self.sku = info_safe_get("configuration.di.sku")
+
         ds = ir.parse_json(ir.Sensor, ir.query_json(self.raw_info, "configuration.ds"))
         dc = ir.parse_json(ir.Control, ir.query_json(self.raw_info, "configuration.dc"))
+        if self.model == ModelEnum.HUMIDIFIER_H76I:
+            # Fix schema inconsistency for H76i
+            dc["nightmode"] = ir.Control(extra_fields={}, n="nightmode", v=NotImplemented)
+            dc["automode"] = ir.Control(extra_fields={}, n="automode", v=NotImplemented)
+            dc["wickusage"] = ir.Control(extra_fields={}, n="wickusage", v=NotImplemented)
+            dc["childlock"] = ir.Control(extra_fields={}, n="childlock", v=NotImplemented)
+            dc["autorh"] = ir.Control(extra_fields={}, n="autorh", v=NotImplemented)
+            dc["ywrmusage"] = ir.Control(extra_fields={}, n="ywrmusage", v=NotImplemented)
+            dc["wlevel"] = ir.Control(extra_fields={}, n="wlevel", v=NotImplemented)
+            dc["wickdrys"] = ir.Control(extra_fields={}, n="wickdrys", v=NotImplemented)
+            dc["nlbrightness"] = ir.Control(extra_fields={}, n="nlbrightness", v=NotImplemented)
 
         sensor_data = ir.SensorHistory(self.raw_sensors).to_latest()
 
@@ -105,20 +133,6 @@ class DeviceAws(CallbacksMixin):
         self.humidity = sensor_data_safe_get("h")
         self.fan_speed_0 = sensor_data_safe_get("fsp0")
 
-        def info_safe_get(path):
-            # directly reads for the schema. If the schema field is
-            # undefined, it is NotImplemented, not merely unavailable.
-            value = ir.query_json(self.raw_info, path)
-            if value is None:
-                return NotImplemented
-            return value
-
-        self.name = info_safe_get("configuration.di.name")
-        self.firmware = info_safe_get("configuration.di.cfv")
-        self.mcu_firmware = info_safe_get("configuration.di.mfv")
-        self.serial_number = info_safe_get("configuration.di.ds")
-        self.sku = info_safe_get("configuration.di.sku")
-
         states = ir.SensorPack(self.raw_info["states"]).to_latest_value()
 
         def states_safe_get(key):
@@ -131,7 +145,9 @@ class DeviceAws(CallbacksMixin):
         self.night_mode = states_safe_get("nightmode")
         self.germ_shield = states_safe_get("germshield")
         self.brightness = states_safe_get("brightness")
+        self.mood_brightness = states_safe_get("nlbrightness")
         self.child_lock = states_safe_get("childlock")
+        self.water_level = states_safe_get("wlevel")
         self.fan_speed = states_safe_get("fanspeed")
         if self.model in [
             ModelEnum.HUMIDIFIER_H35I,
@@ -145,6 +161,7 @@ class DeviceAws(CallbacksMixin):
                 self.fan_speed = 3
         self.fan_auto_mode = states_safe_get("automode")
         self.filter_usage_percentage = states_safe_get("filterusage")
+        self.water_refresher_usage_percentage = states_safe_get("ywrmusage")
 
         self.wick_usage_percentage = states_safe_get("wickusage")
         self.wick_dry_mode = states_safe_get("wickdrys")
@@ -170,6 +187,11 @@ class DeviceAws(CallbacksMixin):
     async def set_brightness(self, value: int):
         self.brightness = value
         await self.api.set_device_info(self.uuid, "brightness", "v", value)
+        self.publish_updates()
+
+    async def set_mood_brightness(self, value: int):
+        self.brightness = value
+        await self.api.set_device_info(self.uuid, "nlbrightness", "v", value)
         self.publish_updates()
 
     async def set_fan_speed(self, value: int):
