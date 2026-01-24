@@ -118,6 +118,7 @@ class DeviceAws(CallbacksMixin):
             dc["wlevel"] = ir.Control(extra_fields={}, n="wlevel", v=NotImplemented)
             dc["wickdrys"] = ir.Control(extra_fields={}, n="wickdrys", v=NotImplemented)
             dc["nlbrightness"] = ir.Control(extra_fields={}, n="nlbrightness", v=NotImplemented)
+            dc["brightness"] = ir.Control(extra_fields={}, n="brightness", v=NotImplemented)
 
         sensor_data = ir.SensorHistory(self.raw_sensors).to_latest()
 
