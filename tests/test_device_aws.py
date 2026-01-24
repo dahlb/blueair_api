@@ -394,6 +394,9 @@ class EmptyDeviceAwsTest(DeviceAwsTestBase):
             assert device.cool_fan_speed is NotImplemented
             assert device.fan_speed_0 is NotImplemented
             assert device.temperature_unit is NotImplemented
+            assert device.mood_brightness is NotImplemented
+            assert device.water_refresher_usage_percentage is NotImplemented
+            assert device.water_level is NotImplemented
 
 
 class H35iTest(DeviceAwsTestBase):
@@ -449,6 +452,9 @@ class H35iTest(DeviceAwsTestBase):
             assert device.cool_fan_speed is NotImplemented
             assert device.fan_speed_0 is None
             assert device.temperature_unit is NotImplemented
+            assert device.mood_brightness is NotImplemented
+            assert device.water_refresher_usage_percentage is NotImplemented
+            assert device.water_level is NotImplemented
 
 
 class Max311iTest(DeviceAwsTestBase):
@@ -503,6 +509,9 @@ class Max311iTest(DeviceAwsTestBase):
             assert device.cool_fan_speed is NotImplemented
             assert device.fan_speed_0 is None
             assert device.temperature_unit is NotImplemented
+            assert device.mood_brightness is NotImplemented
+            assert device.water_refresher_usage_percentage is NotImplemented
+            assert device.water_level is NotImplemented
 
 
 class T10iTest(DeviceAwsTestBase):
@@ -558,6 +567,9 @@ class T10iTest(DeviceAwsTestBase):
             assert device.ap_sub_mode == 1
             assert device.fan_speed_0 == 11
             assert device.temperature_unit == 1
+            assert device.mood_brightness is NotImplemented
+            assert device.water_refresher_usage_percentage is NotImplemented
+            assert device.water_level is NotImplemented
 
 
 class Protect7470iTest(DeviceAwsTestBase):
@@ -615,6 +627,9 @@ class Protect7470iTest(DeviceAwsTestBase):
             assert device.ap_sub_mode is NotImplemented
             assert device.fan_speed_0 == 91
             assert device.temperature_unit is NotImplemented
+            assert device.mood_brightness is NotImplemented
+            assert device.water_refresher_usage_percentage is NotImplemented
+            assert device.water_level is NotImplemented
 
 
 class Max211iTest(DeviceAwsTestBase):
@@ -670,6 +685,9 @@ class Max211iTest(DeviceAwsTestBase):
             assert device.ap_sub_mode is NotImplemented
             assert device.fan_speed_0 is None
             assert device.temperature_unit is NotImplemented
+            assert device.mood_brightness is NotImplemented
+            assert device.water_refresher_usage_percentage is NotImplemented
+            assert device.water_level is NotImplemented
 
 
 class PetAirProTest(DeviceAwsTestBase):
@@ -725,3 +743,6 @@ class PetAirProTest(DeviceAwsTestBase):
             assert device.ap_sub_mode == 1.0
             assert device.fan_speed_0 is None
             assert device.temperature_unit is NotImplemented
+            assert device.mood_brightness is NotImplemented
+            assert device.water_refresher_usage_percentage is NotImplemented
+            assert device.water_level is NotImplemented
