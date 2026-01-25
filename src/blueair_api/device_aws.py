@@ -191,7 +191,7 @@ class DeviceAws(CallbacksMixin):
         self.publish_updates()
 
     async def set_mood_brightness(self, value: int):
-        self.brightness = value
+        self.mood_brightness = value
         await self.api.set_device_info(self.uuid, "nlbrightness", "v", value)
         self.publish_updates()
 
