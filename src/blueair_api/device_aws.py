@@ -1,3 +1,4 @@
+from functools import cached_property
 from typing import Any
 
 from logging import getLogger
@@ -12,6 +13,12 @@ from dataclasses import dataclass, field
 _LOGGER = getLogger(__name__)
 
 type AttributeType[T] = T | None
+
+models_with_3_speed_levels_mapped = [
+    ModelEnum.HUMIDIFIER_H35I,
+    ModelEnum.HUMIDIFIER_H38I,
+    ModelEnum.HUMIDIFIER_H76I,
+]
 
 @dataclass(slots=True)
 class DeviceAws(CallbacksMixin):
@@ -150,10 +157,7 @@ class DeviceAws(CallbacksMixin):
         self.child_lock = states_safe_get("childlock")
         self.water_level = states_safe_get("wlevel")
         self.fan_speed = states_safe_get("fanspeed")
-        if self.model in [
-            ModelEnum.HUMIDIFIER_H38I,
-            ModelEnum.HUMIDIFIER_H76I,
-        ]:
+        if self.model in models_with_3_speed_levels_mapped:
             if self.fan_speed == 11:
                 self.fan_speed = 1
             elif self.fan_speed == 37:
@@ -195,12 +199,29 @@ class DeviceAws(CallbacksMixin):
         await self.api.set_device_info(self.uuid, "nlbrightness", "v", value)
         self.publish_updates()
 
+    @cached_property
+    def fan_speed_count(self) -> int:
+        if self.model in [
+            ModelEnum.MAX_211I,
+            ModelEnum.MAX_311I,
+            ModelEnum.MAX_311I_PLUS,
+            ModelEnum.MAX_3250I,
+            ModelEnum.MAX_3650I,
+            ModelEnum.PROTECT_7440I,
+            ModelEnum.PROTECT_7470I
+        ]:
+            return 91
+        if self.model in [
+            ModelEnum.T10I,
+        ]:
+            return 4
+        if self.model in models_with_3_speed_levels_mapped:
+            return 3
+        return 100
+
     async def set_fan_speed(self, value: int):
         self.fan_speed = value
-        if self.model in [
-            ModelEnum.HUMIDIFIER_H38I,
-            ModelEnum.HUMIDIFIER_H76I,
-        ]:
+        if self.model in models_with_3_speed_levels_mapped:
             if value == 1:
                 value = 11
             elif value == 2:
