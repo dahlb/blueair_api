@@ -199,7 +199,7 @@ class DeviceAws(CallbacksMixin):
         await self.api.set_device_info(self.uuid, "nlbrightness", "v", value)
         self.publish_updates()
 
-    @cached_property
+    @property
     def fan_speed_count(self) -> int:
         if self.model in [
             ModelEnum.MAX_211I,
