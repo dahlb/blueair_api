@@ -107,8 +107,8 @@ class DeviceAws(CallbacksMixin):
 
         ds = ir.parse_json(ir.Sensor, ir.query_json(self.raw_info, "configuration.ds"))
         dc = ir.parse_json(ir.Control, ir.query_json(self.raw_info, "configuration.dc"))
-        if self.model == ModelEnum.HUMIDIFIER_H76I:
-            # Fix schema inconsistency for H76i
+        if self.model in [ModelEnum.HUMIDIFIER_H38I, ModelEnum.HUMIDIFIER_H76I]:
+            # Fix schema inconsistency for H38i/H76i
             dc["nightmode"] = ir.Control(extra_fields={}, n="nightmode", v=NotImplemented)
             dc["automode"] = ir.Control(extra_fields={}, n="automode", v=NotImplemented)
             dc["wickusage"] = ir.Control(extra_fields={}, n="wickusage", v=NotImplemented)
@@ -151,7 +151,7 @@ class DeviceAws(CallbacksMixin):
         self.water_level = states_safe_get("wlevel")
         self.fan_speed = states_safe_get("fanspeed")
         if self.model in [
-            ModelEnum.HUMIDIFIER_H35I,
+            ModelEnum.HUMIDIFIER_H38I,
             ModelEnum.HUMIDIFIER_H76I,
         ]:
             if self.fan_speed == 11:
@@ -198,7 +198,7 @@ class DeviceAws(CallbacksMixin):
     async def set_fan_speed(self, value: int):
         self.fan_speed = value
         if self.model in [
-            ModelEnum.HUMIDIFIER_H35I,
+            ModelEnum.HUMIDIFIER_H38I,
             ModelEnum.HUMIDIFIER_H76I,
         ]:
             if value == 1:
@@ -289,6 +289,8 @@ class DeviceAws(CallbacksMixin):
     def model(self) -> ModelEnum:
         if self.sku in ["111633", "112851"]:
             return ModelEnum.HUMIDIFIER_H35I
+        if self.sku in ["113360", "113353"]:
+            return ModelEnum.HUMIDIFIER_H38I
         if self.sku in ["113366", "113363"]:
             return ModelEnum.HUMIDIFIER_H76I
         if self.sku == "105840":

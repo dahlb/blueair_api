@@ -4,6 +4,7 @@ from enum import StrEnum
 class ModelEnum(StrEnum):
     UNKNOWN = "Unknown"
     HUMIDIFIER_H35I = "Blueair Humidifier H35i"
+    HUMIDIFIER_H38I = "Blueair DreamWell Humidifier H38i"
     HUMIDIFIER_H76I = "Blueair DreamWell Humidifier H76i"
     PROTECT_7440I = "Blueair Protect 7440i"
     PROTECT_7470I = "Blueair Protect 7470i"
