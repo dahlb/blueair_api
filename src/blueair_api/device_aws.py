@@ -116,6 +116,7 @@ class DeviceAws(CallbacksMixin):
         dc = ir.parse_json(ir.Control, ir.query_json(self.raw_info, "configuration.dc"))
         if self.model in [ModelEnum.HUMIDIFIER_H38I, ModelEnum.HUMIDIFIER_H76I]:
             # Fix schema inconsistency for H38i/H76i
+            dc["standby"] = ir.Control(extra_fields={}, n="standby", v=NotImplemented)
             dc["nightmode"] = ir.Control(extra_fields={}, n="nightmode", v=NotImplemented)
             dc["automode"] = ir.Control(extra_fields={}, n="automode", v=NotImplemented)
             dc["wickusage"] = ir.Control(extra_fields={}, n="wickusage", v=NotImplemented)
