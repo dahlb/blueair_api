@@ -488,7 +488,7 @@ class H38iTest(DeviceAwsTestBase):
             assert device.serial_number == "111335300201111210008658"
             assert device.sku == "113353"
 
-            assert device.standby is NotImplemented
+            assert device.standby is False
             assert device.night_mode is False
             assert device.germ_shield is NotImplemented
             assert device.brightness == 100
@@ -546,7 +546,7 @@ class H76iTest(DeviceAwsTestBase):
             assert device.serial_number == "111336600201110510002463"
             assert device.sku == "113366"
 
-            assert device.standby is NotImplemented
+            assert device.standby is False
             assert device.night_mode is False
             assert device.germ_shield is NotImplemented
             assert device.brightness == 0
