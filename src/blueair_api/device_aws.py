@@ -341,4 +341,6 @@ class DeviceAws(CallbacksMixin):
             return ModelEnum.MAX_3250I
         if self.sku == "111905":
             return ModelEnum.MAX_3650I
+        if self.sku == "113825":
+            return ModelEnum.TWO_IN_ONE
         return ModelEnum.UNKNOWN
