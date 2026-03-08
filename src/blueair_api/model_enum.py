@@ -17,6 +17,6 @@ class ModelEnum(StrEnum):
     MAX_411I = "Blueair Blue Pure 411i Max"
     MAX_511I = "Blueair Blue Pure 511i Max"
     T10I = "T10i ComfortPure 3-in-1 Filter/Heater/Fan"
-    DH3I_TWO_IN_ONE = "DH3i 2-in-1 Pro Purify + Humidify"
+    TWO_IN_ONE = "2-in-1 Pro Purify + Humidify"
     BLUE_SIGNATURE = "Blue Signature"
     PET_AIR_PRO = "PetAir Pro"

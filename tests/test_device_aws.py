@@ -880,7 +880,7 @@ class TwoInOneTest(DeviceAwsTestBase):
 
         with assert_fully_checked(self.device) as device:
 
-            assert device.model == ModelEnum.DH3I_TWO_IN_ONE
+            assert device.model == ModelEnum.TWO_IN_ONE
 
             assert device.pm1 is None
             assert device.pm2_5 is None
