@@ -127,6 +127,9 @@ class DeviceAws(CallbacksMixin):
             dc["wickdrys"] = ir.Control(extra_fields={}, n="wickdrys", v=NotImplemented)
             dc["nlbrightness"] = ir.Control(extra_fields={}, n="nlbrightness", v=NotImplemented)
             dc["brightness"] = ir.Control(extra_fields={}, n="brightness", v=NotImplemented)
+        if self.model in [ModelEnum.DH3I_TWO_IN_ONE]:
+            dc["nightmode"] = ir.Control(extra_fields={}, n="nightmode", v=NotImplemented)
+            dc["automode"] = ir.Control(extra_fields={}, n="automode", v=NotImplemented)
 
         sensor_data = ir.SensorHistory(self.raw_sensors).to_latest()
 
@@ -342,5 +345,5 @@ class DeviceAws(CallbacksMixin):
         if self.sku == "111905":
             return ModelEnum.MAX_3650I
         if self.sku == "113825":
-            return ModelEnum.TWO_IN_ONE
+            return ModelEnum.DH3I_TWO_IN_ONE
         return ModelEnum.UNKNOWN

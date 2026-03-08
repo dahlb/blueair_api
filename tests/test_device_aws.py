@@ -880,7 +880,7 @@ class TwoInOneTest(DeviceAwsTestBase):
 
         with assert_fully_checked(self.device) as device:
 
-            assert device.model == ModelEnum.TWO_IN_ONE
+            assert device.model == ModelEnum.DH3I_TWO_IN_ONE
 
             assert device.pm1 is None
             assert device.pm2_5 is None
@@ -896,12 +896,12 @@ class TwoInOneTest(DeviceAwsTestBase):
             assert device.sku == "113825"
 
             assert device.standby is False
-            assert device.night_mode is NotImplemented
+            assert device.night_mode is None
             assert device.germ_shield is NotImplemented
             assert device.brightness == 0
             assert device.child_lock is False
             assert device.fan_speed == 50
-            assert device.fan_auto_mode is NotImplemented
+            assert device.fan_auto_mode is None
             assert device.filter_usage_percentage == 0
             assert device.wifi_working is True
             assert device.wick_usage_percentage == 0
