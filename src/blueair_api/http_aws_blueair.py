@@ -164,6 +164,7 @@ class HttpAwsBlueair:
         self.access_token = response_json["access_token"]
         # Extract the username claim from the JWT to use as userId in API paths
         try:
+            assert self.access_token is not None
             payload = self.access_token.split(".")[1]
             # Add padding if needed
             payload += "=" * (4 - len(payload) % 4)
