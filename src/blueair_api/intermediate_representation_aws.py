@@ -1,6 +1,7 @@
 import typing
 from typing import Any
 from collections.abc import Iterable
+from logging import getLogger
 import dataclasses
 import base64
 
@@ -9,6 +10,7 @@ type MappingType = dict[str, "ObjectType"]
 type SequenceType = list["ObjectType"]
 type ObjectType = ScalarType | MappingType | SequenceType
 
+_LOGGER = getLogger(__name__)
 
 def query_json(jsonobj: ObjectType, path: str) -> ObjectType:
     value = jsonobj
@@ -174,6 +176,7 @@ class SensorPack(list[Record]):
             ru = None
             rv : float | bool | str | bytes
             for label, value in record.items():
+                _LOGGER.debug(f"parsing senml record field {label} with value {value}")
                 assert isinstance(value, str | int | float | bool)
                 match label:
                     case 'bn' | 'bt' | 'bu' | 'bv' | 'bs' | 'bver':
