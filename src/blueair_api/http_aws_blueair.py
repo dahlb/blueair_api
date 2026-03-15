@@ -1,4 +1,6 @@
 import functools
+import json
+import base64
 
 from logging import getLogger
 from typing import Any
@@ -24,6 +26,7 @@ def request_with_active_session(func):
             self.session_token = None
             self.session_secret = None
             self.access_token = None
+            self.user_id = None
             self.jwt = None
             response = await func(*args, **kwargs)
             return response
@@ -80,6 +83,7 @@ class HttpAwsBlueair:
         self.session_secret = None
 
         self.access_token = None
+        self.user_id = None
 
         self.jwt = None
 
@@ -158,6 +162,24 @@ class HttpAwsBlueair:
         )
         response_json = await response.json()
         self.access_token = response_json["access_token"]
+        # Extract the username claim from the JWT to use as userId in API paths
+        try:
+            assert self.access_token is not None
+            payload = self.access_token.split(".")[1]
+            # Add padding if needed
+            payload += "=" * (4 - len(payload) % 4)
+            claims = json.loads(base64.urlsafe_b64decode(payload))
+            self.user_id = claims.get("username", "")
+            _LOGGER.debug(f"Extracted user_id from JWT: {self.user_id}")
+        except Exception as e:
+            _LOGGER.warning(f"Failed to extract user_id from access_token JWT: {e}")
+            self.user_id = None
+
+    async def get_user_id(self) -> str:
+        if self.user_id is None:
+            await self.refresh_access_token()
+        assert self.user_id is not None
+        return self.user_id
 
     async def get_access_token(self) -> str:
         _LOGGER.debug("get_access_token")
@@ -183,7 +205,8 @@ class HttpAwsBlueair:
 
     @request_with_active_session
     async def device_sensors(self, device_name, device_uuid, duration: timedelta = timedelta(hours=10)):
-        url = f"https://{AWS_APIKEYS[self.region]['restApiId']}.execute-api.{AWS_APIKEYS[self.region]['awsRegion']}/prod/c/{device_name}/r/telemetry/5m/historical"
+        user_id = await self.get_user_id()
+        url = f"https://{AWS_APIKEYS[self.region]['restApiId']}.execute-api.{AWS_APIKEYS[self.region]['awsRegion']}/prod/c/{user_id}/r/telemetry/5m/historical"
         headers = {
             "Authorization": f"Bearer {await self.get_access_token()}",
         }
@@ -204,7 +227,8 @@ class HttpAwsBlueair:
     @request_with_active_session
     async def device_info(self, device_name, device_uuid) -> dict[str, Any]:
         _LOGGER.debug("device_info")
-        url = f"https://{AWS_APIKEYS[self.region]['restApiId']}.execute-api.{AWS_APIKEYS[self.region]['awsRegion']}/prod/c/{device_name}/r/initial"
+        user_id = await self.get_user_id()
+        url = f"https://{AWS_APIKEYS[self.region]['restApiId']}.execute-api.{AWS_APIKEYS[self.region]['awsRegion']}/prod/c/{user_id}/r/initial"
         headers = {
             "Authorization": f"Bearer {await self.get_access_token()}",
         }
