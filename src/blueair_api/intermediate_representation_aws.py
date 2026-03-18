@@ -159,7 +159,7 @@ class Record:
     """A RFC8428 SenML record, resolved to Python types."""
     name: str
     unit: str | None
-    value: float | bool | str | bytes
+    value: float | bool | str | bytes | None
     timestamp: float | None
     integral: float | None
 
@@ -172,9 +172,9 @@ class SensorPack(list[Record]):
         for record in stream:
             rs = None
             rt = None
-            rn : str
+            rn : str = ""
             ru = None
-            rv : float | bool | str | bytes
+            rv : float | bool | str | bytes | None = None
             for label, value in record.items():
                 _LOGGER.debug(f"parsing senml record field {label} with value {value}")
                 assert isinstance(value, str | int | float | bool)
@@ -200,7 +200,7 @@ class SensorPack(list[Record]):
             seq.append(Record(name=rn, unit=ru, value=rv, integral=rs, timestamp=rt))
         super().__init__(seq)
 
-    def to_latest_value(self) -> dict[str, str | bool | float | bytes]:
+    def to_latest_value(self) -> dict[str, str | bool | float | bytes | None]:
         return {rn : record.value for rn, record in self.to_latest().items()}
 
     def to_latest(self) -> dict[str, Record]:

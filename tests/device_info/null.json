@@ -1,0 +1,306 @@
+{
+  "id": "122736c9-94b7-4da5-983f-8d61bb7f0fd0",
+  "configuration": {
+    "df": {
+      "a": 877,
+      "ot": "MiniRestful_Filter",
+      "fsfc": 18000000,
+      "yfsfc": 0,
+      "wfsfc": 0,
+      "alg": "FilterAlg1"
+    },
+    "di": {
+      "cfv": "1.0.1",
+      "cma": "30:ed:a0:8e:db:30",
+      "mt": "1",
+      "name": "Bedroom Air Purifier",
+      "sku": "113836",
+      "mfv": "1.2.9",
+      "ywrme": false,
+      "ofv": "1.2.9",
+      "hw": "mrest",
+      "ds": "111383600201111210001674"
+    },
+    "_ot": "CmConfig",
+    "_f": false,
+    "_it": "urn:blueair:openapi:version:iotmodule:0.0.5",
+    "_eid": "9e88402a-a10a-4c67-bd53-f2a041247296",
+    "_sc": "Instance",
+    "ds": {
+      "rt1s": {
+        "tf": "senml+json",
+        "ot": "RT1s",
+        "e": false,
+        "i": 1000,
+        "tn": "d/122736c9-94b7-4da5-983f-8d61bb7f0fd0/s/1s",
+        "sn": [
+          "rssi"
+        ],
+        "ttl": 0,
+        "n": "rt1s",
+        "fe": true
+      },
+      "rssi": {
+        "tf": "senml+json",
+        "ot": "RSSI",
+        "e": true,
+        "i": 0,
+        "tn": "d/122736c9-94b7-4da5-983f-8d61bb7f0fd0/s/rssi",
+        "ttl": 0,
+        "n": "rssi",
+        "fe": true
+      },
+      "rt5s": {
+        "tf": "senml+json",
+        "ot": "RT5s",
+        "e": false,
+        "i": 0,
+        "tn": "d/122736c9-94b7-4da5-983f-8d61bb7f0fd0/s/5s",
+        "sn": [
+          "rssi"
+        ],
+        "ttl": -1,
+        "n": "rt5s",
+        "fe": true
+      },
+      "b5m": {
+        "tf": "senml+json",
+        "th": [
+          "5kb",
+          "300s"
+        ],
+        "ot": "Batch5m",
+        "e": true,
+        "i": 300000,
+        "tn": "$aws/rules/telemetry_ingest_rule/d/122736c9-94b7-4da5-983f-8d61bb7f0fd0/s/batch/b5m",
+        "sn": [
+          "fsp0"
+        ],
+        "ttl": -1,
+        "n": "b5m",
+        "fe": true
+      },
+      "fsp0": {
+        "st": "fsp0",
+        "tf": "senml+json",
+        "t": 10,
+        "ot": "Fanspeed",
+        "e": true,
+        "i": 0,
+        "tn": "d/122736c9-94b7-4da5-983f-8d61bb7f0fd0/s/fsp0",
+        "sn": [
+          "fsp0"
+        ],
+        "ttl": -1,
+        "n": "fsp0",
+        "fe": true
+      },
+      "rt5m": {
+        "tf": "senml+json",
+        "ot": "RT5m",
+        "e": false,
+        "i": 300000,
+        "tn": "d/122736c9-94b7-4da5-983f-8d61bb7f0fd0/s/5m",
+        "sn": [
+          "rssi"
+        ],
+        "ttl": 0,
+        "n": "rt5m",
+        "fe": true
+      }
+    },
+    "_r": "us-east-2",
+    "_s": {
+      "sig": "f0c10b4077ba9b15ff1071249d115638755e78d9445b60d9a6035b5ac7b2357c",
+      "salg": "SHA256"
+    },
+    "_t": "Partial",
+    "_v": 1772921444,
+    "_cas": 1772910119,
+    "_id": "122736c9-94b7-4da5-983f-8d61bb7f0fd0",
+    "fc": {
+      "bssid": "",
+      "pwd": "9102revreSyrotcaF",
+      "ssid": "",
+      "url": ""
+    },
+    "da": {
+      "reboot": {
+        "p": false,
+        "a": false,
+        "ot": "Reboot",
+        "e": true,
+        "tn": "d/122736c9-94b7-4da5-983f-8d61bb7f0fd0/a/reboot",
+        "n": "reboot",
+        "fe": true
+      },
+      "sflu": {
+        "p": false,
+        "a": false,
+        "ot": "SensorFlush",
+        "e": true,
+        "tn": "d/122736c9-94b7-4da5-983f-8d61bb7f0fd0/a/sflu",
+        "n": "sflu",
+        "fe": true
+      },
+      "fsp0": {
+        "p": true,
+        "st": "fsp0",
+        "a": 20,
+        "tf": "senml+json",
+        "ot": "Fanspeed",
+        "e": true,
+        "tn": "d/122736c9-94b7-4da5-983f-8d61bb7f0fd0/a/fsp0",
+        "n": "fsp0",
+        "fe": true
+      }
+    },
+    "dc": {
+      "cfv": {
+        "d": "di.cfv",
+        "t": "integer",
+        "v": 0,
+        "n": "cfv"
+      },
+      "fanspeed": {
+        "a": "fsp0",
+        "s": "fsp0",
+        "t": "integer",
+        "v": 11,
+        "n": "fanspeed"
+      },
+      "ofv": {
+        "d": "di.ofv",
+        "t": "integer",
+        "v": 0,
+        "n": "ofv"
+      }
+    }
+  },
+  "alarms": [],
+  "events": [],
+  "sensordata": [],
+  "states": [
+    {
+      "n": "alarm1",
+      "vj": "null",
+      "t": 1773773367
+    },
+    {
+      "n": "alarm6",
+      "vj": "null",
+      "t": 1773773367
+    },
+    {
+      "n": "nlstepless",
+      "v": 0,
+      "t": 1773763574
+    },
+    {
+      "n": "standby",
+      "vb": false,
+      "t": 1773716705
+    },
+    {
+      "n": "timstate",
+      "v": 0,
+      "t": 1773716704
+    },
+    {
+      "n": "timl",
+      "v": 0,
+      "t": 1773716704
+    },
+    {
+      "n": "timts",
+      "v": 0,
+      "t": 1773716704
+    },
+    {
+      "n": "timdur",
+      "v": 7200,
+      "t": 1773716704
+    },
+    {
+      "n": "mfv",
+      "v": 16777737,
+      "t": 1773716705
+    },
+    {
+      "n": "mainmode",
+      "v": 0,
+      "t": 1773716706
+    },
+    {
+      "n": "apsubmode",
+      "v": 1,
+      "t": 1773722527
+    },
+    {
+      "n": "brightness",
+      "v": 40,
+      "t": 1773716706
+    },
+    {
+      "n": "cfv",
+      "v": 16777217,
+      "t": 1773716706
+    },
+    {
+      "n": "ofv",
+      "v": 16777737,
+      "t": 1773716706
+    },
+    {
+      "n": "fanspeed",
+      "v": 51,
+      "t": 1773763386
+    },
+    {
+      "n": "filterusage",
+      "v": 3,
+      "t": 1773716707
+    },
+    {
+      "n": "childlock",
+      "vb": false,
+      "t": 1773716707
+    },
+    {
+      "n": "alarm2",
+      "vj": "null",
+      "t": 1773716707
+    },
+    {
+      "n": "alarm4",
+      "vj": "null",
+      "t": 1773716707
+    },
+    {
+      "n": "alarm5",
+      "vj": "null",
+      "t": 1773716707
+    },
+    {
+      "n": "alarm3",
+      "vj": "null",
+      "t": 1773716707
+    },
+    {
+      "n": "hourformat",
+      "vb": false,
+      "t": 1773716709
+    },
+    {
+      "t": 1773716709,
+      "vb": true,
+      "n": "online"
+    }
+  ],
+  "welcomehome": {
+    "setting": []
+  },
+  "fleet_info": [],
+  "location_id": "",
+  "timezone": "America/Detroit"
+}
