@@ -328,7 +328,7 @@ class DeviceAws(CallbacksMixin):
             return ModelEnum.MAX_211I
         if self.sku in ["110092", "110829"]:
             return ModelEnum.MAX_311I
-        if self.sku == "110057":
+        if self.sku in ["110031", "110057"]:
             return ModelEnum.MAX_411I
         if self.sku in ["112637", "111178"]:
             return ModelEnum.MAX_511I
@@ -346,4 +346,6 @@ class DeviceAws(CallbacksMixin):
             return ModelEnum.MAX_3650I
         if self.sku == "113825":
             return ModelEnum.TWO_IN_ONE
+        if self.sku == "113836":
+            return ModelEnum.MINI_RESTFUL
         return ModelEnum.UNKNOWN

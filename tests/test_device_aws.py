@@ -938,7 +938,7 @@ class NullValueTest(DeviceAwsTestBase):
 
         with assert_fully_checked(self.device) as device:
 
-            assert device.model == ModelEnum.UNKNOWN
+            assert device.model == ModelEnum.MINI_RESTFUL
 
             assert device.pm1 is NotImplemented
             assert device.pm2_5 is NotImplemented
