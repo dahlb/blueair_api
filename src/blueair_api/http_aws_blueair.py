@@ -27,6 +27,9 @@ def request_with_active_session(func):
             self.session_secret = None
             self.access_token = None
             self.user_id = None
+            self.mqtt_auth_name = None
+            self.mqtt_auth_signature = None
+            self.mqtt_auth_token = None
             self.jwt = None
             response = await func(*args, **kwargs)
             return response
@@ -84,6 +87,10 @@ class HttpAwsBlueair:
 
         self.access_token = None
         self.user_id = None
+
+        self.mqtt_auth_name = None
+        self.mqtt_auth_signature = None
+        self.mqtt_auth_token = None
 
         self.jwt = None
 
@@ -162,6 +169,10 @@ class HttpAwsBlueair:
         )
         response_json = await response.json()
         self.access_token = response_json["access_token"]
+        # MQTT auth credentials from the same login response.
+        self.mqtt_auth_name = response_json.get("ba_X-Amz-CustomAuthorizer-Name")
+        self.mqtt_auth_signature = response_json.get("ba_X-Amz-CustomAuthorizer-Signature")
+        self.mqtt_auth_token = response_json.get("ba_X-Amz-CustomAuthorizer-Token")
         # Extract the username claim from the JWT to use as userId in API paths
         try:
             assert self.access_token is not None

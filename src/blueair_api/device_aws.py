@@ -73,6 +73,8 @@ class DeviceAws(CallbacksMixin):
     filter_usage_percentage : AttributeType[int] = None
     wifi_working : AttributeType[bool] = None
 
+    sensor_data_timestamp : float | None = None
+
     wick_usage_percentage : AttributeType[int] = None
     water_refresher_usage_percentage : AttributeType[int] = None
     wick_dry_mode : AttributeType[bool] = None
@@ -132,6 +134,7 @@ class DeviceAws(CallbacksMixin):
             dc["automode"] = ir.Control(extra_fields={}, n="automode", v=NotImplemented)
 
         sensor_data = ir.SensorHistory(self.raw_sensors).to_latest()
+        self.sensor_data_timestamp = sensor_data.timestamp if sensor_data.timestamp else None
 
         def sensor_data_safe_get(key):
             return sensor_data.values.get(key) if key in ds else NotImplemented
@@ -150,8 +153,16 @@ class DeviceAws(CallbacksMixin):
         def states_safe_get(key):
             return states.get(key) if key in dc else NotImplemented
 
-        # "online" is not defined in the schema.
-        self.wifi_working = states.get("online")
+        # "online" is not defined in the schema (dc).
+        # The Blueair cloud API frequently reports online=False even when
+        # the device is fully operational and reporting live sensor data
+        # (see https://github.com/dahlb/ha_blueair/issues/287).
+        #
+        # We faithfully report the API value (defaulting to True when
+        # absent), but consumers should NOT gate entity availability on
+        # this field. It is informational only.
+        online_state = states.get("online")
+        self.wifi_working = online_state if online_state is not None else True
 
         self.standby = states_safe_get("standby")
         self.night_mode = states_safe_get("nightmode")
