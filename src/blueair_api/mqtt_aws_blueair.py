@@ -156,7 +156,10 @@ class MqttAwsBlueair:
         if self._client is not None:
             self._client.disconnect()
             self._connected = False
-            self._client = None
+        if self._thread is not None:
+            self._thread.join(timeout=5)
+            self._thread = None
+        self._client = None
 
     def _on_connect(self, client, userdata, flags, reason_code, properties):
         if reason_code == 0:
