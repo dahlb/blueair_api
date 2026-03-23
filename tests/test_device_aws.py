@@ -380,7 +380,7 @@ class EmptyDeviceAwsTest(DeviceAwsTestBase):
             assert device.fan_speed is NotImplemented
             assert device.fan_auto_mode is NotImplemented
             assert device.filter_usage_percentage is NotImplemented
-            assert device.wifi_working is None
+            assert device.wifi_working is True  # defaults to True when online state is missing
             assert device.wick_usage_percentage is NotImplemented
             assert device.auto_regulated_humidity is NotImplemented
             assert device.water_shortage is NotImplemented
@@ -978,3 +978,54 @@ class NullValueTest(DeviceAwsTestBase):
             assert device.mood_brightness is NotImplemented
             assert device.water_refresher_usage_percentage is NotImplemented
             assert device.water_level is NotImplemented
+
+
+class OnlineStateTest(DeviceAwsTestBase):
+    """Tests for wifi_working behavior.
+
+    The Blueair cloud API frequently reports online=False even when the
+    device is fully operational (github.com/dahlb/ha_blueair/issues/287).
+    wifi_working faithfully reports the API value but should NOT be used
+    to gate entity availability.
+    """
+
+    def setUp(self):
+        super().setUp()
+        fake = {"n": "n", "v": 0}
+        ir.query_json(self.device_info_helper.info, "configuration.dc").update({
+            "standby": fake,
+            "fanspeed": fake,
+        })
+
+    async def test_online_explicit_true(self):
+        """Explicit online=True in states → wifi_working=True."""
+        self.device_info_helper.info["states"] = [
+            {"n": "online", "vb": True},
+            {"n": "standby", "vb": False},
+            {"n": "fanspeed", "v": 11},
+        ]
+        await self.device.refresh()
+        assert self.device.wifi_working is True
+
+    async def test_online_explicit_false(self):
+        """Explicit online=False in states → wifi_working=False.
+
+        The cloud API frequently returns online=False even for active
+        devices. Consumers should not gate availability on this field.
+        """
+        self.device_info_helper.info["states"] = [
+            {"n": "online", "vb": False},
+            {"n": "standby", "vb": False},
+            {"n": "fanspeed", "v": 11},
+        ]
+        await self.device.refresh()
+        assert self.device.wifi_working is False
+
+    async def test_online_missing_defaults_true(self):
+        """Missing online field → wifi_working defaults to True."""
+        self.device_info_helper.info["states"] = [
+            {"n": "standby", "vb": False},
+            {"n": "fanspeed", "v": 11},
+        ]
+        await self.device.refresh()
+        assert self.device.wifi_working is True

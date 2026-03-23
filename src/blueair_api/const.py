@@ -36,6 +36,16 @@ AWS_APIKEYS = {
     },
 }
 
+# MQTT broker endpoints per region (AWS IoT Core).
+# Identified via the Blueair cloud API login response and AWS IoT
+# endpoint patterns.
+AWS_MQTT_BROKERS = {
+    "us": "a3tpdpjvxk6yog-ats.iot.us-east-2.amazonaws.com",
+    "eu": "a3tpdpjvxk6yog-ats.iot.eu-west-1.amazonaws.com",
+    "au": "a3tpdpjvxk6yog-ats.iot.eu-west-1.amazonaws.com",
+    "cn": "a2du5f95w7oz2a.ats.iot.cn-north-1.amazonaws.com.cn",
+}
+
 
 class MeasurementBundle(TypedDict):
     sensors: list[str]
