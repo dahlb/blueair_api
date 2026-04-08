@@ -6,19 +6,13 @@ from json import dumps
 
 from .callbacks import CallbacksMixin
 from .http_aws_blueair import HttpAwsBlueair
-from .model_enum import ModelEnum
+from .sku_map import model_name_from_sku
 from . import intermediate_representation_aws as ir
 from dataclasses import dataclass, field
 
 _LOGGER = getLogger(__name__)
 
 type AttributeType[T] = T | None
-
-models_with_3_speed_levels_mapped = [
-    ModelEnum.HUMIDIFIER_H35I,
-    ModelEnum.HUMIDIFIER_H38I,
-    ModelEnum.HUMIDIFIER_H76I,
-]
 
 @dataclass(slots=True)
 class DeviceAws(CallbacksMixin):
@@ -91,6 +85,7 @@ class DeviceAws(CallbacksMixin):
     ap_sub_mode: AttributeType[int] = None # api value 1 manual speeed, 2 auto fan speed
     fan_speed_0: AttributeType[int] = None # api value 11/37/64/91
     temperature_unit: AttributeType[int] = None # api value of 1 is celcius
+    hw: AttributeType[str] = None # hardware identifier from configuration.di.hw
 
     async def refresh(self):
         _LOGGER.debug(f"refreshing blueair device aws: {self}")
@@ -113,25 +108,20 @@ class DeviceAws(CallbacksMixin):
         self.mcu_firmware = info_safe_get("configuration.di.mfv")
         self.serial_number = info_safe_get("configuration.di.ds")
         self.sku = info_safe_get("configuration.di.sku")
+        self.hw = info_safe_get("configuration.di.hw")
 
         ds = ir.parse_json(ir.Sensor, ir.query_json(self.raw_info, "configuration.ds"))
         dc = ir.parse_json(ir.Control, ir.query_json(self.raw_info, "configuration.dc"))
-        if self.model in [ModelEnum.HUMIDIFIER_H38I, ModelEnum.HUMIDIFIER_H76I]:
-            # Fix schema inconsistency for H38i/H76i
-            dc["standby"] = ir.Control(extra_fields={}, n="standby", v=NotImplemented)
-            dc["nightmode"] = ir.Control(extra_fields={}, n="nightmode", v=NotImplemented)
-            dc["automode"] = ir.Control(extra_fields={}, n="automode", v=NotImplemented)
-            dc["wickusage"] = ir.Control(extra_fields={}, n="wickusage", v=NotImplemented)
-            dc["childlock"] = ir.Control(extra_fields={}, n="childlock", v=NotImplemented)
-            dc["autorh"] = ir.Control(extra_fields={}, n="autorh", v=NotImplemented)
-            dc["ywrmusage"] = ir.Control(extra_fields={}, n="ywrmusage", v=NotImplemented)
-            dc["wlevel"] = ir.Control(extra_fields={}, n="wlevel", v=NotImplemented)
-            dc["wickdrys"] = ir.Control(extra_fields={}, n="wickdrys", v=NotImplemented)
-            dc["nlbrightness"] = ir.Control(extra_fields={}, n="nlbrightness", v=NotImplemented)
-            dc["brightness"] = ir.Control(extra_fields={}, n="brightness", v=NotImplemented)
-        if self.model in [ModelEnum.TWO_IN_ONE]:
-            dc["nightmode"] = ir.Control(extra_fields={}, n="nightmode", v=NotImplemented)
-            dc["automode"] = ir.Control(extra_fields={}, n="automode", v=NotImplemented)
+        # Auto-populate dc from state keys the device reports but aren't
+        # declared in the dc schema.  Some devices (e.g. H38i, H76i,
+        # Mini Restful) have an incomplete dc yet still publish the
+        # corresponding states.  This generic fixup replaces per-model
+        # hard-coded patches and ensures future devices work without
+        # code changes.
+        for state in self.raw_info.get("states", []):
+            key = state.get("n")
+            if key and key not in dc and key != "online":
+                dc[key] = ir.Control(extra_fields={}, n=key, v=NotImplemented)
 
         sensor_data = ir.SensorHistory(self.raw_sensors).to_latest()
         self.sensor_data_timestamp = sensor_data.timestamp if sensor_data.timestamp else None
@@ -172,7 +162,7 @@ class DeviceAws(CallbacksMixin):
         self.child_lock = states_safe_get("childlock")
         self.water_level = states_safe_get("wlevel")
         self.fan_speed = states_safe_get("fanspeed")
-        if self.model in models_with_3_speed_levels_mapped:
+        if self._is_humidifier:
             if self.fan_speed == 11:
                 self.fan_speed = 1
             elif self.fan_speed == 37:
@@ -215,28 +205,36 @@ class DeviceAws(CallbacksMixin):
         self.publish_updates()
 
     @property
-    def fan_speed_count(self) -> int:
-        if self.model in [
-            ModelEnum.MAX_211I,
-            ModelEnum.MAX_311I,
-            ModelEnum.MAX_311I_PLUS,
-            ModelEnum.MAX_3250I,
-            ModelEnum.MAX_3650I,
-            ModelEnum.PROTECT_7440I,
-            ModelEnum.PROTECT_7470I
-        ]:
-            return 91
-        if self.model in [
-            ModelEnum.T10I,
-        ]:
-            return 4
-        if self.model in models_with_3_speed_levels_mapped:
+    def _is_humidifier(self) -> bool:
+        """True for humidifier-class devices that use 3-speed fan mapping."""
+        hw = self.hw if isinstance(self.hw, str) else ""
+        return hw.startswith("hum")
+
+    @property
+    def mood_brightness_max(self) -> int:
+        """Max mood-light brightness the hardware supports.
+
+        The H76i (hw='hum2_l') has a 3-step mood light; all other
+        models use a 0-100 percentage scale."""
+        hw = self.hw if isinstance(self.hw, str) else ""
+        if hw == "hum2_l":
             return 3
+        return 100
+
+    @property
+    def fan_speed_count(self) -> int:
+        hw = self.hw if isinstance(self.hw, str) else ""
+        if self._is_humidifier:
+            return 3
+        if hw.startswith("nb_") or hw.startswith("high"):
+            return 91
+        if hw.startswith("cmb3in1"):
+            return 4
         return 100
 
     async def set_fan_speed(self, value: int):
         self.fan_speed = value
-        if self.model in models_with_3_speed_levels_mapped:
+        if self._is_humidifier:
             if value == 1:
                 value = 11
             elif value == 2:
@@ -322,41 +320,6 @@ class DeviceAws(CallbacksMixin):
         self.publish_updates()
 
     @property
-    def model(self) -> ModelEnum:
-        if self.sku in ["111633", "112851"]:
-            return ModelEnum.HUMIDIFIER_H35I
-        if self.sku in ["113360", "113353"]:
-            return ModelEnum.HUMIDIFIER_H38I
-        if self.sku in ["113366", "113363"]:
-            return ModelEnum.HUMIDIFIER_H76I
-        if self.sku == "105840":
-            return ModelEnum.PROTECT_7770I
-        if self.sku == "105820":
-            return ModelEnum.PROTECT_7440I
-        if self.sku == "105826":
-            return ModelEnum.PROTECT_7470I
-        if self.sku == "110059":
-            return ModelEnum.MAX_211I
-        if self.sku in ["110092", "110829"]:
-            return ModelEnum.MAX_311I
-        if self.sku in ["110031", "110057"]:
-            return ModelEnum.MAX_411I
-        if self.sku in ["112637", "111178"]:
-            return ModelEnum.MAX_511I
-        if self.sku == "112124":
-            return ModelEnum.T10I
-        if self.sku in ["109539", "110034"]:
-            return ModelEnum.MAX_311I_PLUS
-        if self.sku == "112929":
-            return ModelEnum.BLUE_SIGNATURE
-        if self.sku == "112793":
-            return ModelEnum.PET_AIR_PRO
-        if self.sku == "110178":
-            return ModelEnum.MAX_3250I
-        if self.sku == "111905":
-            return ModelEnum.MAX_3650I
-        if self.sku == "113825":
-            return ModelEnum.TWO_IN_ONE
-        if self.sku == "113836":
-            return ModelEnum.MINI_RESTFUL
-        return ModelEnum.UNKNOWN
+    def model_name(self) -> str:
+        """Human-readable product name derived from SKU lookup."""
+        return model_name_from_sku(self.sku)
