@@ -23,7 +23,7 @@ from unittest import IsolatedAsyncioTestCase
 import pytest
 
 from blueair_api.device_aws import DeviceAws, AttributeType
-from blueair_api.model_enum import ModelEnum
+from blueair_api.sku_map import UNKNOWN_MODEL
 from blueair_api import http_aws_blueair
 from blueair_api import intermediate_representation_aws as ir
 
@@ -357,7 +357,7 @@ class EmptyDeviceAwsTest(DeviceAwsTestBase):
 
         with assert_fully_checked(self.device) as device:
 
-            assert device.model == ModelEnum.UNKNOWN
+            assert UNKNOWN_MODEL in device.model_name
 
             assert device.pm1 is NotImplemented
             assert device.pm2_5 is NotImplemented
@@ -371,6 +371,7 @@ class EmptyDeviceAwsTest(DeviceAwsTestBase):
             assert device.mcu_firmware is NotImplemented
             assert device.serial_number is NotImplemented
             assert device.sku is NotImplemented
+            assert device.hw is NotImplemented
 
             assert device.standby is NotImplemented
             assert device.night_mode is NotImplemented
@@ -415,7 +416,7 @@ class H35iTest(DeviceAwsTestBase):
 
         with assert_fully_checked(self.device) as device:
 
-            assert device.model == ModelEnum.HUMIDIFIER_H35I
+            assert device.model_name == "Blueair Humidifier H35i"
 
             assert device.pm1 is NotImplemented
             assert device.pm2_5 is NotImplemented
@@ -429,6 +430,7 @@ class H35iTest(DeviceAwsTestBase):
             assert device.mcu_firmware == "1.0.1"
             assert device.serial_number == "111163300201110210004036"
             assert device.sku == "111633"
+            assert device.hw == "hum"
 
             assert device.standby is False
             assert device.night_mode is False
@@ -473,7 +475,7 @@ class H38iTest(DeviceAwsTestBase):
 
         with assert_fully_checked(self.device) as device:
 
-            assert device.model == ModelEnum.HUMIDIFIER_H38I
+            assert device.model_name == "Blueair DreamWell Humidifier H38i"
 
             assert device.pm1 is NotImplemented
             assert device.pm2_5 is NotImplemented
@@ -487,6 +489,7 @@ class H38iTest(DeviceAwsTestBase):
             assert device.mcu_firmware == "1.0.1"
             assert device.serial_number == "111335300201111210008658"
             assert device.sku == "113353"
+            assert device.hw == "hum2_s"
 
             assert device.standby is False
             assert device.night_mode is False
@@ -531,7 +534,7 @@ class H76iTest(DeviceAwsTestBase):
 
         with assert_fully_checked(self.device) as device:
 
-            assert device.model == ModelEnum.HUMIDIFIER_H76I
+            assert device.model_name == "Blueair DreamWell Humidifier H76i"
 
             assert device.pm1 is NotImplemented
             assert device.pm2_5 is NotImplemented
@@ -545,6 +548,7 @@ class H76iTest(DeviceAwsTestBase):
             assert device.mcu_firmware == "1.0.4"
             assert device.serial_number == "111336600201110510002463"
             assert device.sku == "113366"
+            assert device.hw == "hum2_l"
 
             assert device.standby is False
             assert device.night_mode is False
@@ -588,7 +592,7 @@ class Max311iTest(DeviceAwsTestBase):
 
         with assert_fully_checked(self.device) as device:
 
-            assert device.model == ModelEnum.MAX_311I
+            assert device.model_name == "Blueair Blue Pure 311i Max"
 
             assert device.pm1 is NotImplemented
             assert device.pm2_5 is None
@@ -602,6 +606,7 @@ class Max311iTest(DeviceAwsTestBase):
             assert device.mcu_firmware == "1.0.4"
             assert device.serial_number == "111082900302313210005018"
             assert device.sku == "110829"
+            assert device.hw == "nb_m_1.0"
 
             assert device.standby is False
             assert device.night_mode is False
@@ -646,7 +651,7 @@ class T10iTest(DeviceAwsTestBase):
 
         with assert_fully_checked(self.device) as device:
 
-            assert device.model == ModelEnum.T10I
+            assert device.model_name == "Blueair ComfortPure 3-in-1 T10i"
 
             assert device.pm1 is NotImplemented
             assert device.pm2_5 is None
@@ -660,6 +665,7 @@ class T10iTest(DeviceAwsTestBase):
             assert device.mcu_firmware == "1.0.4"
             assert device.serial_number == "111212400002313210001961"
             assert device.sku == "112124"
+            assert device.hw == "cmb3in1"
 
             assert device.standby is False
             assert device.night_mode is NotImplemented
@@ -707,7 +713,7 @@ class Protect7470iTest(DeviceAwsTestBase):
 
         with assert_fully_checked(self.device) as device:
 
-            assert device.model == ModelEnum.PROTECT_7470I
+            assert device.model_name == "Blueair Protect 7470i"
             assert device.pm1 == 0
             assert device.pm2_5 == 0
             assert device.pm10 == 0
@@ -720,6 +726,7 @@ class Protect7470iTest(DeviceAwsTestBase):
             assert device.mcu_firmware == "1.0.12"
             assert device.serial_number == "110582600000110110016855"
             assert device.sku == "105826"
+            assert device.hw == "high_1.5"
 
             assert device.standby is False
             assert device.night_mode is False
@@ -764,7 +771,7 @@ class Max211iTest(DeviceAwsTestBase):
 
         with assert_fully_checked(self.device) as device:
 
-            assert device.model == ModelEnum.MAX_211I
+            assert device.model_name == "Blueair Blue Pure 211i Max"
 
             assert device.pm1 is None
             assert device.pm2_5 is None
@@ -778,6 +785,7 @@ class Max211iTest(DeviceAwsTestBase):
             assert device.mcu_firmware == "1.1.6"
             assert device.serial_number == "111005900201111210085956"
             assert device.sku == "110059"
+            assert device.hw == "nb_h_1.0"
 
             assert device.standby is False
             assert device.night_mode is False
@@ -822,7 +830,7 @@ class PetAirProTest(DeviceAwsTestBase):
 
         with assert_fully_checked(self.device) as device:
 
-            assert device.model == ModelEnum.PET_AIR_PRO
+            assert device.model_name == "Blueair PetAir Pro P3i"
 
             assert device.pm1 is None
             assert device.pm2_5 is None
@@ -836,6 +844,7 @@ class PetAirProTest(DeviceAwsTestBase):
             assert device.mcu_firmware == "1.0.3"
             assert device.serial_number == "111279300002313310000090"
             assert device.sku == "112793"
+            assert device.hw == "pet20"
 
             assert device.standby is False
             assert device.night_mode is NotImplemented
@@ -880,7 +889,7 @@ class TwoInOneTest(DeviceAwsTestBase):
 
         with assert_fully_checked(self.device) as device:
 
-            assert device.model == ModelEnum.TWO_IN_ONE
+            assert device.model_name == "Blueair Air Purifier + Humidifier 2-in-1 Pro"
 
             assert device.pm1 is None
             assert device.pm2_5 is None
@@ -894,14 +903,15 @@ class TwoInOneTest(DeviceAwsTestBase):
             assert device.mcu_firmware == "1.1.0"
             assert device.serial_number == "111382500002313310004087"
             assert device.sku == "113825"
+            assert device.hw == "cmb2in1_ii"
 
             assert device.standby is False
-            assert device.night_mode is None
+            assert device.night_mode is NotImplemented
             assert device.germ_shield is NotImplemented
             assert device.brightness == 0
             assert device.child_lock is False
             assert device.fan_speed == 50
-            assert device.fan_auto_mode is None
+            assert device.fan_auto_mode is NotImplemented
             assert device.filter_usage_percentage == 0
             assert device.wifi_working is True
             assert device.wick_usage_percentage == 0
@@ -938,7 +948,7 @@ class NullValueTest(DeviceAwsTestBase):
 
         with assert_fully_checked(self.device) as device:
 
-            assert device.model == ModelEnum.MINI_RESTFUL
+            assert device.model_name == "Blueair Mini Restful"
 
             assert device.pm1 is NotImplemented
             assert device.pm2_5 is NotImplemented
@@ -952,27 +962,28 @@ class NullValueTest(DeviceAwsTestBase):
             assert device.mcu_firmware == "1.2.9"
             assert device.serial_number == "111383600201111210001674"
             assert device.sku == "113836"
+            assert device.hw == "mrest"
 
-            assert device.standby is NotImplemented
+            assert device.standby is False
             assert device.night_mode is NotImplemented
             assert device.germ_shield is NotImplemented
-            assert device.brightness == NotImplemented
-            assert device.child_lock is NotImplemented
+            assert device.brightness == 40
+            assert device.child_lock is False
             assert device.fan_speed == 51
             assert device.fan_auto_mode is NotImplemented
-            assert device.filter_usage_percentage is NotImplemented
+            assert device.filter_usage_percentage == 3
             assert device.wifi_working is True
             assert device.wick_usage_percentage is NotImplemented
             assert device.auto_regulated_humidity is NotImplemented
             assert device.water_shortage is NotImplemented
             assert device.wick_dry_mode is NotImplemented
-            assert device.main_mode is NotImplemented
+            assert device.main_mode == 0
             assert device.heat_temp is NotImplemented
             assert device.heat_sub_mode is NotImplemented
             assert device.heat_fan_speed is NotImplemented
             assert device.cool_sub_mode is NotImplemented
             assert device.cool_fan_speed is NotImplemented
-            assert device.ap_sub_mode is NotImplemented
+            assert device.ap_sub_mode == 1
             assert device.fan_speed_0 is None
             assert device.temperature_unit is NotImplemented
             assert device.mood_brightness is NotImplemented
@@ -1029,3 +1040,30 @@ class OnlineStateTest(DeviceAwsTestBase):
         ]
         await self.device.refresh()
         assert self.device.wifi_working is True
+
+
+class ModelNameTest(DeviceAwsTestBase):
+    """Tests for model_name property (SKU dict lookup)."""
+
+    async def test_known_sku_from_dict(self):
+        """SKU in the dict returns the human-readable name."""
+        ir.query_json(self.device_info_helper.info, "configuration.di")["sku"] = "111582"
+        await self.device.refresh()
+        assert self.device.model_name == "Blueair Blue Pure 511i Max"
+
+    async def test_another_known_sku(self):
+        """Another SKU in the dict returns the correct name."""
+        ir.query_json(self.device_info_helper.info, "configuration.di")["sku"] = "110829"
+        await self.device.refresh()
+        assert self.device.model_name == "Blueair Blue Pure 311i Max"
+
+    async def test_unknown_sku(self):
+        """Completely unknown SKU falls back to 'Unknown (sku)'."""
+        ir.query_json(self.device_info_helper.info, "configuration.di")["sku"] = "999999"
+        await self.device.refresh()
+        assert self.device.model_name == f"{UNKNOWN_MODEL} (999999)"
+
+    async def test_no_sku(self):
+        """Missing SKU (NotImplemented) falls back gracefully."""
+        await self.device.refresh()
+        assert UNKNOWN_MODEL in self.device.model_name
