@@ -9,6 +9,14 @@ Api Wrapper for BlueAir API using async in python, this was inspired by [this gu
 
 a lot of this is based on [hass-blueair](https://github.com/aijayadams/hass-blueair).
 
+## Features
+
+- **REST API** — async device discovery, sensor polling, and control commands (fan speed, brightness, child lock, etc.) for both legacy and AWS-based Blueair devices
+- **MQTT real-time updates** — receive sensor data (PM2.5, temperature, humidity, etc.) and device state changes via AWS IoT WebSocket with sub-second latency instead of 5-minute polling
+- **Automatic reconnect with credential refresh** — MQTT tokens expire after 24 hours; the client refreshes credentials and reconnects with exponential backoff (5s → 300s max) on unexpected disconnects
+- **Data-driven SKU mapping** — resolves 418+ device SKUs to human-readable product names (e.g., `111582` → "Blueair Blue Pure 511i Max") via a built-in lookup table
+- **Per-device hardware detection** — `mood_brightness_max` and `fan_speed_count` adapt automatically based on the device's hardware identifier
+
 ***
 
 [blueair_api]: https://github.com/dahlb/blueair_api
