@@ -241,6 +241,7 @@ class MqttAwsBlueair:
         # Start reconnect with credential refresh in a background thread.
         # We don't call loop_stop() here because we're on paho's network
         # thread — it will exit naturally after this callback returns.
+        _LOGGER.info("Starting MQTT reconnect loop with credential refresh")
         if self._reconnect_thread is None or not self._reconnect_thread.is_alive():
             self._reconnect_thread = threading.Thread(
                 target=self._reconnect_loop, daemon=True
