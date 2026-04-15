@@ -212,7 +212,7 @@ class MqttAwsBlueair:
 
     def _on_connect(self, client, userdata, flags, reason_code, properties):
         if reason_code == 0:
-            _LOGGER.info(f"MQTT connected successfully (devices={len(self._device_ids)})")
+            _LOGGER.debug(f"MQTT connected (devices={len(self._device_ids)})")
             self._connected = True
             # Subscribe to per-user event topic
             user_topic = f"c/{self._user_id}/s/event"
@@ -234,13 +234,14 @@ class MqttAwsBlueair:
                 self.on_disconnect_callback()
             return
 
-        _LOGGER.warning(f"MQTT disconnected unexpectedly: reason_code={reason_code}")
+        _LOGGER.debug(f"MQTT disconnected unexpectedly: reason_code={reason_code}")
         if self.on_disconnect_callback:
             self.on_disconnect_callback()
 
         # Start reconnect with credential refresh in a background thread.
         # We don't call loop_stop() here because we're on paho's network
         # thread — it will exit naturally after this callback returns.
+        _LOGGER.debug("Starting MQTT reconnect loop with credential refresh")
         if self._reconnect_thread is None or not self._reconnect_thread.is_alive():
             self._reconnect_thread = threading.Thread(
                 target=self._reconnect_loop, daemon=True
@@ -258,7 +259,7 @@ class MqttAwsBlueair:
 
         while not self._stopping:
             attempt += 1
-            _LOGGER.info(f"MQTT reconnect attempt {attempt} in {delay}s...")
+            _LOGGER.debug(f"MQTT reconnect attempt {attempt} in {delay}s...")
             time.sleep(delay)
             if self._stopping:
                 _LOGGER.info("MQTT reconnect cancelled (shutting down)")
@@ -268,7 +269,7 @@ class MqttAwsBlueair:
             # credentials while we were sleeping. If so, tear it down
             # and replace with a fresh-credential connection.
             if self._connected:
-                _LOGGER.info(
+                _LOGGER.debug(
                     "MQTT auto-reconnected with existing credentials; "
                     "replacing with fresh credentials"
                 )
@@ -289,7 +290,7 @@ class MqttAwsBlueair:
                     self._mqtt_auth_name = new_name
                     self._mqtt_auth_signature = new_sig
                     self._mqtt_auth_token = new_token
-                    _LOGGER.info("MQTT credentials refreshed successfully")
+                    _LOGGER.debug("MQTT credentials refreshed successfully")
                 except Exception:
                     _LOGGER.exception(
                         f"Failed to refresh MQTT credentials (attempt {attempt}), "
@@ -307,7 +308,7 @@ class MqttAwsBlueair:
                 self._client = self._build_client()
                 self._client.connect(broker, 443, keepalive=60)
                 self._client.loop_start()
-                _LOGGER.info(f"MQTT reconnected with fresh credentials (attempt {attempt})")
+                _LOGGER.debug(f"MQTT reconnected with fresh credentials (attempt {attempt})")
                 return
             except Exception:
                 _LOGGER.exception(
@@ -401,7 +402,7 @@ class MqttAwsBlueair:
         # The event payload uses short field names: "o" for origin, "et" for event type.
         device_id = str(payload.get("o", payload.get("originDeviceId", "")))
         event_type = str(payload.get("et", payload.get("connectionEvent", "unknown")))
-        _LOGGER.info(f"Device event for {device_id}: {event_type} ({payload.get('m', '')})")
+        _LOGGER.debug(f"Device event for {device_id}: {event_type} ({payload.get('m', '')})")
         if self.on_event:
             try:
                 self.on_event(device_id, payload)

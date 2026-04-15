@@ -158,8 +158,15 @@ class HttpAwsBlueair:
 
     async def refresh_access_token(self) -> None:
         _LOGGER.debug("refresh_access_token")
-        if self.jwt is None:
-            await self.refresh_jwt()
+        # Always do a full re-authentication from scratch.
+        # The JWT from Gigya has a very short lifetime (~5 minutes) and cannot
+        # be reused.  Previously we skipped refresh_jwt() when self.jwt was
+        # still set, which caused MQTT credential refreshes to send an expired
+        # JWT and get stuck in a 401 loop.
+        self.session_token = None
+        self.session_secret = None
+        self.jwt = None
+        await self.refresh_jwt()
         url = f"https://{AWS_APIKEYS[self.region]['restApiId']}.execute-api.{AWS_APIKEYS[self.region]['awsRegion']}/prod/c/login"
         headers = {"idtoken": self.jwt, "authorization": f"Bearer {self.jwt}"}
         response: ClientResponse = (
@@ -173,6 +180,13 @@ class HttpAwsBlueair:
         self.mqtt_auth_name = response_json.get("ba_X-Amz-CustomAuthorizer-Name")
         self.mqtt_auth_signature = response_json.get("ba_X-Amz-CustomAuthorizer-Signature")
         self.mqtt_auth_token = response_json.get("ba_X-Amz-CustomAuthorizer-Token")
+        if self.mqtt_auth_name and self.mqtt_auth_signature and self.mqtt_auth_token:
+            _LOGGER.debug("refresh_access_token: obtained access token and MQTT credentials")
+        else:
+            _LOGGER.warning(
+                "refresh_access_token: MQTT credentials missing from login response; "
+                "MQTT real-time updates will not be available"
+            )
         # Extract the username claim from the JWT to use as userId in API paths
         try:
             assert self.access_token is not None
