@@ -177,7 +177,10 @@ class SensorPack(list[Record]):
             rv : float | bool | str | bytes | None = None
             for label, value in record.items():
                 _LOGGER.debug(f"parsing senml record field {label} with value {value}")
-                assert isinstance(value, str | int | float | bool)
+                if not isinstance(value, str | int | float | bool):
+                    # Skip non-scalar values (e.g. 'vj' alarm JSON dicts).
+                    _LOGGER.debug(f"skipping non-scalar senml field {label}")
+                    continue
                 match label:
                     case 'bn' | 'bt' | 'bu' | 'bv' | 'bs' | 'bver':
                         raise ValueError("TODO: base fields not supported. c.f. RFC8428, 4.1")
@@ -193,6 +196,8 @@ class SensorPack(list[Record]):
                         rv = str(value)
                     case 'vd':
                         rv = bytes(base64.b64decode(str(value)))
+                    case 'vj':
+                        rv = value
                     case 'n':
                         rn = str(value)
                     case 'u':

@@ -150,6 +150,36 @@ class SensorPackTest(TestCase):
     latest = sp.to_latest()
     assert latest['missing_t'].value == 2
 
+  def testVjNullString(self):
+    """Alarm fields with vj='null' should parse without crashing."""
+    sp = ir.SensorPack([
+            {'n': 'alarm1', 'vj': 'null', 't': 100},
+    ])
+    latest = sp.to_latest()
+    assert latest['alarm1'].value == 'null'
+
+  def testVjAlarmDict(self):
+    """Alarm fields with vj=dict should skip the dict and not crash."""
+    alarm_obj = {'n': 'Alarm', 'e': True, 't': 25200, 'l': True, 'ld': 30, 's': 0, 'v': 50, 'r': 31}
+    sp = ir.SensorPack([
+            {'n': 'alarm1', 'vj': alarm_obj, 't': 200},
+    ])
+    latest = sp.to_latest()
+    # The dict is skipped by the non-scalar guard, so value stays None.
+    assert latest['alarm1'].value is None
+
+  def testMixedScalarAndNonScalar(self):
+    """Records with both scalar and non-scalar fields parse correctly."""
+    sp = ir.SensorPack([
+            {'n': 'fanspeed', 'v': 51, 't': 100},
+            {'n': 'alarm1', 'vj': {'n': 'Alarm', 'e': True}, 't': 100},
+            {'n': 'standby', 'vb': False, 't': 100},
+    ])
+    latest = sp.to_latest()
+    assert latest['fanspeed'].value == 51
+    assert latest['standby'].value is False
+    assert latest['alarm1'].value is None
+
 
 class QueryJsonTest(TestCase):
 
