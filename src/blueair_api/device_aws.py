@@ -14,6 +14,48 @@ _LOGGER = getLogger(__name__)
 
 type AttributeType[T] = T | None
 
+# Mapping from MQTT sensor slug (as sent on d/<id>/s/5s topic) to DeviceAws
+# attribute name.  Values arrive as floats from SenML and are cast to int.
+MQTT_SENSOR_FIELD_MAP: dict[str, str] = {
+    "pm1": "pm1",
+    "pm2_5": "pm2_5",
+    "pm10": "pm10",
+    "tVOC": "total_voc",
+    "voc": "voc",
+    "t": "temperature",
+    "h": "humidity",
+    "fsp0": "fan_speed_0",
+}
+
+# Mapping from shadow state field (as sent on $aws/things/<id>/shadow/...)
+# to DeviceAws attribute name.
+SHADOW_FIELD_MAP: dict[str, str] = {
+    "standby": "standby",
+    "nightmode": "night_mode",
+    "germshield": "germ_shield",
+    "brightness": "brightness",
+    "nlbrightness": "mood_brightness",
+    "childlock": "child_lock",
+    "wlevel": "water_level",
+    "fanspeed": "fan_speed",
+    "automode": "fan_auto_mode",
+    "filterusage": "filter_usage_percentage",
+    "ywrmusage": "water_refresher_usage_percentage",
+    "wickusage": "wick_usage_percentage",
+    "wickdrys": "wick_dry_mode",
+    "autorh": "auto_regulated_humidity",
+    "wshortage": "water_shortage",
+    "mainmode": "main_mode",
+    "heattemp": "heat_temp",
+    "heatsubmode": "heat_sub_mode",
+    "heatfs": "heat_fan_speed",
+    "coolsubmode": "cool_sub_mode",
+    "coolfs": "cool_fan_speed",
+    "apsubmode": "ap_sub_mode",
+    "fsp0": "fan_speed_0",
+    "tu": "temperature_unit",
+}
+
 @dataclass(slots=True)
 class DeviceAws(CallbacksMixin):
     @classmethod
@@ -87,6 +129,9 @@ class DeviceAws(CallbacksMixin):
     temperature_unit: AttributeType[int] = None # api value of 1 is celcius
     hw: AttributeType[str] = None # hardware identifier from configuration.di.hw
 
+    mqtt_sensor_slugs: list[str] = field(default_factory=list, repr=False, init=False)
+    extra_sensors: dict[str, Any] = field(default_factory=dict, repr=False, init=False)
+
     async def refresh(self):
         _LOGGER.debug(f"refreshing blueair device aws: {self}")
         self.raw_info = await self.api.device_info(self.name_api, self.uuid)
@@ -110,8 +155,14 @@ class DeviceAws(CallbacksMixin):
         self.sku = info_safe_get("configuration.di.sku")
         self.hw = info_safe_get("configuration.di.hw")
 
-        ds = ir.parse_json(ir.Sensor, ir.query_json(self.raw_info, "configuration.ds"))
+        raw_ds = ir.query_json(self.raw_info, "configuration.ds")
+        ds = ir.parse_json(ir.Sensor, raw_ds)
         dc = ir.parse_json(ir.Control, ir.query_json(self.raw_info, "configuration.dc"))
+
+        # Store the list of MQTT sensor slugs from the 5-second polling topic.
+        rt5s_raw = raw_ds.get("rt5s", {}) if isinstance(raw_ds, dict) else {}
+        self.mqtt_sensor_slugs = list(rt5s_raw.get("sn", []))
+
         # Auto-populate dc from state keys the device reports but aren't
         # declared in the dc schema.  Some devices (e.g. H38i, H76i,
         # Mini Restful) have an incomplete dc yet still publish the
@@ -193,6 +244,38 @@ class DeviceAws(CallbacksMixin):
 
         self.publish_updates()
         _LOGGER.debug(f"refreshed blueair device aws: {self}")
+
+    def apply_sensor_data(self, sensors: dict[str, float]) -> None:
+        """Apply MQTT sensor data to device attributes.
+
+        Maps MQTT sensor slugs to DeviceAws attribute names using
+        MQTT_SENSOR_FIELD_MAP. Unknown fields are stored in extra_sensors.
+        """
+        for slug, value in sensors.items():
+            attr = MQTT_SENSOR_FIELD_MAP.get(slug)
+            if attr is not None:
+                setattr(self, attr, int(value))
+            else:
+                self.extra_sensors[slug] = value
+
+    def apply_state_change(self, state: dict[str, Any]) -> None:
+        """Apply MQTT shadow state update to device attributes.
+
+        Maps shadow field names to DeviceAws attribute names using
+        SHADOW_FIELD_MAP. Applies humidifier fan speed remapping.
+        """
+        for shadow_field, value in state.items():
+            attr = SHADOW_FIELD_MAP.get(shadow_field)
+            if attr is not None and hasattr(self, attr):
+                setattr(self, attr, value)
+        # Apply humidifier fan speed remapping (same as refresh).
+        if "fanspeed" in state and self._is_humidifier:
+            if self.fan_speed == 11:
+                self.fan_speed = 1
+            elif self.fan_speed == 37:
+                self.fan_speed = 2
+            elif self.fan_speed == 64:
+                self.fan_speed = 3
 
     async def set_brightness(self, value: int):
         self.brightness = value

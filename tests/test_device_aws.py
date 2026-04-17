@@ -1129,3 +1129,133 @@ class ModelNameTest(DeviceAwsTestBase):
         """Missing SKU (NotImplemented) falls back gracefully."""
         await self.device.refresh()
         assert UNKNOWN_MODEL in self.device.model_name
+
+
+class MqttSensorSlugsTest(DeviceAwsTestBase):
+    """Tests that mqtt_sensor_slugs is populated from rt5s.sn."""
+
+    async def test_slugs_populated_from_rt5s(self):
+        ir.query_json(self.device_info_helper.info, "configuration.ds")["rt5s"] = {
+            "sn": ["pm2_5", "fsp0", "rssi", "pm1", "pm10"],
+            "tn": "d/fake-uuid/s/5s", "ttl": 1200,
+            "n": "rt5s", "ot": "RT5s", "e": False, "i": 5000, "fe": True,
+        }
+        await self.device.refresh()
+        assert self.device.mqtt_sensor_slugs == ["pm2_5", "fsp0", "rssi", "pm1", "pm10"]
+
+    async def test_slugs_empty_when_no_rt5s(self):
+        await self.device.refresh()
+        assert self.device.mqtt_sensor_slugs == []
+
+    async def test_humidifier_slugs(self):
+        ir.query_json(self.device_info_helper.info, "configuration.ds")["rt5s"] = {
+            "sn": ["t", "h", "rssi"],
+            "tn": "d/fake-uuid/s/5s", "ttl": -1,
+            "n": "rt5s", "ot": "RT5s", "e": False, "i": 0, "fe": True,
+        }
+        await self.device.refresh()
+        assert self.device.mqtt_sensor_slugs == ["t", "h", "rssi"]
+
+
+class ApplySensorDataTest(DeviceAwsTestBase):
+    """Tests for DeviceAws.apply_sensor_data()."""
+
+    async def test_known_fields_mapped(self):
+        await self.device.refresh()
+        self.device.apply_sensor_data({
+            "pm1": 5.0, "pm2_5": 12.0, "pm10": 20.0, "fsp0": 37.0,
+        })
+        assert self.device.pm1 == 5
+        assert self.device.pm2_5 == 12
+        assert self.device.pm10 == 20
+        assert self.device.fan_speed_0 == 37
+
+    async def test_renamed_fields_mapped(self):
+        await self.device.refresh()
+        self.device.apply_sensor_data({"t": 22.0, "h": 55.0, "tVOC": 100.0, "voc": 42.0})
+        assert self.device.temperature == 22
+        assert self.device.humidity == 55
+        assert self.device.total_voc == 100
+        assert self.device.voc == 42
+
+    async def test_unknown_fields_go_to_extra_sensors(self):
+        await self.device.refresh()
+        self.device.apply_sensor_data({"rssi": -45.0, "pm2_5": 3.0})
+        assert self.device.pm2_5 == 3
+        assert self.device.extra_sensors == {"rssi": -45.0}
+
+    async def test_empty_sensors(self):
+        await self.device.refresh()
+        self.device.apply_sensor_data({})
+        assert self.device.extra_sensors == {}
+
+
+class ApplyStateChangeTest(DeviceAwsTestBase):
+    """Tests for DeviceAws.apply_state_change()."""
+
+    async def test_known_state_fields(self):
+        await self.device.refresh()
+        self.device.apply_state_change({
+            "fanspeed": 51,
+            "standby": False,
+            "brightness": 64,
+        })
+        assert self.device.fan_speed == 51
+        assert self.device.standby is False
+        assert self.device.brightness == 64
+
+    async def test_all_shadow_fields(self):
+        await self.device.refresh()
+        self.device.apply_state_change({
+            "nightmode": True,
+            "germshield": True,
+            "childlock": True,
+            "automode": True,
+            "filterusage": 42,
+            "nlbrightness": 80,
+            "wickusage": 30,
+            "wickdrys": True,
+            "autorh": 50,
+            "wshortage": False,
+            "wlevel": 3,
+            "fsp0": 64,
+            "tu": 1,
+        })
+        assert self.device.night_mode is True
+        assert self.device.germ_shield is True
+        assert self.device.child_lock is True
+        assert self.device.fan_auto_mode is True
+        assert self.device.filter_usage_percentage == 42
+        assert self.device.mood_brightness == 80
+        assert self.device.wick_usage_percentage == 30
+        assert self.device.wick_dry_mode is True
+        assert self.device.auto_regulated_humidity == 50
+        assert self.device.water_shortage is False
+        assert self.device.water_level == 3
+        assert self.device.fan_speed_0 == 64
+        assert self.device.temperature_unit == 1
+
+    async def test_humidifier_fan_speed_remapped(self):
+        """Humidifier devices remap raw fan speed 11/37/64 → 1/2/3."""
+        ir.query_json(self.device_info_helper.info, "configuration.di")["hw"] = "hum2_l"
+        await self.device.refresh()
+
+        self.device.apply_state_change({"fanspeed": 11})
+        assert self.device.fan_speed == 1
+
+        self.device.apply_state_change({"fanspeed": 37})
+        assert self.device.fan_speed == 2
+
+        self.device.apply_state_change({"fanspeed": 64})
+        assert self.device.fan_speed == 3
+
+    async def test_non_humidifier_fan_speed_not_remapped(self):
+        ir.query_json(self.device_info_helper.info, "configuration.di")["hw"] = "nb_h_1.0"
+        await self.device.refresh()
+        self.device.apply_state_change({"fanspeed": 37})
+        assert self.device.fan_speed == 37
+
+    async def test_unknown_shadow_fields_ignored(self):
+        await self.device.refresh()
+        self.device.apply_state_change({"unknownfield": 99, "brightness": 50})
+        assert self.device.brightness == 50
