@@ -169,6 +169,93 @@ mqtt.disconnect()
 | `on_connect_callback` | `()` | MQTT connection established |
 | `on_disconnect_callback` | `()` | MQTT connection lost |
 
+## Reconnection & Token Refresh
+
+AWS IoT Custom Authorizer tokens expire after 24 hours. When a token
+expires (or the connection drops for any reason), the MQTT broker closes
+the WebSocket connection. The client must obtain fresh tokens and
+reconnect.
+
+### Architecture Decision: Use Paho's Native Reconnect
+
+**Do NOT disable paho's built-in reconnect** (`_reconnect_on_failure`).
+An earlier implementation set `_reconnect_on_failure = False` and used a
+custom reconnect thread. This caused **silent connection death**: when the
+connection dropped, paho's `loop_forever()` thread exited immediately
+(because `not self._reconnect_on_failure → run = False`), and since it
+runs as a daemon thread, nothing in the system noticed. The custom
+reconnect thread relied on `on_disconnect` firing to spawn it, but that
+callback runs on the same dying paho thread and could race with the exit.
+
+### How Token Refresh Works
+
+The implementation uses two paho-native hooks that run synchronously
+inside paho's reconnect flow:
+
+1. **`on_pre_connect` callback** — Called by paho immediately before each
+   `reconnect()` creates a new socket. We use this to call the async
+   `credential_refresher` (which calls `refresh_access_token()` on the
+   HTTP client) and update the stored auth credentials.
+
+2. **`ws_set_options(headers=callable)`** — Instead of passing a static
+   dict of WebSocket headers, we pass a callable that returns the
+   *current* credentials on every WebSocket handshake. Paho calls this
+   during `_WebsocketWrapper._do_handshake()` on every connection
+   (including reconnects).
+
+3. **`reconnect_delay_set(min_delay=5, max_delay=300)`** — Configures
+   paho's built-in exponential backoff for reconnection attempts.
+
+### Reconnect Flow (Paho Internal)
+
+When a connection is lost, paho's `loop_forever()` (running in the
+`loop_start()` thread) executes this sequence:
+
+```
+connection lost
+  → _do_on_disconnect() fires on_disconnect callback
+  → _reconnect_wait() sleeps with exponential backoff (5s → 10s → ... → 300s)
+  → reconnect()
+      → on_pre_connect() ← refreshes credentials here
+      → _create_socket()
+          → _WebsocketWrapper._do_handshake(extra_headers)
+              → callable headers returns fresh tokens ← applied here
+      → _send_connect() sends MQTT CONNECT packet
+  → on_connect() fires
+      → re-subscribes to all device topics
+  → backoff timer resets to min_delay on successful CONNACK
+```
+
+This is all handled by a single paho thread — no custom threads, no
+race conditions.
+
+### Failure Scenarios
+
+| Scenario | Behavior |
+|---|---|
+| Token expires, AWS closes connection | Paho detects loss → waits 5s → `on_pre_connect` refreshes → reconnects with new tokens |
+| Token refresh fails (e.g., network down) | `on_pre_connect` catches exception, logs it → paho tries with stale tokens → WS handshake fails → paho backs off → retries (calls `on_pre_connect` again) |
+| AWS broker unreachable | Paho retries with exponential backoff up to 300s → keeps trying indefinitely |
+| Clean disconnect (`disconnect()` called) | Paho stops the loop — no reconnect attempted |
+
+### Why Not a Custom Reconnect Thread?
+
+A custom reconnect thread outside paho's event loop has these problems:
+
+- **Race condition**: Paho's own reconnect (if enabled) races with the
+  custom thread, both trying to connect simultaneously.
+- **Silent death**: If paho's reconnect is disabled to avoid the race,
+  the `loop_forever()` thread exits silently on disconnect (daemon thread,
+  no exception, no log). The custom thread must be spawned from
+  `on_disconnect`, which runs on the dying thread.
+- **Client rebuild**: The custom thread typically rebuilds the entire
+  paho Client, losing all internal state (subscriptions, message queues,
+  mid tracking).
+- **No CONNACK verification**: `connect()` is non-blocking; the custom
+  thread must poll for connection success separately.
+
+Using paho's native hooks avoids all of these issues.
+
 ## Graceful Degradation
 
 If MQTT credentials are not present in the login response (older API
@@ -182,3 +269,10 @@ library falls back to REST-only polling. MQTT is an optional enhancement.
 - AWS IoT Core supports millions of concurrent connections; one subscriber
   per user account is negligible
 - `paho-mqtt` (>= 2.0) is used for the MQTT client implementation
+- **Never set `_reconnect_on_failure = False`** — see "Reconnection &
+  Token Refresh" section above for why
+- Key paho hooks used: `on_pre_connect` (credential refresh),
+  `ws_set_options(headers=callable)` (dynamic WS headers),
+  `reconnect_delay_set()` (backoff configuration)
+- Subscriptions are placed in `on_connect` so they survive reconnects
+  (recommended pattern from paho's own documentation)
