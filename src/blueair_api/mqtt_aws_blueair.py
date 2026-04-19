@@ -268,7 +268,7 @@ class MqttAwsBlueair:
         if reason_code == 0 or self._stopping:
             _LOGGER.info("MQTT disconnected cleanly")
         else:
-            _LOGGER.warning(
+            _LOGGER.info(
                 f"MQTT disconnected unexpectedly: reason_code={reason_code}; "
                 f"paho will auto-reconnect with credential refresh"
             )
