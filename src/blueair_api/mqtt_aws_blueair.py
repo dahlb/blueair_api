@@ -162,14 +162,18 @@ class MqttAwsBlueair:
         sensor data stream alive.  Matches the Blueair app's
         ``MqttService.resubscribeRt5s()`` pattern: unsubscribe first,
         then subscribe.
+
+        Safe to call from any thread — guards against client being
+        None or disconnected (e.g. during shutdown race).
         """
-        if self._client is None or not self._connected:
+        client = self._client  # snapshot to avoid race with disconnect()
+        if client is None or not self._connected:
             return
         for device_uuid in self._device_ids:
             topic = f"d/{device_uuid}/s/5s"
             try:
-                self._client.unsubscribe(topic)
-                self._client.subscribe(topic)
+                client.unsubscribe(topic)
+                client.subscribe(topic)
                 _LOGGER.debug(f"Re-subscribed to {topic} (TTL keepalive)")
             except Exception:
                 _LOGGER.exception(f"Failed to re-subscribe to {topic}")
@@ -450,11 +454,12 @@ class MqttAwsBlueair:
         # When a device comes online, re-subscribe to its sensor topic
         # to reset the TTL and start receiving 5s data.  This matches
         # the Blueair app's SimpleMqttCallBack behavior.
-        if event_type == "Connected" and device_id and self._client is not None:
+        client = self._client  # snapshot to avoid race with disconnect()
+        if event_type == "Connected" and device_id and client is not None:
             topic = f"d/{device_id}/s/5s"
             try:
-                self._client.unsubscribe(topic)
-                self._client.subscribe(topic)
+                client.unsubscribe(topic)
+                client.subscribe(topic)
                 _LOGGER.info(f"Re-subscribed to {topic} (device Connected event)")
             except Exception:
                 _LOGGER.exception(f"Failed to re-subscribe on Connected event for {device_id}")
