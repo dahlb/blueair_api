@@ -22,7 +22,7 @@ alongside the REST API tokens. No additional API calls are needed.
 The login response includes these fields used for MQTT:
 
 | Login Response Field | Purpose |
-|---|---|
+| --- | --- |
 | `access_token` | JWT containing `username` claim used in topic paths |
 | `ba_X-Amz-CustomAuthorizer-Name` | AWS IoT Custom Authorizer name |
 | `ba_X-Amz-CustomAuthorizer-Signature` | AWS IoT Custom Authorizer signature |
@@ -36,7 +36,7 @@ Tokens expire after 24 hours (`expires_in: 86400`).
 Each region has a dedicated AWS IoT Core endpoint:
 
 | Region | Broker Host |
-|--------|-------------|
+| -------- | ------------- |
 | `us` | `a3tpdpjvxk6yog-ats.iot.us-east-2.amazonaws.com` |
 | `eu` | `a3tpdpjvxk6yog-ats.iot.eu-west-1.amazonaws.com` |
 | `au` | `a3tpdpjvxk6yog-ats.iot.eu-west-1.amazonaws.com` |
@@ -66,6 +66,7 @@ Published by the device every 5 seconds. Payload is a SenML JSON array:
 ```
 
 Each object has:
+
 - `n`: sensor name
 - `v`: numeric value
 
@@ -115,7 +116,7 @@ One subscription covers all devices for the user.
 ```
 
 | Field | Description |
-|-------|-------------|
+| ------- | ------------- |
 | `et` | Event type: `"Connected"` or `"NotConnected"` |
 | `o` | Origin device UUID |
 | `m` | Human-readable message |
@@ -127,7 +128,7 @@ One subscription covers all devices for the user.
 ### Observed Timing
 
 | Transition | Latency |
-|---|---|
+| --- | --- |
 | Device powered off → `NotConnected` event | ~3 minutes |
 | Device powered on → `Connected` event | ~34 seconds |
 | `Connected` → first sensor data | ~5 seconds |
@@ -162,7 +163,7 @@ mqtt.disconnect()
 ### Callbacks
 
 | Callback | Arguments | Trigger |
-|----------|-----------|---------|
+| ---------- | ----------- | --------- |
 | `on_sensor_data` | `(device_id: str, sensors: dict[str, float])` | Every ~5s per device |
 | `on_state_change` | `(device_id: str, state: dict[str, Any])` | On device state change |
 | `on_event` | `(device_id: str, event: dict[str, Any])` | On connect/disconnect |
@@ -211,7 +212,7 @@ inside paho's reconnect flow:
 When a connection is lost, paho's `loop_forever()` (running in the
 `loop_start()` thread) executes this sequence:
 
-```
+```text
 connection lost
   → _do_on_disconnect() fires on_disconnect callback
   → _reconnect_wait() sleeps with exponential backoff (5s → 10s → ... → 300s)
@@ -232,7 +233,7 @@ race conditions.
 ### Failure Scenarios
 
 | Scenario | Behavior |
-|---|---|
+| --- | --- |
 | Token expires, AWS closes connection | Paho detects loss → waits 5s → `on_pre_connect` refreshes → reconnects with new tokens |
 | Token refresh fails (e.g., network down) | `on_pre_connect` catches exception, logs it → paho tries with stale tokens → WS handshake fails → paho backs off → retries (calls `on_pre_connect` again) |
 | AWS broker unreachable | Paho retries with exponential backoff up to 300s → keeps trying indefinitely |
@@ -291,7 +292,7 @@ periodically re-subscribe to keep the data stream alive.
 ### Data Streams by TTL
 
 | Stream | Topic Pattern | TTL | Publish Interval | Purpose |
-|--------|---------------|-----|------------------|---------|
+| -------- | --------------- | ----- | ------------------ | --------- |
 | `rt1s` | `d/<id>/s/1s` | 0 | 1 second | Real-time display, no retention |
 | `rt5s` | `d/<id>/s/5s` | 1200 | 5 seconds | Live monitoring (our primary source) |
 | `rt5m` | `d/<id>/s/5m` | 1200 | 5 minutes | Short-term charts |
@@ -303,7 +304,7 @@ The `b5m` stream feeds the cloud database for historical charts via the
 REST API. It never stops (`ttl: -1`), runs independently of subscribers,
 and routes through an AWS IoT Rules Engine ingest topic.
 
-### Usage
+### TTL Usage Example
 
 ```python
 mqtt = MqttAwsBlueair(...)
