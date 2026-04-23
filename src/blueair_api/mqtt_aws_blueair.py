@@ -159,9 +159,8 @@ class MqttAwsBlueair:
         """Unsubscribe and re-subscribe to sensor topics for all devices.
 
         This resets the device-side TTL countdown, keeping the 5-second
-        sensor data stream alive.  Matches the Blueair app's
-        ``MqttService.resubscribeRt5s()`` pattern: unsubscribe first,
-        then subscribe.
+        sensor data stream alive.  The unsubscribe-then-subscribe cycle
+        signals the device to restart its publish timer.
 
         Safe to call from any thread — guards against client being
         None or disconnected (e.g. during shutdown race).
@@ -452,8 +451,7 @@ class MqttAwsBlueair:
         _LOGGER.debug(f"Device event for {device_id}: {event_type} ({payload.get('m', '')})")
 
         # When a device comes online, re-subscribe to its sensor topic
-        # to reset the TTL and start receiving 5s data.  This matches
-        # the Blueair app's SimpleMqttCallBack behavior.
+        # to reset the TTL and start receiving 5s data.
         client = self._client  # snapshot to avoid race with disconnect()
         if event_type == "Connected" and device_id and client is not None:
             topic = f"d/{device_id}/s/5s"
