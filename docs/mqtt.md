@@ -256,6 +256,69 @@ A custom reconnect thread outside paho's event loop has these problems:
 
 Using paho's native hooks avoids all of these issues.
 
+## Sensor Data Stream TTL
+
+Blueair devices do not publish 5-second sensor data (`d/<id>/s/5s`)
+indefinitely. Each device declares a TTL in its configuration
+(`configuration.ds.rt5s.ttl`), typically 1200 seconds (20 minutes).
+After the TTL expires, the device stops publishing to the topic even
+though the MQTT subscription remains active on the broker.
+
+The TTL resets when a new subscription is made to the topic. This is
+by design — the mobile app only subscribes while the user is actively
+viewing sensor data, so short sessions never hit the TTL.
+
+For always-on consumers (e.g. Home Assistant), the client must
+periodically re-subscribe to keep the data stream alive.
+
+### How It Works
+
+1. **Periodic re-subscribe timer** — On connect, a daemon timer starts
+   at 75% of the TTL interval (default: 900s for 1200s TTL). When it
+   fires, the client unsubscribes then subscribes to `d/<id>/s/5s` for
+   every registered device. This resets the device-side TTL countdown.
+
+2. **Connected event re-subscribe** — When a device sends a `Connected`
+   event (device came online), the client immediately re-subscribes to
+   that device's sensor topic. This ensures data starts flowing as soon
+   as the device is available.
+
+3. **Dynamic TTL** — Call `set_sensor_ttl(seconds)` with the value from
+   the device configuration (`configuration.ds.rt5s.ttl`). If not set,
+   the default of 1200 seconds is used. Values ≤ 0 are ignored (the
+   stream never expires).
+
+### Data Streams by TTL
+
+| Stream | Topic Pattern | TTL | Publish Interval | Purpose |
+|--------|---------------|-----|------------------|---------|
+| `rt1s` | `d/<id>/s/1s` | 0 | 1 second | Real-time display, no retention |
+| `rt5s` | `d/<id>/s/5s` | 1200 | 5 seconds | Live monitoring (our primary source) |
+| `rt5m` | `d/<id>/s/5m` | 1200 | 5 minutes | Short-term charts |
+| `b5m` | `$aws/rules/.../batch/b5m` | -1 | 5 minutes | Historical data (always publishing) |
+| `rssi` | `d/<id>/s/rssi` | 600 | 60 seconds | Wi-Fi signal strength |
+| State topics | `d/<id>/s/<name>` | -1 | On change | Fan speed, standby, etc. (never expire) |
+
+The `b5m` stream feeds the cloud database for historical charts via the
+REST API. It never stops (`ttl: -1`), runs independently of subscribers,
+and routes through an AWS IoT Rules Engine ingest topic.
+
+### Usage
+
+```python
+mqtt = MqttAwsBlueair(...)
+
+# Set TTL from device config (optional — defaults to 1200s)
+mqtt.set_sensor_ttl(1200)
+
+# Register devices and connect as usual
+mqtt.register_device(device_uuid)
+mqtt.connect()
+```
+
+The re-subscribe timer starts automatically on connect and cancels on
+disconnect. No additional setup is required.
+
 ## Graceful Degradation
 
 If MQTT credentials are not present in the login response (older API
@@ -276,3 +339,5 @@ library falls back to REST-only polling. MQTT is an optional enhancement.
   `reconnect_delay_set()` (backoff configuration)
 - Subscriptions are placed in `on_connect` so they survive reconnects
   (recommended pattern from paho's own documentation)
+- Sensor data streams have a device-side TTL (typically 1200s) — the
+  client automatically re-subscribes to keep them alive
