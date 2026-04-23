@@ -617,3 +617,178 @@ class TestOnConnectFail(TestCase):
         client = make_mqtt_client()
         # Should not raise
         client._on_connect_fail(None, None)
+
+
+class TestSensorTTLResubscribe(TestCase):
+    """Tests for the sensor TTL keepalive re-subscribe mechanism."""
+
+    def test_set_sensor_ttl(self):
+        """set_sensor_ttl should update the TTL value."""
+        client = make_mqtt_client()
+        client.set_sensor_ttl(600)
+        assert client._sensor_ttl == 600
+
+    def test_set_sensor_ttl_ignores_non_positive(self):
+        """set_sensor_ttl should ignore values <= 0."""
+        client = make_mqtt_client()
+        original = client._sensor_ttl
+        client.set_sensor_ttl(-1)
+        assert client._sensor_ttl == original
+        client.set_sensor_ttl(0)
+        assert client._sensor_ttl == original
+
+    def test_default_sensor_ttl(self):
+        """Default sensor TTL should be 1200 seconds."""
+        client = make_mqtt_client()
+        assert client._sensor_ttl == 1200
+
+    def test_resubscribe_sensor_topics(self):
+        """_resubscribe_sensor_topics should unsubscribe then subscribe for each device."""
+        client = make_mqtt_client()
+        client.register_device(FAKE_DEVICE_UUID)
+        mock_paho = mock.MagicMock()
+        client._client = mock_paho
+        client._connected = True
+
+        client._resubscribe_sensor_topics()
+
+        mock_paho.unsubscribe.assert_called_once_with(f"d/{FAKE_DEVICE_UUID}/s/5s")
+        mock_paho.subscribe.assert_called_once_with(f"d/{FAKE_DEVICE_UUID}/s/5s")
+
+    def test_resubscribe_sensor_topics_multiple_devices(self):
+        """_resubscribe_sensor_topics should handle multiple devices."""
+        client = make_mqtt_client()
+        uuid2 = "22222222-2222-2222-2222-222222222222"
+        client.register_device(FAKE_DEVICE_UUID)
+        client.register_device(uuid2)
+        mock_paho = mock.MagicMock()
+        client._client = mock_paho
+        client._connected = True
+
+        client._resubscribe_sensor_topics()
+
+        assert mock_paho.unsubscribe.call_count == 2
+        assert mock_paho.subscribe.call_count == 2
+
+    def test_resubscribe_sensor_topics_not_connected(self):
+        """_resubscribe_sensor_topics should be a no-op when not connected."""
+        client = make_mqtt_client()
+        client.register_device(FAKE_DEVICE_UUID)
+        mock_paho = mock.MagicMock()
+        client._client = mock_paho
+        client._connected = False
+
+        client._resubscribe_sensor_topics()
+
+        mock_paho.unsubscribe.assert_not_called()
+        mock_paho.subscribe.assert_not_called()
+
+    def test_on_connect_starts_resubscribe_timer(self):
+        """_on_connect should start the re-subscribe timer."""
+        client = make_mqtt_client()
+        client.register_device(FAKE_DEVICE_UUID)
+        mock_paho = mock.MagicMock()
+        client._client = mock_paho
+
+        client._on_connect(mock_paho, None, None, 0, None)
+
+        assert client._resubscribe_timer is not None
+        # Clean up
+        client._cancel_resubscribe_timer()
+
+    def test_disconnect_cancels_resubscribe_timer(self):
+        """disconnect() should cancel the re-subscribe timer."""
+        client = make_mqtt_client()
+        # Simulate a running timer
+        client._resubscribe_timer = mock.MagicMock()
+        client._client = mock.MagicMock()
+
+        client.disconnect()
+
+        assert client._resubscribe_timer is None
+
+    def test_unexpected_disconnect_cancels_timer(self):
+        """_on_disconnect should cancel the re-subscribe timer."""
+        client = make_mqtt_client()
+        client._resubscribe_timer = mock.MagicMock()
+
+        client._on_disconnect(None, None, None, 7, None)
+
+        assert client._resubscribe_timer is None
+
+    def test_resubscribe_timer_interval(self):
+        """Timer interval should be TTL * 0.75."""
+        client = make_mqtt_client()
+        client.set_sensor_ttl(1200)
+        client.register_device(FAKE_DEVICE_UUID)
+        mock_paho = mock.MagicMock()
+        client._client = mock_paho
+        client._connected = True
+
+        with mock.patch('blueair_api.mqtt_aws_blueair.threading.Timer') as MockTimer:
+            mock_timer_instance = mock.MagicMock()
+            MockTimer.return_value = mock_timer_instance
+            client._start_resubscribe_timer()
+            MockTimer.assert_called_once_with(900, client._resubscribe_timer_fired)
+            mock_timer_instance.start.assert_called_once()
+
+        client._cancel_resubscribe_timer()
+
+    def test_resubscribe_timer_custom_ttl(self):
+        """Timer interval should use custom TTL when set."""
+        client = make_mqtt_client()
+        client.set_sensor_ttl(600)  # 10 minutes
+
+        with mock.patch('blueair_api.mqtt_aws_blueair.threading.Timer') as MockTimer:
+            mock_timer_instance = mock.MagicMock()
+            MockTimer.return_value = mock_timer_instance
+            client._start_resubscribe_timer()
+            MockTimer.assert_called_once_with(450, client._resubscribe_timer_fired)
+
+        client._cancel_resubscribe_timer()
+
+
+class TestConnectedEventResubscribe(TestCase):
+    """Tests for re-subscribing on device Connected events."""
+
+    def test_connected_event_resubscribes(self):
+        """A Connected event should trigger re-subscribe for that device."""
+        client = make_mqtt_client()
+        client.register_device(FAKE_DEVICE_UUID)
+        mock_paho = mock.MagicMock()
+        client._client = mock_paho
+        client._connected = True
+
+        payload = {
+            "et": "Connected",
+            "o": FAKE_DEVICE_UUID,
+            "ts": 1776455065,
+            "m": "Device is Online",
+            "ot": "ConnectionEvent",
+        }
+        msg = make_mqtt_message(f"c/{FAKE_USER_ID}/s/event", payload)
+        client._on_message(None, None, msg)
+
+        # Should have unsubscribed then subscribed to the 5s topic
+        mock_paho.unsubscribe.assert_called_once_with(f"d/{FAKE_DEVICE_UUID}/s/5s")
+        mock_paho.subscribe.assert_called_once_with(f"d/{FAKE_DEVICE_UUID}/s/5s")
+
+    def test_not_connected_event_does_not_resubscribe(self):
+        """A NotConnected event should NOT trigger re-subscribe."""
+        client = make_mqtt_client()
+        client.register_device(FAKE_DEVICE_UUID)
+        mock_paho = mock.MagicMock()
+        client._client = mock_paho
+        client._connected = True
+
+        payload = {
+            "et": "NotConnected",
+            "o": FAKE_DEVICE_UUID,
+            "ts": 1776455065,
+            "m": "Device is Offline",
+        }
+        msg = make_mqtt_message(f"c/{FAKE_USER_ID}/s/event", payload)
+        client._on_message(None, None, msg)
+
+        mock_paho.unsubscribe.assert_not_called()
+        mock_paho.subscribe.assert_not_called()

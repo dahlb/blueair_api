@@ -18,6 +18,7 @@ import asyncio
 import json
 import ssl
 import uuid
+import threading
 from logging import getLogger
 from typing import Any
 from collections.abc import Callable, Awaitable
@@ -33,6 +34,14 @@ SensorCallback = Callable[[str, dict[str, float]], None]
 StateCallback = Callable[[str, dict[str, Any]], None]
 EventCallback = Callable[[str, dict[str, Any]], None]
 CredentialRefresher = Callable[[], Awaitable[tuple[str, str, str]]]
+
+# Default sensor stream TTL in seconds.  Devices declare their own TTL
+# in configuration.ds.rt5s.ttl; this fallback is used when no TTL is
+# provided.  Most Blueair devices use 1200 (20 minutes).
+_DEFAULT_SENSOR_TTL = 1200
+
+# Re-subscribe at 75 % of the TTL to avoid data gaps.
+_TTL_RESUBSCRIBE_RATIO = 0.75
 
 
 class MqttAwsBlueair:
@@ -100,6 +109,8 @@ class MqttAwsBlueair:
         self._client: mqtt.Client | None = None
         self._connected = False
         self._stopping = False
+        self._sensor_ttl: int = _DEFAULT_SENSOR_TTL
+        self._resubscribe_timer: threading.Timer | None = None
 
     @property
     def connected(self) -> bool:
@@ -125,6 +136,69 @@ class MqttAwsBlueair:
         for topic in topics:
             self._client.subscribe(topic)
             _LOGGER.debug(f"Subscribed to {topic}")
+
+    def set_sensor_ttl(self, ttl_seconds: int) -> None:
+        """Set the sensor data stream TTL from the device configuration.
+
+        The TTL comes from ``configuration.ds.rt5s.ttl`` in the device
+        info API response.  When set, the client will periodically
+        re-subscribe to sensor topics at 75% of this interval to keep
+        the device publishing real-time data.
+
+        Parameters
+        ----------
+        ttl_seconds : int
+            TTL in seconds from the device config.  Values <= 0 are
+            ignored (stream never expires).
+        """
+        if ttl_seconds > 0:
+            self._sensor_ttl = ttl_seconds
+            _LOGGER.debug(f"Sensor TTL set to {ttl_seconds}s (re-subscribe every {int(ttl_seconds * _TTL_RESUBSCRIBE_RATIO)}s)")
+
+    def _resubscribe_sensor_topics(self) -> None:
+        """Unsubscribe and re-subscribe to sensor topics for all devices.
+
+        This resets the device-side TTL countdown, keeping the 5-second
+        sensor data stream alive.  Matches the Blueair app's
+        ``MqttService.resubscribeRt5s()`` pattern: unsubscribe first,
+        then subscribe.
+        """
+        if self._client is None or not self._connected:
+            return
+        for device_uuid in self._device_ids:
+            topic = f"d/{device_uuid}/s/5s"
+            try:
+                self._client.unsubscribe(topic)
+                self._client.subscribe(topic)
+                _LOGGER.debug(f"Re-subscribed to {topic} (TTL keepalive)")
+            except Exception:
+                _LOGGER.exception(f"Failed to re-subscribe to {topic}")
+
+    def _start_resubscribe_timer(self) -> None:
+        """Start the periodic re-subscribe timer based on the sensor TTL."""
+        self._cancel_resubscribe_timer()
+        if self._sensor_ttl <= 0 or self._stopping:
+            return
+        interval = int(self._sensor_ttl * _TTL_RESUBSCRIBE_RATIO)
+        _LOGGER.debug(f"Starting sensor re-subscribe timer (every {interval}s, TTL={self._sensor_ttl}s)")
+        self._resubscribe_timer = threading.Timer(interval, self._resubscribe_timer_fired)
+        self._resubscribe_timer.daemon = True
+        self._resubscribe_timer.start()
+
+    def _cancel_resubscribe_timer(self) -> None:
+        """Cancel the periodic re-subscribe timer if running."""
+        if self._resubscribe_timer is not None:
+            self._resubscribe_timer.cancel()
+            self._resubscribe_timer = None
+
+    def _resubscribe_timer_fired(self) -> None:
+        """Called when the re-subscribe timer fires."""
+        if self._stopping or not self._connected:
+            return
+        _LOGGER.info(f"Sensor TTL keepalive: re-subscribing to sensor topics for {len(self._device_ids)} device(s)")
+        self._resubscribe_sensor_topics()
+        # Restart the timer for the next cycle
+        self._start_resubscribe_timer()
 
     def _build_client(self) -> mqtt.Client:
         """Create a new paho MQTT client with current credentials."""
@@ -241,6 +315,7 @@ class MqttAwsBlueair:
         """Disconnect from the MQTT broker."""
         _LOGGER.info("Disconnecting from MQTT broker")
         self._stopping = True
+        self._cancel_resubscribe_timer()
         if self._client is not None:
             self._client.loop_stop()
             self._client.disconnect()
@@ -258,6 +333,9 @@ class MqttAwsBlueair:
             # Subscribe to all registered devices
             for device_uuid in self._device_ids:
                 self._subscribe_device(device_uuid)
+            # Start the periodic re-subscribe timer to keep sensor
+            # data streams alive (resets the device-side TTL).
+            self._start_resubscribe_timer()
             if self.on_connect_callback:
                 self.on_connect_callback()
         else:
@@ -265,6 +343,7 @@ class MqttAwsBlueair:
 
     def _on_disconnect(self, client, userdata, flags, reason_code, properties):
         self._connected = False
+        self._cancel_resubscribe_timer()
         if reason_code == 0 or self._stopping:
             _LOGGER.info("MQTT disconnected cleanly")
         else:
@@ -367,6 +446,19 @@ class MqttAwsBlueair:
         device_id = str(payload.get("o", payload.get("originDeviceId", "")))
         event_type = str(payload.get("et", payload.get("connectionEvent", "unknown")))
         _LOGGER.debug(f"Device event for {device_id}: {event_type} ({payload.get('m', '')})")
+
+        # When a device comes online, re-subscribe to its sensor topic
+        # to reset the TTL and start receiving 5s data.  This matches
+        # the Blueair app's SimpleMqttCallBack behavior.
+        if event_type == "Connected" and device_id and self._client is not None:
+            topic = f"d/{device_id}/s/5s"
+            try:
+                self._client.unsubscribe(topic)
+                self._client.subscribe(topic)
+                _LOGGER.info(f"Re-subscribed to {topic} (device Connected event)")
+            except Exception:
+                _LOGGER.exception(f"Failed to re-subscribe on Connected event for {device_id}")
+
         if self.on_event:
             try:
                 self.on_event(device_id, payload)
