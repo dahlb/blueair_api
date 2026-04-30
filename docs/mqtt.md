@@ -276,8 +276,11 @@ periodically re-subscribe to keep the data stream alive.
 
 1. **Periodic re-subscribe timer** — On connect, a daemon timer starts
    at 75% of the TTL interval (default: 900s for 1200s TTL). When it
-   fires, the client unsubscribes then subscribes to `d/<id>/s/5s` for
-   every registered device. This resets the device-side TTL countdown.
+   fires, the client subscribes to `d/<id>/s/5s` for every registered
+   device. Per MQTT spec, subscribing to an already-subscribed topic is
+   idempotent (broker sends SUBACK), so this is safe.  We intentionally
+   do NOT unsubscribe first — unsubscribing kills the device's data
+   push and the immediate re-subscribe doesn't always restart it.
 
 2. **Connected event re-subscribe** — When a device sends a `Connected`
    event (device came online), the client immediately re-subscribes to

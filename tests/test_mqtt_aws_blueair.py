@@ -643,7 +643,7 @@ class TestSensorTTLResubscribe(TestCase):
         assert client._sensor_ttl == 1200
 
     def test_resubscribe_sensor_topics(self):
-        """_resubscribe_sensor_topics should unsubscribe then subscribe for each device."""
+        """_resubscribe_sensor_topics should subscribe (without unsubscribe) for each device."""
         client = make_mqtt_client()
         client.register_device(FAKE_DEVICE_UUID)
         mock_paho = mock.MagicMock()
@@ -652,7 +652,7 @@ class TestSensorTTLResubscribe(TestCase):
 
         client._resubscribe_sensor_topics()
 
-        mock_paho.unsubscribe.assert_called_once_with(f"d/{FAKE_DEVICE_UUID}/s/5s")
+        mock_paho.unsubscribe.assert_not_called()
         mock_paho.subscribe.assert_called_once_with(f"d/{FAKE_DEVICE_UUID}/s/5s")
 
     def test_resubscribe_sensor_topics_multiple_devices(self):
@@ -667,7 +667,7 @@ class TestSensorTTLResubscribe(TestCase):
 
         client._resubscribe_sensor_topics()
 
-        assert mock_paho.unsubscribe.call_count == 2
+        mock_paho.unsubscribe.assert_not_called()
         assert mock_paho.subscribe.call_count == 2
 
     def test_resubscribe_sensor_topics_not_connected(self):
@@ -769,8 +769,8 @@ class TestConnectedEventResubscribe(TestCase):
         msg = make_mqtt_message(f"c/{FAKE_USER_ID}/s/event", payload)
         client._on_message(None, None, msg)
 
-        # Should have unsubscribed then subscribed to the 5s topic
-        mock_paho.unsubscribe.assert_called_once_with(f"d/{FAKE_DEVICE_UUID}/s/5s")
+        # Should have re-subscribed to the 5s topic (no unsubscribe)
+        mock_paho.unsubscribe.assert_not_called()
         mock_paho.subscribe.assert_called_once_with(f"d/{FAKE_DEVICE_UUID}/s/5s")
 
     def test_not_connected_event_does_not_resubscribe(self):

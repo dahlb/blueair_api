@@ -156,11 +156,14 @@ class MqttAwsBlueair:
             _LOGGER.debug(f"Sensor TTL set to {ttl_seconds}s (re-subscribe every {int(ttl_seconds * _TTL_RESUBSCRIBE_RATIO)}s)")
 
     def _resubscribe_sensor_topics(self) -> None:
-        """Unsubscribe and re-subscribe to sensor topics for all devices.
+        """Re-subscribe to sensor topics for all devices.
 
         This resets the device-side TTL countdown, keeping the 5-second
-        sensor data stream alive.  The unsubscribe-then-subscribe cycle
-        signals the device to restart its publish timer.
+        sensor data stream alive.  Per MQTT spec, subscribing to an
+        already-subscribed topic is idempotent (broker sends SUBACK and
+        the subscription stays active).  We intentionally do NOT
+        unsubscribe first — the unsubscribe kills the device's data
+        push and the immediate re-subscribe doesn't always restart it.
 
         Safe to call from any thread — guards against client being
         None or disconnected (e.g. during shutdown race).
@@ -171,7 +174,6 @@ class MqttAwsBlueair:
         for device_uuid in self._device_ids:
             topic = f"d/{device_uuid}/s/5s"
             try:
-                client.unsubscribe(topic)
                 client.subscribe(topic)
                 _LOGGER.debug(f"Re-subscribed to {topic} (TTL keepalive)")
             except Exception:
@@ -456,7 +458,6 @@ class MqttAwsBlueair:
         if event_type == "Connected" and device_id and client is not None:
             topic = f"d/{device_id}/s/5s"
             try:
-                client.unsubscribe(topic)
                 client.subscribe(topic)
                 _LOGGER.info(f"Re-subscribed to {topic} (device Connected event)")
             except Exception:
