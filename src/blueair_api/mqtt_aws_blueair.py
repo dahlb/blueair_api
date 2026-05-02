@@ -200,7 +200,7 @@ class MqttAwsBlueair:
         """Called when the re-subscribe timer fires."""
         if self._stopping or not self._connected:
             return
-        _LOGGER.info(f"Sensor TTL keepalive: re-subscribing to sensor topics for {len(self._device_ids)} device(s)")
+        _LOGGER.debug(f"Sensor TTL keepalive: re-subscribing to sensor topics for {len(self._device_ids)} device(s)")
         self._resubscribe_sensor_topics()
         # Restart the timer for the next cycle
         self._start_resubscribe_timer()
@@ -455,7 +455,7 @@ class MqttAwsBlueair:
         # When a device comes online, re-subscribe to its sensor topic
         # to reset the TTL and start receiving 5s data.
         client = self._client  # snapshot to avoid race with disconnect()
-        if event_type == "Connected" and device_id and client is not None:
+        if event_type == "Connected" and device_id in self._device_ids and client is not None:
             topic = f"d/{device_id}/s/5s"
             try:
                 client.subscribe(topic)
