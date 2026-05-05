@@ -4,8 +4,11 @@ Connects to the Blueair cloud MQTT broker via WebSocket Secure (WSS)
 using credentials from the existing c/login API response. Provides
 real-time sensor data and device state change callbacks.
 
-On unexpected disconnect, refreshes credentials (tokens expire after
-24 hours) and reconnects with exponential backoff.
+On unexpected disconnect, paho's built-in reconnect loop handles
+reconnection with exponential backoff.  Before each reconnect attempt
+the ``on_pre_connect`` hook refreshes credentials (tokens expire after
+24 hours), and the ``ws_set_options(headers=callable)`` mechanism
+ensures the new tokens are applied to the WebSocket handshake.
 
 MQTT broker endpoints and authentication flow determined through
 investigation of the Blueair cloud API responses and AWS IoT
@@ -15,7 +18,6 @@ import asyncio
 import json
 import ssl
 import uuid
-import time
 import threading
 from logging import getLogger
 from typing import Any
@@ -33,10 +35,13 @@ StateCallback = Callable[[str, dict[str, Any]], None]
 EventCallback = Callable[[str, dict[str, Any]], None]
 CredentialRefresher = Callable[[], Awaitable[tuple[str, str, str]]]
 
-# Reconnect backoff parameters
-_RECONNECT_INITIAL_DELAY = 5
-_RECONNECT_MAX_DELAY = 300
-_RECONNECT_BACKOFF_FACTOR = 2
+# Default sensor stream TTL in seconds.  Devices declare their own TTL
+# in configuration.ds.rt5s.ttl; this fallback is used when no TTL is
+# provided.  Most Blueair devices use 1200 (20 minutes).
+_DEFAULT_SENSOR_TTL = 1200
+
+# Re-subscribe at 75 % of the TTL to avoid data gaps.
+_TTL_RESUBSCRIBE_RATIO = 0.75
 
 
 class MqttAwsBlueair:
@@ -98,13 +103,14 @@ class MqttAwsBlueair:
         self.credential_refresher: CredentialRefresher | None = None
 
         # Event loop for running the async credential refresher from
-        # the synchronous paho disconnect callback thread.
+        # the synchronous paho callback thread.
         self._event_loop = None
 
         self._client: mqtt.Client | None = None
         self._connected = False
         self._stopping = False
-        self._reconnect_thread: threading.Thread | None = None
+        self._sensor_ttl: int = _DEFAULT_SENSOR_TTL
+        self._resubscribe_timer: threading.Timer | None = None
 
     @property
     def connected(self) -> bool:
@@ -131,6 +137,74 @@ class MqttAwsBlueair:
             self._client.subscribe(topic)
             _LOGGER.debug(f"Subscribed to {topic}")
 
+    def set_sensor_ttl(self, ttl_seconds: int) -> None:
+        """Set the sensor data stream TTL from the device configuration.
+
+        The TTL comes from ``configuration.ds.rt5s.ttl`` in the device
+        info API response.  When set, the client will periodically
+        re-subscribe to sensor topics at 75% of this interval to keep
+        the device publishing real-time data.
+
+        Parameters
+        ----------
+        ttl_seconds : int
+            TTL in seconds from the device config.  Values <= 0 are
+            ignored (stream never expires).
+        """
+        if ttl_seconds > 0:
+            self._sensor_ttl = ttl_seconds
+            _LOGGER.debug(f"Sensor TTL set to {ttl_seconds}s (re-subscribe every {int(ttl_seconds * _TTL_RESUBSCRIBE_RATIO)}s)")
+
+    def _resubscribe_sensor_topics(self) -> None:
+        """Re-subscribe to sensor topics for all devices.
+
+        This resets the device-side TTL countdown, keeping the 5-second
+        sensor data stream alive.  Per MQTT spec, subscribing to an
+        already-subscribed topic is idempotent (broker sends SUBACK and
+        the subscription stays active).  We intentionally do NOT
+        unsubscribe first — the unsubscribe kills the device's data
+        push and the immediate re-subscribe doesn't always restart it.
+
+        Safe to call from any thread — guards against client being
+        None or disconnected (e.g. during shutdown race).
+        """
+        client = self._client  # snapshot to avoid race with disconnect()
+        if client is None or not self._connected:
+            return
+        for device_uuid in self._device_ids:
+            topic = f"d/{device_uuid}/s/5s"
+            try:
+                client.subscribe(topic)
+                _LOGGER.debug(f"Re-subscribed to {topic} (TTL keepalive)")
+            except Exception:
+                _LOGGER.exception(f"Failed to re-subscribe to {topic}")
+
+    def _start_resubscribe_timer(self) -> None:
+        """Start the periodic re-subscribe timer based on the sensor TTL."""
+        self._cancel_resubscribe_timer()
+        if self._sensor_ttl <= 0 or self._stopping:
+            return
+        interval = int(self._sensor_ttl * _TTL_RESUBSCRIBE_RATIO)
+        _LOGGER.debug(f"Starting sensor re-subscribe timer (every {interval}s, TTL={self._sensor_ttl}s)")
+        self._resubscribe_timer = threading.Timer(interval, self._resubscribe_timer_fired)
+        self._resubscribe_timer.daemon = True
+        self._resubscribe_timer.start()
+
+    def _cancel_resubscribe_timer(self) -> None:
+        """Cancel the periodic re-subscribe timer if running."""
+        if self._resubscribe_timer is not None:
+            self._resubscribe_timer.cancel()
+            self._resubscribe_timer = None
+
+    def _resubscribe_timer_fired(self) -> None:
+        """Called when the re-subscribe timer fires."""
+        if self._stopping or not self._connected:
+            return
+        _LOGGER.debug(f"Sensor TTL keepalive: re-subscribing to sensor topics for {len(self._device_ids)} device(s)")
+        self._resubscribe_sensor_topics()
+        # Restart the timer for the next cycle
+        self._start_resubscribe_timer()
+
     def _build_client(self) -> mqtt.Client:
         """Create a new paho MQTT client with current credentials."""
         broker = AWS_MQTT_BROKERS.get(self._region)
@@ -142,24 +216,69 @@ class MqttAwsBlueair:
             client_id=self._client_id,
             transport="websockets",
         )
+        # Let paho handle reconnection natively.  We refresh credentials
+        # in on_pre_connect and supply a headers callable so each new
+        # WebSocket handshake picks up the latest tokens automatically.
+        client.reconnect_delay_set(min_delay=5, max_delay=300)
         client.on_connect = self._on_connect
+        client.on_connect_fail = self._on_connect_fail
         client.on_message = self._on_message
         client.on_disconnect = self._on_disconnect
         client.on_subscribe = self._on_subscribe
+        client.on_pre_connect = self._on_pre_connect
+
+        # Route paho's internal logging (PINGREQ/PINGRESP, reconnect
+        # attempts, CONNACK details) through Python's standard logging.
+        # Visible in HA when debug logging is enabled for paho.mqtt.client.
+        client.enable_logger(_LOGGER)
 
         # TLS for WSS
         client.tls_set(cert_reqs=ssl.CERT_REQUIRED, tls_version=ssl.PROTOCOL_TLS_CLIENT)
 
-        # AWS IoT Custom Authorizer headers
+        # AWS IoT Custom Authorizer headers — use a callable so that
+        # paho calls it on every (re)connect to get fresh tokens.
         client.ws_set_options(
             path="/mqtt",
-            headers={
-                "X-Amz-CustomAuthorizer-Name": self._mqtt_auth_name,
-                "X-Amz-CustomAuthorizer-Signature": self._mqtt_auth_signature,
-                "X-Amz-CustomAuthorizer-Token": self._mqtt_auth_token,
-            },
+            headers=self._get_ws_headers,
         )
         return client
+
+    def _get_ws_headers(self, default_headers: dict[str, str]) -> dict[str, str]:
+        """Return WebSocket headers with the current auth credentials.
+
+        Called by paho on every WebSocket handshake (including reconnects).
+        """
+        default_headers["X-Amz-CustomAuthorizer-Name"] = self._mqtt_auth_name
+        default_headers["X-Amz-CustomAuthorizer-Signature"] = self._mqtt_auth_signature
+        default_headers["X-Amz-CustomAuthorizer-Token"] = self._mqtt_auth_token
+        return default_headers
+
+    def _on_pre_connect(self, client, userdata) -> None:
+        """Refresh credentials before each connection/reconnection attempt.
+
+        Paho calls this synchronously immediately before ``reconnect()``
+        creates a new socket.  We bridge into the async event loop to
+        call the credential refresher so that ``_get_ws_headers`` will
+        return fresh tokens for the upcoming WebSocket handshake.
+        """
+        _LOGGER.info("MQTT pre-connect: preparing for connection attempt")
+        if not self.credential_refresher or not self._event_loop:
+            _LOGGER.debug("MQTT pre-connect: no credential_refresher configured, using existing tokens")
+            return
+        try:
+            future = asyncio.run_coroutine_threadsafe(
+                self.credential_refresher(), self._event_loop
+            )
+            new_name, new_sig, new_token = future.result(timeout=30)
+            self._mqtt_auth_name = new_name
+            self._mqtt_auth_signature = new_sig
+            self._mqtt_auth_token = new_token
+            _LOGGER.info("MQTT credentials refreshed successfully via on_pre_connect")
+        except Exception:
+            _LOGGER.exception(
+                "Failed to refresh MQTT credentials in on_pre_connect; "
+                "will attempt reconnect with previous (possibly stale) tokens"
+            )
 
     def connect(self, event_loop=None) -> None:
         """Connect to the MQTT broker and start the network loop.
@@ -201,18 +320,16 @@ class MqttAwsBlueair:
         """Disconnect from the MQTT broker."""
         _LOGGER.info("Disconnecting from MQTT broker")
         self._stopping = True
+        self._cancel_resubscribe_timer()
         if self._client is not None:
             self._client.loop_stop()
             self._client.disconnect()
             self._connected = False
-        if self._reconnect_thread is not None:
-            self._reconnect_thread.join(timeout=10)
-            self._reconnect_thread = None
         self._client = None
 
     def _on_connect(self, client, userdata, flags, reason_code, properties):
         if reason_code == 0:
-            _LOGGER.debug(f"MQTT connected (devices={len(self._device_ids)})")
+            _LOGGER.info(f"MQTT connected successfully (devices={len(self._device_ids)})")
             self._connected = True
             # Subscribe to per-user event topic
             user_topic = f"c/{self._user_id}/s/event"
@@ -221,6 +338,9 @@ class MqttAwsBlueair:
             # Subscribe to all registered devices
             for device_uuid in self._device_ids:
                 self._subscribe_device(device_uuid)
+            # Start the periodic re-subscribe timer to keep sensor
+            # data streams alive (resets the device-side TTL).
+            self._start_resubscribe_timer()
             if self.on_connect_callback:
                 self.on_connect_callback()
         else:
@@ -228,94 +348,22 @@ class MqttAwsBlueair:
 
     def _on_disconnect(self, client, userdata, flags, reason_code, properties):
         self._connected = False
+        self._cancel_resubscribe_timer()
         if reason_code == 0 or self._stopping:
             _LOGGER.info("MQTT disconnected cleanly")
-            if self.on_disconnect_callback:
-                self.on_disconnect_callback()
-            return
-
-        _LOGGER.debug(f"MQTT disconnected unexpectedly: reason_code={reason_code}")
+        else:
+            _LOGGER.info(
+                f"MQTT disconnected unexpectedly: reason_code={reason_code}; "
+                f"paho will auto-reconnect with credential refresh"
+            )
         if self.on_disconnect_callback:
             self.on_disconnect_callback()
 
-        # Start reconnect with credential refresh in a background thread.
-        # We don't call loop_stop() here because we're on paho's network
-        # thread — it will exit naturally after this callback returns.
-        _LOGGER.debug("Starting MQTT reconnect loop with credential refresh")
-        if self._reconnect_thread is None or not self._reconnect_thread.is_alive():
-            self._reconnect_thread = threading.Thread(
-                target=self._reconnect_loop, daemon=True
-            )
-            self._reconnect_thread.start()
-
-    def _reconnect_loop(self) -> None:
-        """Reconnect with exponential backoff, refreshing credentials each attempt."""
-        delay = _RECONNECT_INITIAL_DELAY
-        broker = AWS_MQTT_BROKERS.get(self._region)
-        if broker is None:
-            _LOGGER.error(f"No MQTT broker for region {self._region}; cannot reconnect")
-            return
-        attempt = 0
-
-        while not self._stopping:
-            attempt += 1
-            _LOGGER.debug(f"MQTT reconnect attempt {attempt} in {delay}s...")
-            time.sleep(delay)
-            if self._stopping:
-                _LOGGER.info("MQTT reconnect cancelled (shutting down)")
-                return
-
-            # Paho's loop_start() may have auto-reconnected with stale
-            # credentials while we were sleeping. If so, tear it down
-            # and replace with a fresh-credential connection.
-            if self._connected:
-                _LOGGER.debug(
-                    "MQTT auto-reconnected with existing credentials; "
-                    "replacing with fresh credentials"
-                )
-
-            # Clean up the old client. By now paho's network thread has
-            # exited (we slept long enough), so loop_stop() is safe.
-            if self._client is not None:
-                self._client.loop_stop()
-                self._client = None
-
-            # Refresh credentials if a refresher is available.
-            if self.credential_refresher and self._event_loop:
-                try:
-                    future = asyncio.run_coroutine_threadsafe(
-                        self.credential_refresher(), self._event_loop
-                    )
-                    new_name, new_sig, new_token = future.result(timeout=30)
-                    self._mqtt_auth_name = new_name
-                    self._mqtt_auth_signature = new_sig
-                    self._mqtt_auth_token = new_token
-                    _LOGGER.debug("MQTT credentials refreshed successfully")
-                except Exception:
-                    _LOGGER.exception(
-                        f"Failed to refresh MQTT credentials (attempt {attempt}), "
-                        f"next retry in {min(delay * _RECONNECT_BACKOFF_FACTOR, _RECONNECT_MAX_DELAY)}s"
-                    )
-                    delay = min(delay * _RECONNECT_BACKOFF_FACTOR, _RECONNECT_MAX_DELAY)
-                    continue
-            elif not self.credential_refresher:
-                _LOGGER.warning(
-                    "No credential_refresher configured; reconnecting with existing tokens "
-                    "(may fail if tokens have expired)"
-                )
-
-            try:
-                self._client = self._build_client()
-                self._client.connect(broker, 443, keepalive=60)
-                self._client.loop_start()
-                _LOGGER.debug(f"MQTT reconnected with fresh credentials (attempt {attempt})")
-                return
-            except Exception:
-                _LOGGER.exception(
-                    f"MQTT reconnect attempt {attempt} failed, "
-                    f"next retry in {min(delay * _RECONNECT_BACKOFF_FACTOR, _RECONNECT_MAX_DELAY)}s"
-                )
-                delay = min(delay * _RECONNECT_BACKOFF_FACTOR, _RECONNECT_MAX_DELAY)
+    def _on_connect_fail(self, client, userdata):
+        _LOGGER.warning(
+            "MQTT connection attempt failed (TCP/TLS/WebSocket handshake error); "
+            "paho will retry with backoff"
+        )
 
     def _on_subscribe(self, client, userdata, mid, reason_codes, properties):
         _LOGGER.debug(f"MQTT subscription confirmed (mid={mid})")
@@ -403,6 +451,18 @@ class MqttAwsBlueair:
         device_id = str(payload.get("o", payload.get("originDeviceId", "")))
         event_type = str(payload.get("et", payload.get("connectionEvent", "unknown")))
         _LOGGER.debug(f"Device event for {device_id}: {event_type} ({payload.get('m', '')})")
+
+        # When a device comes online, re-subscribe to its sensor topic
+        # to reset the TTL and start receiving 5s data.
+        client = self._client  # snapshot to avoid race with disconnect()
+        if event_type == "Connected" and device_id in self._device_ids and client is not None:
+            topic = f"d/{device_id}/s/5s"
+            try:
+                client.subscribe(topic)
+                _LOGGER.info(f"Re-subscribed to {topic} (device Connected event)")
+            except Exception:
+                _LOGGER.exception(f"Failed to re-subscribe on Connected event for {device_id}")
+
         if self.on_event:
             try:
                 self.on_event(device_id, payload)
