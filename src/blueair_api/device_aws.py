@@ -25,6 +25,7 @@ MQTT_SENSOR_FIELD_MAP: dict[str, str] = {
     "t": "temperature",
     "h": "humidity",
     "fsp0": "fan_speed_0",
+    "rssi": "rssi",
 }
 
 # Mapping from shadow state field (as sent on $aws/things/<id>/shadow/...)
@@ -54,6 +55,13 @@ SHADOW_FIELD_MAP: dict[str, str] = {
     "apsubmode": "ap_sub_mode",
     "fsp0": "fan_speed_0",
     "tu": "temperature_unit",
+    # Mini Restful sunrise / timer fields.
+    "nlstepless": "night_light_brightness",
+    "timstate": "timer_state",
+    "timl": "timer_level",
+    "timts": "timer_start_timestamp",
+    "timdur": "timer_duration",
+    "hourformat": "hour_format",
 }
 
 @dataclass(slots=True)
@@ -129,6 +137,18 @@ class DeviceAws(CallbacksMixin):
     temperature_unit: AttributeType[int] = None # api value of 1 is celcius
     hw: AttributeType[str] = None # hardware identifier from configuration.di.hw
 
+    # MQTT-only first-class sensor (signal strength, dBm).
+    rssi: AttributeType[int] = None
+
+    # Mini Restful sunrise / timer fields (also present on humidifiers
+    # like H35i for the sleep timer).
+    night_light_brightness: AttributeType[int] = None  # nlstepless, 0-100
+    timer_state: AttributeType[int] = None  # timstate, 0=off 1=running
+    timer_level: AttributeType[int] = None  # timl
+    timer_start_timestamp: AttributeType[int] = None  # timts, unix epoch
+    timer_duration: AttributeType[int] = None  # timdur, seconds
+    hour_format: AttributeType[bool] = None  # hourformat, False=12h True=24h
+
     mqtt_sensor_slugs: list[str] = field(default_factory=list, repr=False, init=False)
     extra_sensors: dict[str, Any] = field(default_factory=dict, repr=False, init=False)
 
@@ -159,9 +179,21 @@ class DeviceAws(CallbacksMixin):
         ds = ir.parse_json(ir.Sensor, raw_ds)
         dc = ir.parse_json(ir.Control, ir.query_json(self.raw_info, "configuration.dc"))
 
-        # Store the list of MQTT sensor slugs from the 5-second polling topic.
-        rt5s_raw = raw_ds.get("rt5s", {}) if isinstance(raw_ds, dict) else {}
-        self.mqtt_sensor_slugs = list(rt5s_raw.get("sn", []))
+        # Store the list of MQTT sensor slugs from the 5-second polling
+        # topic.  Defensive against malformed schemas: rt5s missing,
+        # rt5s.sn null, or wrong types all degrade to an empty list so
+        # apply_sensor_data and is_implemented checks stay correct.
+        rt5s_raw = raw_ds.get("rt5s") if isinstance(raw_ds, dict) else None
+        sn = rt5s_raw.get("sn") if isinstance(rt5s_raw, dict) else None
+        self.mqtt_sensor_slugs = (
+            [str(s) for s in sn] if isinstance(sn, list) else []
+        )
+        # Log once per refresh so the expected MQTT slug set is visible
+        # in user-supplied debug logs.
+        _LOGGER.debug(
+            "Device %s declares MQTT 5s sensor slugs: %s",
+            self.uuid, self.mqtt_sensor_slugs
+        )
 
         # Auto-populate dc from state keys the device reports but aren't
         # declared in the dc schema.  Some devices (e.g. H38i, H76i,
@@ -188,6 +220,7 @@ class DeviceAws(CallbacksMixin):
         self.temperature = sensor_data_safe_get("t")
         self.humidity = sensor_data_safe_get("h")
         self.fan_speed_0 = sensor_data_safe_get("fsp0")
+        self.rssi = sensor_data_safe_get("rssi")
 
         states = ir.SensorPack(self.raw_info["states"]).to_latest_value()
 
@@ -242,6 +275,14 @@ class DeviceAws(CallbacksMixin):
             self.fan_speed_0 = states_safe_get("fsp0")
         self.temperature_unit = states_safe_get("tu")
 
+        # Mini Restful sunrise / timer fields.
+        self.night_light_brightness = states_safe_get("nlstepless")
+        self.timer_state = states_safe_get("timstate")
+        self.timer_level = states_safe_get("timl")
+        self.timer_start_timestamp = states_safe_get("timts")
+        self.timer_duration = states_safe_get("timdur")
+        self.hour_format = states_safe_get("hourformat")
+
         self.publish_updates()
         _LOGGER.debug(f"refreshed blueair device aws: {self}")
 
@@ -249,26 +290,74 @@ class DeviceAws(CallbacksMixin):
         """Apply MQTT sensor data to device attributes.
 
         Maps MQTT sensor slugs to DeviceAws attribute names using
-        MQTT_SENSOR_FIELD_MAP. Unknown fields are stored in extra_sensors.
+        MQTT_SENSOR_FIELD_MAP. Unknown fields are stored in extra_sensors
+        (logged once per slug at debug level so unmapped fields can be
+        diagnosed from logs).
+
+        Per-slug failures are caught and logged so a single bad value
+        does not drop the rest of the batch.
         """
         for slug, value in sensors.items():
             attr = MQTT_SENSOR_FIELD_MAP.get(slug)
-            if attr is not None:
-                setattr(self, attr, int(value))
-            else:
+            if attr is None:
+                if slug not in self.extra_sensors:
+                    _LOGGER.debug(
+                        "MQTT sensor %r not in MQTT_SENSOR_FIELD_MAP; "
+                        "storing in extra_sensors (value=%r)", slug, value
+                    )
                 self.extra_sensors[slug] = value
+                continue
+            try:
+                setattr(self, attr, int(value))
+            except (TypeError, ValueError):
+                _LOGGER.warning(
+                    "MQTT sensor %r (-> %s) has unexpected value %r; "
+                    "skipping this update", slug, attr, value
+                )
+            except AttributeError:
+                # slots=True: attr in map but not declared on dataclass.
+                _LOGGER.error(
+                    "MQTT_SENSOR_FIELD_MAP maps %r to %r but DeviceAws "
+                    "has no such attribute; this is a library bug",
+                    slug, attr
+                )
 
     def apply_state_change(self, state: dict[str, Any]) -> None:
         """Apply MQTT shadow state update to device attributes.
 
         Maps shadow field names to DeviceAws attribute names using
         SHADOW_FIELD_MAP. Applies humidifier fan speed remapping.
+
+        Unmapped fields and per-field failures are logged so behavior
+        can be diagnosed from logs alone.
         """
         for shadow_field, value in state.items():
             attr = SHADOW_FIELD_MAP.get(shadow_field)
-            if attr is not None and hasattr(self, attr):
+            if attr is None:
+                _LOGGER.debug(
+                    "Shadow field %r not in SHADOW_FIELD_MAP; ignoring "
+                    "(value=%r)", shadow_field, value
+                )
+                continue
+            if not hasattr(self, attr):
+                # slots=True: attr in map but not declared on dataclass.
+                _LOGGER.error(
+                    "SHADOW_FIELD_MAP maps %r to %r but DeviceAws has "
+                    "no such attribute; this is a library bug",
+                    shadow_field, attr
+                )
+                continue
+            try:
                 setattr(self, attr, value)
+            except AttributeError:
+                _LOGGER.error(
+                    "Failed to set DeviceAws.%s = %r from shadow field %r",
+                    attr, value, shadow_field
+                )
+
         # Apply humidifier fan speed remapping (same as refresh).
+        # Only remap if the loop above actually set fan_speed to a known
+        # raw value; guard against non-int payloads landing on the attr.
         if "fanspeed" in state and self._is_humidifier:
             if self.fan_speed == 11:
                 self.fan_speed = 1
@@ -400,6 +489,24 @@ class DeviceAws(CallbacksMixin):
     async def set_fan_speed_0(self, value: int):
         self.fan_speed_0 = value
         await self.api.set_device_info(self.uuid, "fsp0", "v", value)
+        self.publish_updates()
+
+    async def set_night_light_brightness(self, value: int):
+        """Set the sunrise / night light stepless brightness (0-100)."""
+        self.night_light_brightness = value
+        await self.api.set_device_info(self.uuid, "nlstepless", "v", value)
+        self.publish_updates()
+
+    async def set_timer_duration(self, value: int):
+        """Set the sleep / off timer duration in seconds."""
+        self.timer_duration = value
+        await self.api.set_device_info(self.uuid, "timdur", "v", value)
+        self.publish_updates()
+
+    async def set_hour_format(self, value: bool):
+        """Set the clock display: False = 12-hour, True = 24-hour."""
+        self.hour_format = value
+        await self.api.set_device_info(self.uuid, "hourformat", "vb", value)
         self.publish_updates()
 
     @property

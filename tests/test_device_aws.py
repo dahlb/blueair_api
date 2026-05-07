@@ -398,6 +398,13 @@ class EmptyDeviceAwsTest(DeviceAwsTestBase):
             assert device.mood_brightness is NotImplemented
             assert device.water_refresher_usage_percentage is NotImplemented
             assert device.water_level is NotImplemented
+            assert device.rssi is NotImplemented
+            assert device.night_light_brightness is NotImplemented
+            assert device.timer_state is NotImplemented
+            assert device.timer_level is NotImplemented
+            assert device.timer_start_timestamp is NotImplemented
+            assert device.timer_duration is NotImplemented
+            assert device.hour_format is NotImplemented
 
 
 class H35iTest(DeviceAwsTestBase):
@@ -457,6 +464,13 @@ class H35iTest(DeviceAwsTestBase):
             assert device.mood_brightness is NotImplemented
             assert device.water_refresher_usage_percentage is NotImplemented
             assert device.water_level is NotImplemented
+            assert device.rssi is None
+            assert device.night_light_brightness is NotImplemented
+            assert device.timer_state == 0
+            assert device.timer_level == 0
+            assert device.timer_start_timestamp == 0
+            assert device.timer_duration == 7200
+            assert device.hour_format is NotImplemented
 
 
 class H38iTest(DeviceAwsTestBase):
@@ -516,6 +530,13 @@ class H38iTest(DeviceAwsTestBase):
             assert device.mood_brightness == 0
             assert device.water_refresher_usage_percentage == 0
             assert device.water_level == 0
+            assert device.rssi is None
+            assert device.night_light_brightness is NotImplemented
+            assert device.timer_state == 0
+            assert device.timer_level == 0
+            assert device.timer_start_timestamp == 0
+            assert device.timer_duration == 7200
+            assert device.hour_format is NotImplemented
 
 
 class H76iTest(DeviceAwsTestBase):
@@ -575,6 +596,13 @@ class H76iTest(DeviceAwsTestBase):
             assert device.mood_brightness == 0
             assert device.water_refresher_usage_percentage == 0
             assert device.water_level == 50
+            assert device.rssi is None
+            assert device.night_light_brightness is NotImplemented
+            assert device.timer_state == 0
+            assert device.timer_level == 0
+            assert device.timer_start_timestamp == 0
+            assert device.timer_duration == 7200
+            assert device.hour_format is NotImplemented
 
 
 class Max311iTest(DeviceAwsTestBase):
@@ -633,6 +661,13 @@ class Max311iTest(DeviceAwsTestBase):
             assert device.mood_brightness is NotImplemented
             assert device.water_refresher_usage_percentage is NotImplemented
             assert device.water_level is NotImplemented
+            assert device.rssi is None
+            assert device.night_light_brightness is NotImplemented
+            assert device.timer_state is NotImplemented
+            assert device.timer_level is NotImplemented
+            assert device.timer_start_timestamp is NotImplemented
+            assert device.timer_duration is NotImplemented
+            assert device.hour_format is NotImplemented
 
 
 class T10iTest(DeviceAwsTestBase):
@@ -692,6 +727,13 @@ class T10iTest(DeviceAwsTestBase):
             assert device.mood_brightness is NotImplemented
             assert device.water_refresher_usage_percentage is NotImplemented
             assert device.water_level is NotImplemented
+            assert device.rssi is None
+            assert device.night_light_brightness is NotImplemented
+            assert device.timer_state == 0
+            assert device.timer_level == 0
+            assert device.timer_start_timestamp == 0
+            assert device.timer_duration == 3600
+            assert device.hour_format is NotImplemented
 
 
 class Protect7470iTest(DeviceAwsTestBase):
@@ -753,6 +795,13 @@ class Protect7470iTest(DeviceAwsTestBase):
             assert device.mood_brightness is NotImplemented
             assert device.water_refresher_usage_percentage is NotImplemented
             assert device.water_level is NotImplemented
+            assert device.rssi is None
+            assert device.night_light_brightness is NotImplemented
+            assert device.timer_state is NotImplemented
+            assert device.timer_level is NotImplemented
+            assert device.timer_start_timestamp is NotImplemented
+            assert device.timer_duration is NotImplemented
+            assert device.hour_format is NotImplemented
 
 
 class Max211iTest(DeviceAwsTestBase):
@@ -812,6 +861,13 @@ class Max211iTest(DeviceAwsTestBase):
             assert device.mood_brightness is NotImplemented
             assert device.water_refresher_usage_percentage is NotImplemented
             assert device.water_level is NotImplemented
+            assert device.rssi is None
+            assert device.night_light_brightness is NotImplemented
+            assert device.timer_state is NotImplemented
+            assert device.timer_level is NotImplemented
+            assert device.timer_start_timestamp is NotImplemented
+            assert device.timer_duration is NotImplemented
+            assert device.hour_format is NotImplemented
 
 
 class PetAirProTest(DeviceAwsTestBase):
@@ -871,6 +927,13 @@ class PetAirProTest(DeviceAwsTestBase):
             assert device.mood_brightness is NotImplemented
             assert device.water_refresher_usage_percentage is NotImplemented
             assert device.water_level is NotImplemented
+            assert device.rssi is None
+            assert device.night_light_brightness is NotImplemented
+            assert device.timer_state == 0
+            assert device.timer_level == 0
+            assert device.timer_start_timestamp == 0
+            assert device.timer_duration == 7200
+            assert device.hour_format is NotImplemented
 
 
 class TwoInOneTest(DeviceAwsTestBase):
@@ -930,6 +993,13 @@ class TwoInOneTest(DeviceAwsTestBase):
             assert device.mood_brightness == 0
             assert device.water_refresher_usage_percentage == 0
             assert device.water_level == 75.0
+            assert device.rssi is None
+            assert device.night_light_brightness is NotImplemented
+            assert device.timer_state == 0
+            assert device.timer_level == 0
+            assert device.timer_start_timestamp == 0
+            assert device.timer_duration == 1800
+            assert device.hour_format is NotImplemented
 
 
 class NullValueTest(DeviceAwsTestBase):
@@ -989,6 +1059,13 @@ class NullValueTest(DeviceAwsTestBase):
             assert device.mood_brightness is NotImplemented
             assert device.water_refresher_usage_percentage is NotImplemented
             assert device.water_level is NotImplemented
+            assert device.rssi is None
+            assert device.night_light_brightness == 0
+            assert device.timer_state == 0
+            assert device.timer_level == 0
+            assert device.timer_start_timestamp == 0
+            assert device.timer_duration == 7200
+            assert device.hour_format is False
 
 
 class MiniRestfulAlarmTest(DeviceAwsTestBase):
@@ -1051,6 +1128,13 @@ class MiniRestfulAlarmTest(DeviceAwsTestBase):
             assert device.mood_brightness is NotImplemented
             assert device.water_refresher_usage_percentage is NotImplemented
             assert device.water_level is NotImplemented
+            assert device.rssi is None
+            assert device.night_light_brightness == 0
+            assert device.timer_state == 0
+            assert device.timer_level == 0
+            assert device.timer_start_timestamp == 0
+            assert device.timer_duration == 7200
+            assert device.hour_format is False
 
 
 class OnlineStateTest(DeviceAwsTestBase):
@@ -1156,6 +1240,39 @@ class MqttSensorSlugsTest(DeviceAwsTestBase):
         await self.device.refresh()
         assert self.device.mqtt_sensor_slugs == ["t", "h", "rssi"]
 
+    async def test_slugs_robust_to_malformed_rt5s(self):
+        """Defensive parsing: if rt5s.sn is missing or wrong-shaped,
+        mqtt_sensor_slugs degrades to an empty list rather than
+        crashing the refresh pipeline.
+
+        Note: cases where rt5s itself is malformed enough to fail the
+        ds-schema parse upstream (rt5s = null, rt5s = []) are handled
+        by intermediate_representation_aws.parse_json — not exercised
+        here.  This test covers the path where parse_json succeeds but
+        the rt5s.sn array is missing or the wrong type.
+        """
+        ds = ir.query_json(self.device_info_helper.info, "configuration.ds")
+        well_formed_envelope = {
+            "tn": "d/fake-uuid/s/5s", "ttl": -1,
+            "n": "rt5s", "ot": "RT5s", "e": False, "i": 0, "fe": True,
+        }
+
+        # rt5s present but missing 'sn' entirely
+        ds["rt5s"] = dict(well_formed_envelope)
+        await self.device.refresh()
+        assert self.device.mqtt_sensor_slugs == []
+
+        # rt5s.sn is a string instead of a list
+        ds["rt5s"] = {**well_formed_envelope, "sn": "rssi"}
+        await self.device.refresh()
+        assert self.device.mqtt_sensor_slugs == []
+
+        # rt5s.sn contains non-string entries — coerce to str so the
+        # list-of-str invariant holds for downstream code.
+        ds["rt5s"] = {**well_formed_envelope, "sn": ["rssi", 42, None]}
+        await self.device.refresh()
+        assert self.device.mqtt_sensor_slugs == ["rssi", "42", "None"]
+
 
 class ApplySensorDataTest(DeviceAwsTestBase):
     """Tests for DeviceAws.apply_sensor_data()."""
@@ -1180,14 +1297,33 @@ class ApplySensorDataTest(DeviceAwsTestBase):
 
     async def test_unknown_fields_go_to_extra_sensors(self):
         await self.device.refresh()
-        self.device.apply_sensor_data({"rssi": -45.0, "pm2_5": 3.0})
+        # Use a slug not in MQTT_SENSOR_FIELD_MAP (rssi is now first-class).
+        self.device.apply_sensor_data({"unknownsensor": 99.5, "pm2_5": 3.0})
         assert self.device.pm2_5 == 3
-        assert self.device.extra_sensors == {"rssi": -45.0}
+        assert self.device.extra_sensors == {"unknownsensor": 99.5}
+
+    async def test_rssi_is_first_class(self):
+        """rssi is mapped to device.rssi, not extra_sensors."""
+        await self.device.refresh()
+        self.device.apply_sensor_data({"rssi": -45.0})
+        assert self.device.rssi == -45
+        assert "rssi" not in self.device.extra_sensors
 
     async def test_empty_sensors(self):
         await self.device.refresh()
         self.device.apply_sensor_data({})
         assert self.device.extra_sensors == {}
+
+    async def test_bad_value_logs_and_skips(self):
+        """Non-numeric sensor value is logged and the rest of the batch lands."""
+        await self.device.refresh()
+        with self.assertLogs("blueair_api.device_aws", level="WARNING") as cm:
+            self.device.apply_sensor_data(
+                {"pm2_5": "not-a-number", "pm1": 5.0}
+            )
+        # Bad value skipped, good value applied.
+        assert self.device.pm1 == 5
+        assert any("pm2_5" in m for m in cm.output)
 
 
 class ApplyStateChangeTest(DeviceAwsTestBase):
@@ -1259,3 +1395,106 @@ class ApplyStateChangeTest(DeviceAwsTestBase):
         await self.device.refresh()
         self.device.apply_state_change({"unknownfield": 99, "brightness": 50})
         assert self.device.brightness == 50
+
+    async def test_shadow_map_typo_logs_error_and_continues(self):
+        """A SHADOW_FIELD_MAP entry pointing at a non-existent attribute
+        logs ERROR but the rest of the batch still applies.
+
+        Guards against typos in the map (e.g. 'brightness' -> 'birghtness')
+        from silently dropping otherwise-valid updates.
+        """
+        from blueair_api import device_aws as device_aws_module
+        await self.device.refresh()
+        with (
+            mock.patch.dict(
+                device_aws_module.SHADOW_FIELD_MAP,
+                {"bogus": "no_such_attr"},
+            ),
+            self.assertLogs("blueair_api.device_aws", level="ERROR") as cm,
+        ):
+            self.device.apply_state_change({"bogus": 1, "brightness": 50})
+        assert self.device.brightness == 50
+        assert any("no_such_attr" in msg for msg in cm.output)
+
+
+class MiniRestfulShadowTest(DeviceAwsTestBase):
+    """Tests for Mini Restful sunrise / timer fields via shadow updates."""
+
+    async def test_sunrise_and_clock_via_shadow(self):
+        """nlstepless and hourformat propagate via apply_state_change."""
+        await self.device.refresh()
+        self.device.apply_state_change({"nlstepless": 75, "hourformat": True})
+        assert self.device.night_light_brightness == 75
+        assert self.device.hour_format is True
+
+    async def test_timer_via_shadow(self):
+        """timstate / timl / timts / timdur propagate via apply_state_change."""
+        await self.device.refresh()
+        self.device.apply_state_change({
+            "timstate": 1,
+            "timl": 7200,
+            "timts": 1773716704,
+            "timdur": 7200,
+        })
+        assert self.device.timer_state == 1
+        assert self.device.timer_level == 7200
+        assert self.device.timer_start_timestamp == 1773716704
+        assert self.device.timer_duration == 7200
+
+    async def test_refresh_populates_timer_fields(self):
+        """Loading the mini_restful fixture populates timer/sunrise attrs from REST."""
+        with open(resources.files().joinpath('device_info/mini_restful.json')) as sample_file:
+            info = json.load(sample_file)
+        self.device_info_helper.info.update(info)
+        await self.device.refresh()
+        assert self.device.night_light_brightness == 0
+        assert self.device.timer_state == 0
+        assert self.device.timer_level == 0
+        assert self.device.timer_start_timestamp == 0
+        assert self.device.timer_duration == 7200
+        assert self.device.hour_format is False
+
+
+class MiniRestfulSetterTest(DeviceAwsTestBase):
+    """Tests for the new sunrise / timer / clock setters."""
+
+    def setUp(self):
+        super().setUp()
+        # Populate dc so refresh() will read the states back.
+        fake = {"n": "n", "v": 0}
+        ir.query_json(self.device_info_helper.info, "configuration.dc").update({
+            "nlstepless": fake,
+            "timdur": fake,
+            "hourformat": fake,
+        })
+
+    async def test_set_night_light_brightness(self):
+        self.device.night_light_brightness = None
+        await self.device.set_night_light_brightness(75)
+        assert self.device.night_light_brightness == 75
+
+        await self.device.set_night_light_brightness(50)
+        self.device.night_light_brightness = None
+        await self.device.refresh()
+        assert self.device.night_light_brightness == 50
+
+    async def test_set_timer_duration(self):
+        self.device.timer_duration = None
+        await self.device.set_timer_duration(3600)
+        assert self.device.timer_duration == 3600
+
+        await self.device.set_timer_duration(7200)
+        self.device.timer_duration = None
+        await self.device.refresh()
+        assert self.device.timer_duration == 7200
+
+    async def test_set_hour_format(self):
+        self.device.hour_format = None
+        await self.device.set_hour_format(True)
+        assert self.device.hour_format is True
+
+        await self.device.set_hour_format(False)
+        self.device.hour_format = None
+        await self.device.refresh()
+        assert self.device.hour_format is False
+
