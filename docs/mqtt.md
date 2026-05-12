@@ -170,6 +170,31 @@ mqtt.disconnect()
 | `on_connect_callback` | `()` | MQTT connection established |
 | `on_disconnect_callback` | `()` | MQTT connection lost |
 
+## Dynamic Sensor and State Mapping
+
+The `DeviceAws` class exposes two helpers that consumers (e.g. `ha_blueair`)
+can call from the MQTT callbacks to apply incoming data to device attributes
+without hardcoding sensor names:
+
+- `device.apply_sensor_data(sensors)` — call from `on_sensor_data`.  Maps
+  each MQTT slug via `MQTT_SENSOR_FIELD_MAP` to a `DeviceAws` attribute and
+  casts the value to `int`.  Unknown slugs land in `device.extra_sensors`.
+- `device.apply_state_change(state)` — call from `on_state_change`.  Maps
+  each shadow field via `SHADOW_FIELD_MAP` to a `DeviceAws` attribute, with
+  humidifier fan-speed remapping (11/37/64 → 1/2/3) applied automatically.
+
+The current maps (in `device_aws.py`) cover all sensors and shadow fields
+observed across the supported device fixtures (purifiers, humidifiers,
+combos, Mini Restful).  Adding a new device that publishes a new slug
+requires only a one-line entry in the relevant map plus the matching
+`DeviceAws` attribute — no changes to the MQTT plumbing.
+
+The `device.mqtt_sensor_slugs` list, parsed from
+`configuration.ds.rt5s.sn` during `refresh()`, captures the exact set of
+sensor names the device declares it will publish on the 5-second topic.
+This enables future schema-driven entity discovery without further library
+changes.
+
 ## Reconnection & Token Refresh
 
 AWS IoT Custom Authorizer tokens expire after 24 hours. When a token
