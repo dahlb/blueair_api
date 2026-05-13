@@ -1,0 +1,994 @@
+{
+  "id": "00000000-0000-0000-0000-00000000sp4i",
+  "configuration": {
+    "df": {
+      "a": 877,
+      "ot": "Blue40_Filter",
+      "fsfc": 12600000,
+      "alg": "FilterAlg1"
+    },
+    "di": {
+      "cfv": "1.1.0",
+      "cma": "aa:bb:cc:dd:ee:ff",
+      "mt": "1",
+      "name": "Blueair SP4i",
+      "aqiranges": "{\"pm1\":[5,10,15,20,999],\"pm25\":[5,10,15,25,999],\"pm10\":[10,20,30,40,999]}",
+      "sku": "112936",
+      "region": "jp",
+      "mfv": "1.1.0",
+      "ofv": "1.1.0",
+      "hw": "l_blue40",
+      "ds": "112936000000000000000000"
+    },
+    "_ot": "CmConfig",
+    "_f": false,
+    "_it": "urn:blueair:openapi:version:blue40:0.0.5",
+    "_eid": "9e88402a-a10a-4c67-bd53-f2a041247296",
+    "_sc": "Instance",
+    "ds": {
+      "fu0": {
+        "tf": "senml+json",
+        "ot": "FU",
+        "e": false,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/fu0",
+        "ttl": -1,
+        "n": "fu0",
+        "fe": true
+      },
+      "timts": {
+        "tf": "senml+json",
+        "ot": "TimerTS",
+        "e": false,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/timts",
+        "ttl": 0,
+        "n": "timts",
+        "fe": true
+      },
+      "timdur": {
+        "tf": "senml+json",
+        "ot": "TimerDuration",
+        "e": false,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/timdur",
+        "ttl": 0,
+        "n": "timdur",
+        "fe": true
+      },
+      "ledb": {
+        "tf": "senml+json",
+        "ot": "Led",
+        "e": false,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/ledb",
+        "ttl": 0,
+        "n": "ledb",
+        "fe": true
+      },
+      "apsubmode": {
+        "tf": "senml+json",
+        "ot": "ApSubMode",
+        "e": false,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/apsubmode",
+        "ttl": 0,
+        "n": "apsubmode",
+        "fe": true
+      },
+      "startts": {
+        "tf": "senml+json",
+        "ot": "StartTs",
+        "e": true,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/startts",
+        "ttl": 0,
+        "n": "startts",
+        "fe": true
+      },
+      "aireta": {
+        "tf": "senml+json",
+        "ot": "AirETA",
+        "e": true,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/aireta",
+        "ttl": -1,
+        "n": "aireta",
+        "fe": true
+      },
+      "pm2_5c": {
+        "tf": "senml+json",
+        "ot": "PMParticleCount",
+        "e": false,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/pm2_5c",
+        "ttl": 0,
+        "n": "pm2_5c",
+        "fe": true
+      },
+      "sb": {
+        "tf": "senml+json",
+        "ot": "Standby",
+        "e": true,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/sb",
+        "ttl": -1,
+        "n": "sb",
+        "fe": true
+      },
+      "arstate": {
+        "tf": "senml+json",
+        "ot": "AirrefreshState",
+        "e": true,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/arstate",
+        "ttl": 0,
+        "n": "arstate",
+        "fe": true
+      },
+      "rt1s": {
+        "tf": "senml+json",
+        "ot": "RT1s",
+        "e": false,
+        "i": 1000,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/1s",
+        "sn": [
+          "pm1",
+          "pm2_5",
+          "pm10",
+          "rssi"
+        ],
+        "ttl": 0,
+        "n": "rt1s",
+        "fe": true
+      },
+      "nmledb": {
+        "tf": "senml+json",
+        "ot": "nmLed",
+        "e": false,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/nmledb",
+        "ttl": 0,
+        "n": "nmledb",
+        "fe": true
+      },
+      "hover": {
+        "tf": "senml+json",
+        "ot": "HOver",
+        "e": true,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/hover",
+        "ttl": -1,
+        "n": "hover",
+        "fe": true
+      },
+      "rt5s": {
+        "tf": "senml+json",
+        "ot": "RT5s",
+        "e": false,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/5s",
+        "sn": [
+          "pm1",
+          "pm2_5",
+          "pm10",
+          "rssi"
+        ],
+        "ttl": -1,
+        "n": "rt5s",
+        "fe": true
+      },
+      "pm1": {
+        "tf": "senml+json",
+        "ot": "PM1",
+        "e": true,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/pm1",
+        "ttl": 0,
+        "n": "pm1",
+        "fe": true
+      },
+      "mainmode": {
+        "tf": "senml+json",
+        "ot": "MainMode",
+        "e": false,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/mainmode",
+        "ttl": 0,
+        "n": "mainmode",
+        "fe": true
+      },
+      "pm2_5": {
+        "tf": "senml+json",
+        "ot": "PM2_5",
+        "e": true,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/pm2_5",
+        "ttl": 0,
+        "n": "pm2_5",
+        "fe": true
+      },
+      "uim": {
+        "tf": "senml+json",
+        "ot": "UnitIconMode",
+        "e": true,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/uim",
+        "ttl": -1,
+        "n": "uim",
+        "fe": true
+      },
+      "endts": {
+        "tf": "senml+json",
+        "ot": "EndTs",
+        "e": true,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/endts",
+        "ttl": 0,
+        "n": "endts",
+        "fe": true
+      },
+      "sp": {
+        "tf": "senml+json",
+        "ot": "SensorBoxPresense",
+        "e": false,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/sp",
+        "ttl": -1,
+        "n": "sp",
+        "fe": true
+      },
+      "arts": {
+        "tf": "senml+json",
+        "ot": "AirrefreshTs",
+        "e": true,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/arts",
+        "ttl": 0,
+        "n": "arts",
+        "fe": true
+      },
+      "timl": {
+        "tf": "senml+json",
+        "ot": "TimerLeft",
+        "e": false,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/timl",
+        "ttl": 0,
+        "n": "timl",
+        "fe": true
+      },
+      "rssi": {
+        "tf": "senml+json",
+        "ot": "RSSI",
+        "e": true,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/rssi",
+        "ttl": 0,
+        "n": "rssi",
+        "fe": true
+      },
+      "chl": {
+        "tf": "senml+json",
+        "ot": "ChildLock",
+        "e": true,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/chl",
+        "ttl": -1,
+        "n": "chl",
+        "fe": true
+      },
+      "fp0": {
+        "tf": "senml+json",
+        "ot": "FilterPresence",
+        "e": false,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/fp0",
+        "ttl": -1,
+        "n": "fp0",
+        "fe": true
+      },
+      "pm10": {
+        "tf": "senml+json",
+        "ot": "PM10",
+        "e": true,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/pm10",
+        "ttl": 0,
+        "n": "pm10",
+        "fe": true
+      },
+      "is": {
+        "tf": "senml+json",
+        "ot": "IonizerState",
+        "e": false,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/is",
+        "ttl": -1,
+        "n": "is",
+        "fe": true
+      },
+      "rt5m": {
+        "tf": "senml+json",
+        "ot": "RT5m",
+        "e": false,
+        "i": 300000,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/5m",
+        "sn": [
+          "pm1",
+          "pm2_5",
+          "pm10"
+        ],
+        "ttl": 0,
+        "n": "rt5m",
+        "fe": true
+      },
+      "roomtype": {
+        "tf": "senml+json",
+        "ot": "RoomType",
+        "e": true,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/roomtype",
+        "ttl": 0,
+        "n": "roomtype",
+        "fe": true
+      },
+      "ar": {
+        "tf": "senml+json",
+        "ot": "AirRefresh",
+        "e": true,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/ar",
+        "ttl": -1,
+        "n": "ar",
+        "fe": true
+      },
+      "timstate": {
+        "tf": "senml+json",
+        "ot": "TimerState",
+        "e": false,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/timstate",
+        "ttl": 0,
+        "n": "timstate",
+        "fe": true
+      },
+      "b5m": {
+        "tf": "senml+json",
+        "th": [
+          "5kb",
+          "300s"
+        ],
+        "ot": "Batch5m",
+        "e": true,
+        "i": 300000,
+        "tn": "$aws/rules/telemetry_ingest_rule/d/00000000-0000-0000-0000-00000000sp4i/s/batch/b5m",
+        "sn": [
+          "pm1",
+          "pm2_5",
+          "pm10",
+          "fsp0"
+        ],
+        "ttl": -1,
+        "n": "b5m",
+        "fe": true
+      },
+      "ardur": {
+        "tf": "senml+json",
+        "ot": "AirrefreshDur",
+        "e": true,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/ardur",
+        "ttl": 0,
+        "n": "ardur",
+        "fe": true
+      },
+      "fsp0": {
+        "st": "fsp0",
+        "tf": "senml+json",
+        "t": 10,
+        "ot": "Fanspeed",
+        "e": true,
+        "i": 0,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/s/fsp0",
+        "sn": [
+          "fsp0"
+        ],
+        "ttl": -1,
+        "n": "fsp0",
+        "fe": true
+      }
+    },
+    "_r": "eu-west-1",
+    "_s": {
+      "sig": "",
+      "salg": "SHA256withECDSA"
+    },
+    "_t": "Partial",
+    "_v": 1765598258,
+    "_cas": 1755908178,
+    "_id": "00000000-0000-0000-0000-00000000sp4i",
+    "fc": {
+      "bssid": "",
+      "pwd": "",
+      "ssid": "",
+      "url": ""
+    },
+    "da": {
+      "fu0": {
+        "p": true,
+        "st": "fu0",
+        "a": 0,
+        "tf": "senml+json",
+        "ot": "FilterUsage",
+        "e": true,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/a/fu0",
+        "n": "fu0",
+        "fe": true
+      },
+      "localts": {
+        "p": true,
+        "a": 0,
+        "tf": "senml+json",
+        "ot": "LocalTs",
+        "e": true,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/a/localts",
+        "n": "localts",
+        "fe": true
+      },
+      "timts": {
+        "p": true,
+        "a": 0,
+        "tf": "senml+json",
+        "ot": "TimerStamp",
+        "e": true,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/a/timts",
+        "n": "timts",
+        "fe": true
+      },
+      "timdur": {
+        "p": true,
+        "a": 7200,
+        "tf": "senml+json",
+        "ot": "TimerDuration",
+        "e": true,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/a/timdur",
+        "n": "timdur",
+        "fe": true
+      },
+      "ledb": {
+        "p": true,
+        "a": 100,
+        "tf": "senml+json",
+        "ot": "LedBrightness",
+        "e": true,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/a/ledb",
+        "n": "ledb",
+        "fe": true
+      },
+      "apsubmode": {
+        "p": true,
+        "st": "apsubmode",
+        "a": 0,
+        "tf": "senml+json",
+        "ot": "ApSubMode",
+        "e": true,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/a/apsubmode",
+        "n": "apsubmode",
+        "fe": true
+      },
+      "startts": {
+        "p": true,
+        "a": 36000,
+        "tf": "senml+json",
+        "ot": "StartTs",
+        "e": true,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/a/startts",
+        "n": "startts",
+        "fe": true
+      },
+      "sb": {
+        "p": true,
+        "a": false,
+        "tf": "senml+json",
+        "sbt": "sensor_on",
+        "ot": "Standby",
+        "e": true,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/a/sb",
+        "n": "sb",
+        "fe": true
+      },
+      "arstate": {
+        "p": true,
+        "a": 0,
+        "tf": "senml+json",
+        "ot": "AirrefreshState",
+        "e": true,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/a/arstate",
+        "n": "arstate",
+        "fe": true
+      },
+      "nmledb": {
+        "p": true,
+        "a": 100,
+        "tf": "senml+json",
+        "ot": "NMLedBrightness",
+        "e": true,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/a/nmledb",
+        "n": "nmledb",
+        "fe": true
+      },
+      "hover": {
+        "p": true,
+        "a": false,
+        "tf": "senml+json",
+        "ot": "HOver",
+        "e": true,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/a/hover",
+        "n": "hover",
+        "fe": true
+      },
+      "mainmode": {
+        "p": true,
+        "st": "mainmode",
+        "a": 0,
+        "tf": "senml+json",
+        "ot": "MainMode",
+        "e": true,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/a/mainmode",
+        "n": "mainmode",
+        "fe": true
+      },
+      "uim": {
+        "p": true,
+        "a": 0,
+        "tf": "senml+json",
+        "ot": "UnitIconMode",
+        "e": true,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/a/uim",
+        "n": "uim",
+        "fe": true
+      },
+      "endts": {
+        "p": true,
+        "a": 64800,
+        "tf": "senml+json",
+        "ot": "EndTs",
+        "e": true,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/a/endts",
+        "n": "endts",
+        "fe": true
+      },
+      "arts": {
+        "p": true,
+        "a": 0,
+        "tf": "senml+json",
+        "ot": "AirrefreshTs",
+        "e": true,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/a/arts",
+        "n": "arts",
+        "fe": true
+      },
+      "reboot": {
+        "p": false,
+        "a": false,
+        "ot": "Reboot",
+        "e": true,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/a/reboot",
+        "n": "reboot",
+        "fe": true
+      },
+      "timl": {
+        "p": true,
+        "a": 0,
+        "tf": "senml+json",
+        "ot": "TimeLeft",
+        "e": true,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/a/timl",
+        "n": "timl",
+        "fe": true
+      },
+      "chl": {
+        "p": true,
+        "a": false,
+        "tf": "senml+json",
+        "ot": "ChildLock",
+        "e": true,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/a/chl",
+        "n": "chl",
+        "fe": true
+      },
+      "sflu": {
+        "p": false,
+        "a": false,
+        "ot": "SensorFlush",
+        "e": true,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/a/sflu",
+        "n": "sflu",
+        "fe": true
+      },
+      "is": {
+        "p": true,
+        "a": false,
+        "tf": "senml+json",
+        "ot": "IonizerState",
+        "e": true,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/a/is",
+        "n": "is",
+        "fe": true
+      },
+      "roomtype": {
+        "p": true,
+        "a": 2,
+        "tf": "senml+json",
+        "ot": "RoomType",
+        "e": true,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/a/roomtype",
+        "n": "roomtype",
+        "fe": true
+      },
+      "ar": {
+        "p": true,
+        "a": true,
+        "tf": "senml+json",
+        "sbt": "sensor_on",
+        "ot": "AirRefresh",
+        "e": true,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/a/ar",
+        "n": "ar",
+        "fe": true
+      },
+      "timstate": {
+        "p": true,
+        "a": 0,
+        "tf": "senml+json",
+        "ot": "TimerState",
+        "e": true,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/a/timstate",
+        "n": "timstate",
+        "fe": true
+      },
+      "ardur": {
+        "p": true,
+        "a": 0,
+        "tf": "senml+json",
+        "ot": "AirrefreshDur",
+        "e": true,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/a/ardur",
+        "n": "ardur",
+        "fe": true
+      },
+      "fsp0": {
+        "p": true,
+        "st": "fsp0",
+        "a": 20,
+        "tf": "senml+json",
+        "ot": "Fanspeed",
+        "e": true,
+        "tn": "d/00000000-0000-0000-0000-00000000sp4i/a/fsp0",
+        "n": "fsp0",
+        "fe": true
+      }
+    },
+    "dc": {
+      "timts": {
+        "a": "timts",
+        "s": "timts",
+        "t": "integer",
+        "v": 0,
+        "n": "timts"
+      },
+      "filterusage": {
+        "a": "fu0",
+        "s": "fu0",
+        "t": "integer",
+        "v": 0,
+        "n": "filterusage"
+      },
+      "standby": {
+        "a": "sb",
+        "s": "sb",
+        "t": "boolean",
+        "v": false,
+        "n": "standby"
+      },
+      "timdur": {
+        "a": "timdur",
+        "s": "timdur",
+        "t": "integer",
+        "v": 7200,
+        "n": "timdur"
+      },
+      "nmbrightness": {
+        "a": "nmledb",
+        "s": "nmledb",
+        "t": "integer",
+        "v": 100,
+        "n": "nmbrightness"
+      },
+      "apsubmode": {
+        "a": "apsubmode",
+        "s": "apsubmode",
+        "t": "integer",
+        "v": 0,
+        "n": "apsubmode"
+      },
+      "startts": {
+        "a": "startts",
+        "s": "startts",
+        "t": "integer",
+        "v": 36000,
+        "n": "startts"
+      },
+      "aireta": {
+        "a": "aireta",
+        "s": "aireta",
+        "t": "integer",
+        "v": 0,
+        "n": "aireta"
+      },
+      "airrefresh": {
+        "a": "ar",
+        "s": "ar",
+        "t": "boolean",
+        "v": true,
+        "n": "airrefresh"
+      },
+      "arstate": {
+        "a": "arstate",
+        "s": "arstate",
+        "t": "integer",
+        "v": 0,
+        "n": "arstate"
+      },
+      "hover": {
+        "a": "hover",
+        "s": "hover",
+        "t": "boolean",
+        "v": false,
+        "n": "hover"
+      },
+      "mainmode": {
+        "a": "mainmode",
+        "s": "mainmode",
+        "t": "integer",
+        "v": 0,
+        "n": "mainmode"
+      },
+      "endts": {
+        "a": "endts",
+        "s": "endts",
+        "t": "integer",
+        "v": 64800,
+        "n": "endts"
+      },
+      "childlock": {
+        "a": "chl",
+        "s": "chl",
+        "t": "boolean",
+        "v": false,
+        "n": "childlock"
+      },
+      "arts": {
+        "a": "arts",
+        "s": "arts",
+        "t": "integer",
+        "v": 0,
+        "n": "arts"
+      },
+      "displaymode": {
+        "a": "uim",
+        "s": "uim",
+        "t": "integer",
+        "v": 0,
+        "n": "displaymode"
+      },
+      "timl": {
+        "a": "timl",
+        "s": "timl",
+        "t": "integer",
+        "v": 0,
+        "n": "timl"
+      },
+      "fanspeed": {
+        "a": "fsp0",
+        "s": "fsp0",
+        "t": "integer",
+        "v": 11,
+        "n": "fanspeed"
+      },
+      "roomtype": {
+        "a": "roomtype",
+        "s": "roomtype",
+        "t": "integer",
+        "v": 2,
+        "n": "roomtype"
+      },
+      "cfv": {
+        "d": "di.cfv",
+        "t": "integer",
+        "v": 0,
+        "n": "cfv"
+      },
+      "brightness": {
+        "a": "ledb",
+        "s": "ledb",
+        "t": "integer",
+        "v": 100,
+        "n": "brightness"
+      },
+      "timstate": {
+        "a": "timstate",
+        "s": "timstate",
+        "t": "integer",
+        "v": 0,
+        "n": "timstate"
+      },
+      "mfv": {
+        "d": "di.mfv",
+        "t": "integer",
+        "v": 0,
+        "n": "mfv"
+      },
+      "ardur": {
+        "a": "ardur",
+        "s": "ardur",
+        "t": "integer",
+        "v": 0,
+        "n": "ardur"
+      },
+      "ofv": {
+        "d": "di.ofv",
+        "t": "integer",
+        "v": 0,
+        "n": "ofv"
+      }
+    }
+  },
+  "alarms": [],
+  "events": [],
+  "sensordata": [],
+  "states": [
+    {
+      "n": "timts",
+      "v": 0,
+      "t": 1778270607
+    },
+    {
+      "n": "filterusage",
+      "v": 44,
+      "t": 1778270607
+    },
+    {
+      "n": "standby",
+      "vb": false,
+      "t": 1778270607
+    },
+    {
+      "n": "timdur",
+      "v": 7200,
+      "t": 1778270607
+    },
+    {
+      "n": "nmbrightness",
+      "v": 7,
+      "t": 1778270607
+    },
+    {
+      "n": "apsubmode",
+      "v": 2,
+      "t": 1778292002
+    },
+    {
+      "n": "startts",
+      "v": 36000,
+      "t": 1778270607
+    },
+    {
+      "n": "aireta",
+      "v": 0,
+      "t": 1778270607
+    },
+    {
+      "n": "airrefresh",
+      "vb": false,
+      "t": 1778270607
+    },
+    {
+      "n": "arstate",
+      "v": 0,
+      "t": 1778270607
+    },
+    {
+      "n": "hover",
+      "vb": true,
+      "t": 1778270607
+    },
+    {
+      "n": "mainmode",
+      "v": 0,
+      "t": 1778270607
+    },
+    {
+      "n": "endts",
+      "v": 64800,
+      "t": 1778270607
+    },
+    {
+      "n": "childlock",
+      "vb": false,
+      "t": 1778270607
+    },
+    {
+      "n": "arts",
+      "v": 0,
+      "t": 1778270607
+    },
+    {
+      "n": "displaymode",
+      "v": 0,
+      "t": 1778270607
+    },
+    {
+      "n": "timl",
+      "v": 0,
+      "t": 1778270607
+    },
+    {
+      "n": "fanspeed",
+      "v": 11,
+      "t": 1778292003
+    },
+    {
+      "n": "roomtype",
+      "v": 2,
+      "t": 1778270607
+    },
+    {
+      "n": "cfv",
+      "v": 16777472,
+      "t": 1778270607
+    },
+    {
+      "n": "brightness",
+      "v": 0,
+      "t": 1778270607
+    },
+    {
+      "n": "timstate",
+      "v": 0,
+      "t": 1778270607
+    },
+    {
+      "n": "mfv",
+      "v": 16777472,
+      "t": 1778270607
+    },
+    {
+      "n": "ardur",
+      "v": 0,
+      "t": 1778270607
+    },
+    {
+      "n": "ofv",
+      "v": 16777472,
+      "t": 1778270607
+    },
+    {
+      "t": 1778270607,
+      "vb": true,
+      "n": "online"
+    }
+  ],
+  "welcomehome": {
+    "setting": {
+      "textValue": "\u6c11\u6b0a\u8def75\u865f",
+      "lng": 0,
+      "radius": 3000,
+      "lat": 0
+    }
+  },
+  "fleet_info": [],
+  "location_id": "",
+  "timezone": "Asia/Taipei"
+}
