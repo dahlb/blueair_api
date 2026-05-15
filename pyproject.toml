@@ -26,6 +26,8 @@ classifiers = [
     "Natural Language :: English",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Operating System :: MacOS :: MacOS X",
 ]
 keywords = [
@@ -37,3 +39,14 @@ keywords = [
 [project.urls]
 "Homepage" = "https://github.com/dahlb/blueair_api"
 "Bug Tracker" = "https://github.com/dahlb/blueair_api/issues"
+
+[tool.pytest.ini_options]
+# Surface latent NotImplemented / int(x or 0) / similar bugs while
+# they are still deprecation warnings, before they become hard
+# TypeErrors. bool(NotImplemented) is the canonical example:
+# emitted DeprecationWarning since 3.9, raises TypeError on 3.14+.
+# Treating DeprecationWarning as an error keeps the test suite
+# honest across the 3.12 -> 3.14 transition.
+filterwarnings = [
+    "error::DeprecationWarning",
+]
