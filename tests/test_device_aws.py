@@ -18,7 +18,7 @@ import dataclasses
 from importlib import resources
 import json
 from unittest import mock
-from unittest import IsolatedAsyncioTestCase
+from unittest import IsolatedAsyncioTestCase, TestCase
 
 import pytest
 
@@ -736,6 +736,100 @@ class T10iTest(DeviceAwsTestBase):
             assert device.hour_format is NotImplemented
 
 
+class SP4iTest(DeviceAwsTestBase):
+    """Tests for the Blueair Blue Signature SP4i (blue40 / l_blue40).
+
+    Fixture captured from a sanitized debug log shared by @Pazuzu6666
+    on dahlb/ha_blueair#348. The device declares `apsubmode` but NOT
+    `automode` or `nightmode`, which is the capability signature
+    `ha_blueair` uses to enable Signature preset modes
+    (manual_fan / auto / night / eco) via AP_SUB_MODE_LABELS.
+    """
+
+    def setUp(self):
+        super().setUp()
+        with open(resources.files().joinpath('device_info/SP4i.json')) as sample_file:
+            info = json.load(sample_file)
+        self.device_info_helper.info.update(info)
+
+    async def test_attributes(self):
+
+        await self.device.refresh()
+        self.api.device_info.assert_awaited_with("fake-name-api", "fake-uuid")
+
+        with assert_fully_checked(self.device) as device:
+
+            assert device.model_name == "Blueair Blue Signature SP4i"
+
+            assert device.pm1 is None
+            assert device.pm2_5 is None
+            assert device.pm10 is None
+            assert device.total_voc is NotImplemented
+            assert device.voc is NotImplemented
+            assert device.temperature is NotImplemented
+            assert device.humidity is NotImplemented
+            assert device.name == "Blueair SP4i"
+            assert device.firmware == "1.1.0"
+            assert device.mcu_firmware == "1.1.0"
+            assert device.serial_number == "112936000000000000000000"
+            assert device.sku == "112936"
+            assert device.hw == "l_blue40"
+
+            assert device.standby is False
+            # Signature devices do NOT declare automode/nightmode in dc:
+            # this is the capability signature ha_blueair gates the
+            # Signature preset modes on.
+            assert device.fan_auto_mode is NotImplemented
+            assert device.night_mode is NotImplemented
+            assert device.germ_shield is NotImplemented
+            assert device.brightness == 0
+            assert device.child_lock is False
+            assert device.fan_speed == 11
+            assert device.filter_usage_percentage == 44
+            assert device.wifi_working is True
+            assert device.wick_usage_percentage is NotImplemented
+            assert device.auto_regulated_humidity is NotImplemented
+            assert device.water_shortage is NotImplemented
+            assert device.wick_dry_mode is NotImplemented
+            assert device.main_mode == 0
+            assert device.heat_temp is NotImplemented
+            assert device.heat_sub_mode is NotImplemented
+            assert device.heat_fan_speed is NotImplemented
+            assert device.cool_sub_mode is NotImplemented
+            assert device.cool_fan_speed is NotImplemented
+            # apsubmode=2 (auto) in the captured shadow.
+            assert device.ap_sub_mode == 2
+            # fsp0 is declared in `ds` (sensor schema) but NOT in `dc`
+            # (control schema) on SP4i, so refresh() falls back to the
+            # sensor history. The fixture's `sensordata` is empty, so
+            # the latest value is None. On a live device the MQTT 5s
+            # feed populates this between refreshes.
+            assert device.fan_speed_0 is None
+            assert device.temperature_unit is NotImplemented
+            assert device.mood_brightness is NotImplemented
+            assert device.water_refresher_usage_percentage is NotImplemented
+            assert device.water_level is NotImplemented
+            assert device.rssi is None
+            assert device.night_light_brightness is NotImplemented
+            assert device.timer_state == 0
+            assert device.timer_level == 0
+            assert device.timer_start_timestamp == 0
+            assert device.timer_duration == 7200
+            assert device.hour_format is NotImplemented
+
+    async def test_mqtt_sensor_slugs(self):
+        """SP4i rt5s declares the four MQTT slugs we expect.
+
+        Note: `fsp0` is published on its OWN MQTT topic
+        (`d/<id>/s/fsp0`) and is not part of the 5-second batch.
+        `mqtt_sensor_slugs` only reflects `rt5s.sn`.
+        """
+        await self.device.refresh()
+        assert self.device.mqtt_sensor_slugs == [
+            "pm1", "pm2_5", "pm10", "rssi"
+        ]
+
+
 class Protect7470iTest(DeviceAwsTestBase):
     """Tests for protect7470i."""
 
@@ -1213,6 +1307,66 @@ class ModelNameTest(DeviceAwsTestBase):
         """Missing SKU (NotImplemented) falls back gracefully."""
         await self.device.refresh()
         assert UNKNOWN_MODEL in self.device.model_name
+
+    async def test_sp4i_sku_known(self):
+        """SP4i SKU 112936 resolves to Blueair Blue Signature SP4i.
+
+        Regression for ha_blueair#348 / #261 — the Signature/SP4i fan
+        preset support depends on correct SKU resolution so the device
+        appears as a Signature device in HA's device registry.
+        """
+        ir.query_json(self.device_info_helper.info, "configuration.di")["sku"] = "112936"
+        await self.device.refresh()
+        assert self.device.model_name == "Blueair Blue Signature SP4i"
+
+
+class ApSubModeLabelsTest(TestCase):
+    """Regression tests for the AP_SUB_MODE_LABELS public constant.
+
+    Consumed by ha_blueair's fan platform to expose Signature/SP4i fan
+    preset modes (ha_blueair#348, #261). Changing these labels is a
+    breaking API change for downstream integrations — keep this test
+    in sync with const expectations on the consumer side.
+
+    AP_SUB_MODE_LABELS is intentionally Signature-only. It is NOT a
+    global decoder for the `apsubmode` shadow slug: T10i (cmb3in1)
+    uses values 1/2 in a different namespace and pet_air_pro / 2-in-1
+    declare the field without consuming it. See the constant's
+    docstring in src/blueair_api/device_aws.py.
+    """
+
+    def test_labels_match_known_signature_mapping(self):
+        from blueair_api.device_aws import AP_SUB_MODE_LABELS
+        assert AP_SUB_MODE_LABELS == {
+            0: "manual_fan",
+            2: "auto",
+            3: "night",
+            4: "eco",
+        }
+
+    def test_labels_are_unique(self):
+        """Two values mapping to the same preset would silently break
+        the consumer's reverse lookup (label -> apsubmode value)."""
+        from blueair_api.device_aws import AP_SUB_MODE_LABELS
+        assert len(set(AP_SUB_MODE_LABELS.values())) == len(AP_SUB_MODE_LABELS)
+
+    def test_labels_are_well_formed(self):
+        """Keys must be ints (the apsubmode wire type) and values must
+        be non-empty strings (HA preset_modes are str-typed)."""
+        from blueair_api.device_aws import AP_SUB_MODE_LABELS
+        assert all(isinstance(k, int) for k in AP_SUB_MODE_LABELS)
+        assert all(
+            isinstance(v, str) and v
+            for v in AP_SUB_MODE_LABELS.values()
+        )
+
+    def test_publicly_importable_from_package_root(self):
+        """Phase 3 (ha_blueair#353) and current ha_blueair#348 consumers
+        should be able to import the constant from the package root,
+        not reach into device_aws."""
+        import blueair_api
+        from blueair_api.device_aws import AP_SUB_MODE_LABELS
+        assert blueair_api.AP_SUB_MODE_LABELS is AP_SUB_MODE_LABELS
 
 
 class MqttSensorSlugsTest(DeviceAwsTestBase):

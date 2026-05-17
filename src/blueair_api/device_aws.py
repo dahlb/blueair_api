@@ -64,6 +64,71 @@ SHADOW_FIELD_MAP: dict[str, str] = {
     "hourformat": "hour_format",
 }
 
+# Label map for the `apsubmode` shadow field on Signature-series air
+# purifiers (Blueair Blue Signature SP4i and related models with
+# type_name='blue40', hw='l_blue40'). These devices do NOT expose the
+# legacy `automode` / `nightmode` shadow fields; all preset switching
+# is performed via `apsubmode`.
+#
+# Filed as ha_blueair#348 by @Pazuzu6666 (sanitized SP4i debug log) and
+# ha_blueair#261 by @madkatz01 / @disruptivepatternmaterial / @Pazuzu5688
+# (multiple Signature owners; same observed mapping).
+#
+# Phase 3 of dahlb/ha_blueair#334 (tracked as ha_blueair#353) will
+# consume this dict as the `value_labels` of a future
+# FieldProfile("apsubmode") and add `apsubmode` to the FieldProfile
+# deny-list so the schema-driven `select` does not duplicate the
+# fan-platform preset list.
+#
+# IMPORTANT: `apsubmode` is a POLYVALENT shadow slug — the same wire
+# field carries different value namespaces on different device
+# families. This dict is INTENTIONALLY Signature-only.
+#
+#   * Signature (blue40, hw='l_blue40'): values 0/2/3/4 mean
+#     manual_fan/auto/night/eco. The device has no other preset
+#     mechanism — `apsubmode` is the sole control.
+#
+#   * T10i (cmb3in1): values 1/2 only, and only meaningful while
+#     `mainmode==0` (HVAC FAN_ONLY). In HEAT mode `heatsubmode`
+#     supersedes; in COOL mode `coolsubmode` supersedes. T10i is
+#     surfaced via the HA climate platform, not the fan platform.
+#
+#   * pet_air_pro / 2-in-1 / older AWS purifiers: declare `apsubmode`
+#     in their schema but `ha_blueair` does not consume it — preset
+#     modes come from `automode` / `nightmode`. Value semantics TBD.
+#
+# The three families are kept disjoint by a capability gate in
+# ha_blueair's BlueairAwsFan:
+#   `ap_sub_mode != NotImplemented
+#    AND fan_auto_mode == NotImplemented
+#    AND night_mode == NotImplemented`
+# Only Signature devices pass that gate, so only Signature devices
+# consume AP_SUB_MODE_LABELS. T10i / pet_air_pro / 2-in-1 declare
+# `automode` and so are excluded.
+#
+# Consumers MUST NOT treat AP_SUB_MODE_LABELS as a global decoder
+# for `apsubmode` — that would mislabel T10i value 1 as missing
+# from the namespace when it is in fact a valid T10i value.
+#
+# NOTE on the manual_fan wire value: investigation of the Blueair
+# cloud API responses and AWS IoT protocol behavior suggests that
+# the canonical wire value for the manual / fan-speed-only mode is
+# **1**. The 0 mapping below is the value that was empirically
+# confirmed by the user who supplied the SP4i debug log (writing
+# apsubmode=0 successfully transitioned the SP4i into manual fan
+# mode and accepted subsequent fanspeed writes). Firmware appears
+# to accept either 0 or 1 as "exit current preset; resume manual
+# control" — keep 0 unless and until a tester confirms that
+# writing 1 has the same effect on real hardware. If 1 turns out
+# to be exclusively accepted by some firmware revision, switch
+# this mapping accordingly.
+AP_SUB_MODE_LABELS: dict[int, str] = {
+    0: "manual_fan",
+    2: "auto",
+    3: "night",
+    4: "eco",
+}
+
 @dataclass(slots=True)
 class DeviceAws(CallbacksMixin):
     @classmethod
