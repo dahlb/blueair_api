@@ -363,3 +363,26 @@ class HttpAwsBlueair:
         )
         response_text = await response.text()
         return response_text == "Success"
+
+    async def discover_cloud_region(
+        self,
+        *,
+        candidates=None,
+        per_candidate_timeout: float = 5.0,
+    ):
+        """Probe candidate BlueCloud regions and return a recommendation.
+
+        Thin wrapper around :func:`blueair_api.region_discovery.discover_cloud_region`
+        so callers can do ``await api.discover_cloud_region()``.  Read-only
+        with respect to client state; see the free function's docstring
+        for the full contract.
+        """
+        # Local import to avoid a circular dependency at module load
+        # time (region_discovery imports HttpAwsBlueair for type hints).
+        from .region_discovery import discover_cloud_region
+
+        return await discover_cloud_region(
+            self,
+            candidates=candidates,
+            per_candidate_timeout=per_candidate_timeout,
+        )
