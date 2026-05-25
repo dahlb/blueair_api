@@ -45,12 +45,17 @@ async def get_aws_devices(
     password: str,
     region: str = "us",
     client_session: ClientSession | None = None,
+    *,
+    gigya_region: str | None = None,
+    cloud_region: str | None = None,
 ) -> tuple[HttpAwsBlueair, list[DeviceAws]]:
     api = HttpAwsBlueair(
         username=username,
         password=password,
         region=region,
         client_session=client_session,
+        gigya_region=gigya_region,
+        cloud_region=cloud_region,
     )
     api_devices = await api.devices()
     devices = []
