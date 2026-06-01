@@ -77,10 +77,52 @@ class HttpAwsBlueair:
         password: str,
         region: str = "us",
         client_session: ClientSession | None = None,
+        *,
+        gigya_region: str | None = None,
+        cloud_region: str | None = None,
     ):
+        """Construct the Blueair AWS HTTP client.
+
+        Parameters
+        ----------
+        username, password
+            Account credentials.
+        region
+            Convenience knob that drives both Gigya account region and
+            BlueCloud REST/MQTT region when neither ``gigya_region`` nor
+            ``cloud_region`` is supplied.  Defaults to ``"us"``.
+            Existing single-region callers should keep using this and
+            see no behavior change.
+        gigya_region
+            Optional override for the Gigya account-auth region
+            (controls ``accounts.login`` / ``accounts.getJWT`` host and
+            the Gigya partner API key).  Defaults to ``region``.
+        cloud_region
+            Optional override for the BlueCloud REST + MQTT region
+            (controls ``execute-api`` host and ``iot.amazonaws.com``
+            broker).  Defaults to ``region``.
+
+        Most accounts have ``gigya_region == cloud_region``.  Splitting
+        them is only needed when the device's live AWS IoT broker is
+        hosted in a different region than the account's Gigya tenant
+        (e.g. US Gigya account whose hardware is provisioned against
+        ``eu-west-1``).
+        """
         self.username = username
         self.password = password
-        self.region = region
+        self.gigya_region = gigya_region if gigya_region is not None else region
+        self.cloud_region = cloud_region if cloud_region is not None else region
+
+        if self.gigya_region not in AWS_APIKEYS:
+            raise ValueError(
+                f"Unknown gigya_region {self.gigya_region!r}; expected one of "
+                f"{sorted(AWS_APIKEYS)}"
+            )
+        if self.cloud_region not in AWS_APIKEYS:
+            raise ValueError(
+                f"Unknown cloud_region {self.cloud_region!r}; expected one of "
+                f"{sorted(AWS_APIKEYS)}"
+            )
 
         self.session_token = None
         self.session_secret = None
@@ -101,6 +143,32 @@ class HttpAwsBlueair:
 
     async def cleanup_client_session(self):
         await self.api_session.close()
+
+    @property
+    def region(self) -> str:
+        """Back-compat alias for ``cloud_region``.
+
+        Older callers (notably ``mqtt_aws_blueair.MqttAwsBlueair`` and
+        the Home Assistant integration's bootstrap path) read
+        ``http_client.region`` to look up the MQTT broker / AWS IoT
+        endpoint.  Those callers want the *cloud* region, so we expose
+        ``cloud_region`` under the legacy name to avoid breaking them.
+        """
+        return self.cloud_region
+
+    @region.setter
+    def region(self, value: str) -> None:
+        # Setting .region post-construction is undocumented but
+        # historically possible; keep both halves in lock-step so
+        # subclasses or test fixtures that reassign it don't end up
+        # with a Gigya/Cloud split they didn't ask for.
+        if value not in AWS_APIKEYS:
+            raise ValueError(
+                f"Unknown region {value!r}; expected one of "
+                f"{sorted(AWS_APIKEYS)}"
+            )
+        self.gigya_region = value
+        self.cloud_region = value
 
     @request_with_errors
     @request_with_logging
@@ -124,9 +192,9 @@ class HttpAwsBlueair:
 
     async def refresh_session(self) -> None:
         _LOGGER.debug("refresh_session")
-        url = f"https://{AWS_APIKEYS[self.region]['gigyaRegion']}/accounts.login"
+        url = f"https://{AWS_APIKEYS[self.gigya_region]['gigyaRegion']}/accounts.login"
         form_data = FormData()
-        form_data.add_field("apikey", AWS_APIKEYS[self.region]["apiKey"])
+        form_data.add_field("apikey", AWS_APIKEYS[self.gigya_region]["apiKey"])
         form_data.add_field("loginID", self.username)
         form_data.add_field("password", self.password)
         form_data.add_field("targetEnv", "mobile")
@@ -143,7 +211,7 @@ class HttpAwsBlueair:
         _LOGGER.debug("refresh_jwt")
         if self.session_token is None or self.session_secret is None:
             await self.refresh_session()
-        url = f"https://{AWS_APIKEYS[self.region]['gigyaRegion']}/accounts.getJWT"
+        url = f"https://{AWS_APIKEYS[self.gigya_region]['gigyaRegion']}/accounts.getJWT"
         form_data = FormData()
         form_data.add_field("oauth_token", self.session_token)
         form_data.add_field("secret", self.session_secret)
@@ -167,7 +235,7 @@ class HttpAwsBlueair:
         self.session_secret = None
         self.jwt = None
         await self.refresh_jwt()
-        url = f"https://{AWS_APIKEYS[self.region]['restApiId']}.execute-api.{AWS_APIKEYS[self.region]['awsRegion']}/prod/c/login"
+        url = f"https://{AWS_APIKEYS[self.cloud_region]['restApiId']}.execute-api.{AWS_APIKEYS[self.cloud_region]['awsRegion']}/prod/c/login"
         headers = {"idtoken": self.jwt, "authorization": f"Bearer {self.jwt}"}
         response: ClientResponse = (
             await self._post_request_with_logging_and_errors_raised(
@@ -216,7 +284,7 @@ class HttpAwsBlueair:
     @request_with_active_session
     async def devices(self) -> dict[str, Any]:
         _LOGGER.debug("devices")
-        url = f"https://{AWS_APIKEYS[self.region]['restApiId']}.execute-api.{AWS_APIKEYS[self.region]['awsRegion']}/prod/c/registered-devices"
+        url = f"https://{AWS_APIKEYS[self.cloud_region]['restApiId']}.execute-api.{AWS_APIKEYS[self.cloud_region]['awsRegion']}/prod/c/registered-devices"
         headers = {
             "Authorization": f"Bearer {await self.get_access_token()}",
         }
@@ -231,7 +299,7 @@ class HttpAwsBlueair:
     @request_with_active_session
     async def device_sensors(self, device_name, device_uuid, duration: timedelta = timedelta(hours=10)):
         user_id = await self.get_user_id()
-        url = f"https://{AWS_APIKEYS[self.region]['restApiId']}.execute-api.{AWS_APIKEYS[self.region]['awsRegion']}/prod/c/{user_id}/r/telemetry/5m/historical"
+        url = f"https://{AWS_APIKEYS[self.cloud_region]['restApiId']}.execute-api.{AWS_APIKEYS[self.cloud_region]['awsRegion']}/prod/c/{user_id}/r/telemetry/5m/historical"
         headers = {
             "Authorization": f"Bearer {await self.get_access_token()}",
         }
@@ -253,7 +321,7 @@ class HttpAwsBlueair:
     async def device_info(self, device_name, device_uuid) -> dict[str, Any]:
         _LOGGER.debug("device_info")
         user_id = await self.get_user_id()
-        url = f"https://{AWS_APIKEYS[self.region]['restApiId']}.execute-api.{AWS_APIKEYS[self.region]['awsRegion']}/prod/c/{user_id}/r/initial"
+        url = f"https://{AWS_APIKEYS[self.cloud_region]['restApiId']}.execute-api.{AWS_APIKEYS[self.cloud_region]['awsRegion']}/prod/c/{user_id}/r/initial"
         headers = {
             "Authorization": f"Bearer {await self.get_access_token()}",
         }
@@ -283,7 +351,7 @@ class HttpAwsBlueair:
         self, device_uuid, service_name, action_verb, action_value
     ) -> bool:
         _LOGGER.debug("set_device_info")
-        url = f"https://{AWS_APIKEYS[self.region]['restApiId']}.execute-api.{AWS_APIKEYS[self.region]['awsRegion']}/prod/c/{device_uuid}/a/{service_name}"
+        url = f"https://{AWS_APIKEYS[self.cloud_region]['restApiId']}.execute-api.{AWS_APIKEYS[self.cloud_region]['awsRegion']}/prod/c/{device_uuid}/a/{service_name}"
         headers = {
             "Authorization": f"Bearer {await self.get_access_token()}",
         }
@@ -295,3 +363,26 @@ class HttpAwsBlueair:
         )
         response_text = await response.text()
         return response_text == "Success"
+
+    async def discover_cloud_region(
+        self,
+        *,
+        candidates=None,
+        per_candidate_timeout: float = 5.0,
+    ):
+        """Probe candidate BlueCloud regions and return a recommendation.
+
+        Thin wrapper around :func:`blueair_api.region_discovery.discover_cloud_region`
+        so callers can do ``await api.discover_cloud_region()``.  Read-only
+        with respect to client state; see the free function's docstring
+        for the full contract.
+        """
+        # Local import to avoid a circular dependency at module load
+        # time (region_discovery imports HttpAwsBlueair for type hints).
+        from .region_discovery import discover_cloud_region
+
+        return await discover_cloud_region(
+            self,
+            candidates=candidates,
+            per_candidate_timeout=per_candidate_timeout,
+        )
