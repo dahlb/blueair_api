@@ -1,0 +1,383 @@
+{
+    "id": "1a1b57f1-97ea-4d7c-b687-36f71d0e6086",
+    "configuration": {
+        "di": {
+            "cfv": "1.0.6",
+            "cma": "5c:01:3b:3a:da:a0",
+            "mt": "1",
+            "name": "Master Bedroom",
+            "sku": "111811",
+            "mfv": "1.0.6",
+            "region": "en",
+            "ofv": "1.0.6",
+            "hw": "s_cmb2in1",
+            "ds": "111181100201111210007280"
+        },
+        "_ot": "CmConfig",
+        "_f": false,
+        "_it": "urn:blueair:openapi:version:cmb2in1:0.0.5",
+        "_sc": "Instance",
+        "ds": {
+            "fu0": {
+                "tf": "senml+json",
+                "ot": "filterusage",
+                "e": false,
+                "i": 0,
+                "tn": "d/1a1b57f1-97ea-4d7c-b687-36f71d0e6086/s/fu0",
+                "ttl": -1,
+                "n": "fu0",
+                "fe": true
+            },
+            "yu0": {
+                "tf": "senml+json",
+                "ot": "wickusage",
+                "e": false,
+                "i": 0,
+                "tn": "d/1a1b57f1-97ea-4d7c-b687-36f71d0e6086/s/yu0",
+                "ttl": -1,
+                "n": "yu0",
+                "fe": true
+            },
+            "rt5s": {
+                "tf": "senml+json",
+                "ot": "RT5s",
+                "e": false,
+                "i": 0,
+                "tn": "d/1a1b57f1-97ea-4d7c-b687-36f71d0e6086/s/5s",
+                "sn": [
+                    "t",
+                    "h",
+                    "pm1",
+                    "pm2_5",
+                    "pm10",
+                    "rssi"
+                ],
+                "ttl": -1,
+                "n": "rt5s",
+                "fe": true
+            }
+        },
+        "_r": "us-east-2",
+        "_t": "Partial",
+        "_v": 1780663243,
+        "_id": "1a1b57f1-97ea-4d7c-b687-36f71d0e6086",
+        "da": {
+            "reboot": {
+                "p": false,
+                "a": false,
+                "ot": "Reboot",
+                "e": true,
+                "tn": "d/1a1b57f1-97ea-4d7c-b687-36f71d0e6086/a/reboot",
+                "n": "reboot",
+                "fe": true
+            },
+            "hm": {
+                "p": true,
+                "a": false,
+                "tf": "senml+json",
+                "ot": "HumMode",
+                "e": true,
+                "tn": "d/1a1b57f1-97ea-4d7c-b687-36f71d0e6086/a/hm",
+                "n": "hm",
+                "fe": true
+            },
+            "mode": {
+                "p": true,
+                "a": 0,
+                "tf": "senml+json",
+                "ot": "Mode",
+                "e": true,
+                "tn": "d/1a1b57f1-97ea-4d7c-b687-36f71d0e6086/a/mode",
+                "n": "mode",
+                "fe": true
+            },
+            "sb": {
+                "p": true,
+                "a": false,
+                "tf": "senml+json",
+                "ot": "Standby",
+                "e": true,
+                "tn": "d/1a1b57f1-97ea-4d7c-b687-36f71d0e6086/a/sb",
+                "n": "sb",
+                "fe": true
+            },
+            "is": {
+                "p": true,
+                "a": false,
+                "tf": "senml+json",
+                "ot": "IonizerState",
+                "e": true,
+                "tn": "d/1a1b57f1-97ea-4d7c-b687-36f71d0e6086/a/is",
+                "n": "is",
+                "fe": true
+            },
+            "autorh": {
+                "p": true,
+                "a": 50,
+                "ot": "AutoRH",
+                "e": true,
+                "tn": "d/1a1b57f1-97ea-4d7c-b687-36f71d0e6086/a/autorh",
+                "n": "autorh",
+                "fe": true
+            },
+            "fsp0": {
+                "p": true,
+                "st": "fsp0",
+                "a": 20,
+                "tf": "senml+json",
+                "ot": "Fanspeed",
+                "e": true,
+                "tn": "d/1a1b57f1-97ea-4d7c-b687-36f71d0e6086/a/fsp0",
+                "n": "fsp0",
+                "fe": true
+            }
+        },
+        "dc": {
+            "hummode": {
+                "a": "hm",
+                "s": "hm",
+                "t": "boolean",
+                "v": false,
+                "n": "hummode"
+            },
+            "mode": {
+                "a": "mode",
+                "s": "mode",
+                "t": "integer",
+                "v": 0,
+                "n": "mode"
+            },
+            "standby": {
+                "a": "sb",
+                "s": "sb",
+                "t": "boolean",
+                "v": false,
+                "n": "standby"
+            },
+            "filterusage": {
+                "a": "fu0",
+                "s": "fu0",
+                "t": "integer",
+                "v": 0,
+                "n": "filterusage"
+            },
+            "timl": {
+                "a": "timl",
+                "s": "timl",
+                "t": "integer",
+                "v": 0,
+                "n": "timl"
+            },
+            "timts": {
+                "a": "timts",
+                "s": "timts",
+                "t": "integer",
+                "v": 0,
+                "n": "timts"
+            },
+            "timdur": {
+                "a": "timdur",
+                "s": "timdur",
+                "t": "integer",
+                "v": 7200,
+                "n": "timdur"
+            },
+            "timstate": {
+                "a": "timstate",
+                "s": "timstate",
+                "t": "integer",
+                "v": 0,
+                "n": "timstate"
+            },
+            "wickdryl": {
+                "a": "wickdryl",
+                "s": "wickdryl",
+                "t": "integer",
+                "v": 0,
+                "n": "wickdryl"
+            },
+            "nmbrightness": {
+                "a": "nmledb",
+                "s": "nmledb",
+                "t": "integer",
+                "v": 100,
+                "n": "nmbrightness"
+            },
+            "wickdrye": {
+                "a": "wickdrye",
+                "s": "wickdrye",
+                "t": "boolean",
+                "v": false,
+                "n": "wickdrye"
+            },
+            "autorh": {
+                "a": "autorh",
+                "s": "autorh",
+                "t": "integer",
+                "v": 50,
+                "n": "autorh"
+            },
+            "brightness": {
+                "a": "ledb",
+                "s": "ledb",
+                "t": "integer",
+                "v": 100,
+                "n": "brightness"
+            },
+            "wickusage": {
+                "a": "wu0",
+                "s": "wu0",
+                "t": "integer",
+                "v": 0,
+                "n": "wickusage"
+            },
+            "childlock": {
+                "a": "chl",
+                "s": "chl",
+                "t": "boolean",
+                "v": false,
+                "n": "childlock"
+            },
+            "wickdrys": {
+                "a": "wickdrys",
+                "s": "wickdrys",
+                "t": "boolean",
+                "v": false,
+                "n": "wickdrys"
+            },
+            "wlevel": {
+                "s": "wlevel",
+                "t": "integer",
+                "v": 0,
+                "n": "wlevel"
+            },
+            "fanspeed": {
+                "a": "fsp0",
+                "s": "fsp0",
+                "t": "integer",
+                "v": 11,
+                "n": "fanspeed"
+            }
+        }
+    },
+    "alarms": [],
+    "events": [],
+    "sensordata": [],
+    "states": [
+        {
+            "n": "hummode",
+            "vb": true,
+            "t": 1780613554
+        },
+        {
+            "n": "timl",
+            "v": 0,
+            "t": 1780663243
+        },
+        {
+            "n": "timts",
+            "v": 0,
+            "t": 1780663243
+        },
+        {
+            "n": "filterusage",
+            "v": 24,
+            "t": 1780663243
+        },
+        {
+            "n": "standby",
+            "vb": false,
+            "t": 1780663243
+        },
+        {
+            "n": "timdur",
+            "v": 7200,
+            "t": 1780663243
+        },
+        {
+            "n": "wickdryl",
+            "v": 0,
+            "t": 1780663243
+        },
+        {
+            "n": "nmbrightness",
+            "v": 7,
+            "t": 1780663243
+        },
+        {
+            "n": "wickdrye",
+            "vb": true,
+            "t": 1780663243
+        },
+        {
+            "n": "autorh",
+            "v": 40,
+            "t": 1780663243
+        },
+        {
+            "n": "mode",
+            "v": 2,
+            "t": 1780662921
+        },
+        {
+            "n": "wickdryts",
+            "v": 0,
+            "t": 1780663243
+        },
+        {
+            "n": "cfv",
+            "v": 16777222,
+            "t": 1780663243
+        },
+        {
+            "n": "brightness",
+            "v": 50,
+            "t": 1780663243
+        },
+        {
+            "n": "wickusage",
+            "v": 47,
+            "t": 1780656100
+        },
+        {
+            "n": "timstate",
+            "v": 0,
+            "t": 1780663243
+        },
+        {
+            "n": "childlock",
+            "vb": true,
+            "t": 1780663243
+        },
+        {
+            "n": "mfv",
+            "v": 16777222,
+            "t": 1780663243
+        },
+        {
+            "n": "wickdrys",
+            "vb": false,
+            "t": 1780663243
+        },
+        {
+            "n": "ofv",
+            "v": 16777222,
+            "t": 1780663243
+        },
+        {
+            "n": "wlevel",
+            "v": 1,
+            "t": 1780626644
+        },
+        {
+            "n": "fanspeed",
+            "v": 11,
+            "t": 1780663243
+        },
+        {
+            "n": "online",
+            "vb": true,
+            "t": 1780663243
+        }
+    ]
+}
