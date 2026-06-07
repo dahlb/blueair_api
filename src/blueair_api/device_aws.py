@@ -46,7 +46,7 @@ SHADOW_FIELD_MAP: dict[str, str] = {
     "wickdrys": "wick_dry_mode",
     "autorh": "auto_regulated_humidity",
     "wshortage": "water_shortage",
-    "hummode": "hum_mode",
+    "hummode": "humidifier_mode",
     "mode": "combo_mode",
     "mainmode": "main_mode",
     "heattemp": "heat_temp",
@@ -194,13 +194,13 @@ class DeviceAws(CallbacksMixin):
     auto_regulated_humidity : AttributeType[int] = None
 
     # Combo (2-in-1 purify + humidify) controls. Present on DeviceCombo2in1
-    # devices (hw='s_cmb2in1', e.g. the DH3i). `hum_mode` is the
-    # independent humidification on/off (shadow `hummode`, writable `hm`),
+    # devices (hw='s_cmb2in1', e.g. the DH3i). `humidifier_mode` is the
+    # independent humidification on/off (shadow + writable `hummode`),
     # separate from `standby` (whole-device power) so the purifier can keep
     # running while humidification is toggled off. `combo_mode` is the
     # device's preset/mode selector (shadow + writable `mode`); per the
     # firmware's Mode enum: 1=fan/manual, 2=auto, 3=night, 4=eco, 5=skin.
-    hum_mode: AttributeType[bool] = None
+    humidifier_mode: AttributeType[bool] = None
     combo_mode: AttributeType[int] = None
 
     main_mode: AttributeType[int] = None # api value 0 purify only, 1 heat on, 2 cool on
@@ -339,7 +339,7 @@ class DeviceAws(CallbacksMixin):
         self.auto_regulated_humidity = states_safe_get("autorh")
         self.water_shortage = states_safe_get("wshortage")
 
-        self.hum_mode = states_safe_get("hummode")
+        self.humidifier_mode = states_safe_get("hummode")
         self.combo_mode = states_safe_get("mode")
 
         self.main_mode = states_safe_get("mainmode")
@@ -511,8 +511,8 @@ class DeviceAws(CallbacksMixin):
         await self.api.set_device_info(self.uuid, "autorh", "v", value)
         self.publish_updates()
 
-    async def set_hum_mode(self, value: bool):
-        self.hum_mode = value
+    async def set_humidifier_mode(self, value: bool):
+        self.humidifier_mode = value
         await self.api.set_device_info(self.uuid, "hummode", "vb", value)
         self.publish_updates()
 
