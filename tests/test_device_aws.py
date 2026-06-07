@@ -126,6 +126,8 @@ class DeviceAwsSetterTest(DeviceAwsTestBase):
             "childlock": fake,
             "nightmode": fake,
             "wickdrys": fake,
+            "hummode": fake,
+            "mode": fake,
             "mainmode": fake,
             "heattemp": fake,
             "heatsubmode": fake,
@@ -256,6 +258,30 @@ class DeviceAwsSetterTest(DeviceAwsTestBase):
         await self.device.refresh()
         assert self.device.main_mode == 2
 
+    async def test_humidifier_mode(self):
+        # test cache works
+        self.device.humidifier_mode = None
+        await self.device.set_humidifier_mode(False)
+        assert self.device.humidifier_mode is False
+
+        # test refresh works
+        await self.device.set_humidifier_mode(True)
+        self.device.humidifier_mode = None
+        await self.device.refresh()
+        assert self.device.humidifier_mode is True
+
+    async def test_combo_mode(self):
+        # test cache works
+        self.device.combo_mode = None
+        await self.device.set_combo_mode(1)
+        assert self.device.combo_mode == 1
+
+        # test refresh works
+        await self.device.set_combo_mode(2)
+        self.device.combo_mode = None
+        await self.device.refresh()
+        assert self.device.combo_mode == 2
+
     async def test_heat_temp(self):
         # test cache works
         self.device.heat_temp = None
@@ -359,6 +385,9 @@ class EmptyDeviceAwsTest(DeviceAwsTestBase):
 
             assert UNKNOWN_MODEL in device.model_name
 
+            assert device.humidifier_mode is NotImplemented
+            assert device.combo_mode is NotImplemented
+
             assert device.pm1 is NotImplemented
             assert device.pm2_5 is NotImplemented
             assert device.pm10 is NotImplemented
@@ -424,6 +453,8 @@ class H35iTest(DeviceAwsTestBase):
         with assert_fully_checked(self.device) as device:
 
             assert device.model_name == "Blueair Humidifier H35i"
+            assert device.humidifier_mode is NotImplemented
+            assert device.combo_mode is NotImplemented
 
             assert device.pm1 is NotImplemented
             assert device.pm2_5 is NotImplemented
@@ -490,6 +521,8 @@ class H38iTest(DeviceAwsTestBase):
         with assert_fully_checked(self.device) as device:
 
             assert device.model_name == "Blueair DreamWell Humidifier H38i"
+            assert device.humidifier_mode is NotImplemented
+            assert device.combo_mode is NotImplemented
 
             assert device.pm1 is NotImplemented
             assert device.pm2_5 is NotImplemented
@@ -556,6 +589,8 @@ class H76iTest(DeviceAwsTestBase):
         with assert_fully_checked(self.device) as device:
 
             assert device.model_name == "Blueair DreamWell Humidifier H76i"
+            assert device.humidifier_mode is NotImplemented
+            assert device.combo_mode is NotImplemented
 
             assert device.pm1 is NotImplemented
             assert device.pm2_5 is NotImplemented
@@ -621,6 +656,8 @@ class Max311iTest(DeviceAwsTestBase):
         with assert_fully_checked(self.device) as device:
 
             assert device.model_name == "Blueair Blue Pure 311i Max"
+            assert device.humidifier_mode is NotImplemented
+            assert device.combo_mode is NotImplemented
 
             assert device.pm1 is NotImplemented
             assert device.pm2_5 is None
@@ -687,6 +724,8 @@ class T10iTest(DeviceAwsTestBase):
         with assert_fully_checked(self.device) as device:
 
             assert device.model_name == "Blueair ComfortPure 3-in-1 T10i"
+            assert device.humidifier_mode is NotImplemented
+            assert device.combo_mode is NotImplemented
 
             assert device.pm1 is NotImplemented
             assert device.pm2_5 is None
@@ -760,6 +799,8 @@ class SP4iTest(DeviceAwsTestBase):
         with assert_fully_checked(self.device) as device:
 
             assert device.model_name == "Blueair Blue Signature SP4i"
+            assert device.humidifier_mode is NotImplemented
+            assert device.combo_mode is NotImplemented
 
             assert device.pm1 is None
             assert device.pm2_5 is None
@@ -850,6 +891,8 @@ class Protect7470iTest(DeviceAwsTestBase):
         with assert_fully_checked(self.device) as device:
 
             assert device.model_name == "Blueair Protect 7470i"
+            assert device.humidifier_mode is NotImplemented
+            assert device.combo_mode is NotImplemented
             assert device.pm1 == 0
             assert device.pm2_5 == 0
             assert device.pm10 == 0
@@ -915,6 +958,8 @@ class Max211iTest(DeviceAwsTestBase):
         with assert_fully_checked(self.device) as device:
 
             assert device.model_name == "Blueair Blue Pure 211i Max"
+            assert device.humidifier_mode is NotImplemented
+            assert device.combo_mode is NotImplemented
 
             assert device.pm1 is None
             assert device.pm2_5 is None
@@ -981,6 +1026,8 @@ class PetAirProTest(DeviceAwsTestBase):
         with assert_fully_checked(self.device) as device:
 
             assert device.model_name == "Blueair PetAir Pro P3i"
+            assert device.humidifier_mode is NotImplemented
+            assert device.combo_mode is NotImplemented
 
             assert device.pm1 is None
             assert device.pm2_5 is None
@@ -1047,6 +1094,8 @@ class TwoInOneTest(DeviceAwsTestBase):
         with assert_fully_checked(self.device) as device:
 
             assert device.model_name == "Blueair Air Purifier + Humidifier 2-in-1 Pro"
+            assert device.humidifier_mode is NotImplemented
+            assert device.combo_mode is NotImplemented
 
             assert device.pm1 is None
             assert device.pm2_5 is None
@@ -1096,6 +1145,79 @@ class TwoInOneTest(DeviceAwsTestBase):
             assert device.hour_format is NotImplemented
 
 
+class Combo2in1DH3iTest(DeviceAwsTestBase):
+    """Tests for the DH3i 2-in-1 Purify + Humidify combo (hw='s_cmb2in1').
+
+    This device exposes independent humidification (``humidifier_mode``) that is
+    separate from whole-device power (``standby``), plus a ``combo_mode``
+    preset selector. See https://github.com/dahlb/ha_blueair/issues/241.
+    """
+
+    def setUp(self):
+        super().setUp()
+        with open(resources.files().joinpath('device_info/two_in_one_dh3i.json')) as sample_file:
+            info = json.load(sample_file)
+        self.device_info_helper.info.update(info)
+
+    async def test_attributes(self):
+
+        await self.device.refresh()
+        self.api.device_info.assert_awaited_with("fake-name-api", "fake-uuid")
+
+        with assert_fully_checked(self.device) as device:
+
+            assert device.model_name == "Blueair 2-in-1 Purify + Humidify"
+            assert device.humidifier_mode is True
+            assert device.combo_mode == 2
+
+            assert device.pm1 is NotImplemented
+            assert device.pm2_5 is NotImplemented
+            assert device.pm10 is NotImplemented
+            assert device.total_voc is NotImplemented
+            assert device.voc is NotImplemented
+            assert device.temperature is NotImplemented
+            assert device.humidity is NotImplemented
+            assert device.name == "Master Bedroom"
+            assert device.firmware == "1.0.6"
+            assert device.mcu_firmware == "1.0.6"
+            assert device.serial_number == "111181100201111210007280"
+            assert device.sku == "111811"
+            assert device.hw == "s_cmb2in1"
+
+            assert device.standby is False
+            assert device.night_mode is NotImplemented
+            assert device.germ_shield is NotImplemented
+            assert device.brightness == 50
+            assert device.child_lock is True
+            assert device.fan_speed == 11
+            assert device.fan_auto_mode is NotImplemented
+            assert device.filter_usage_percentage == 24
+            assert device.wifi_working is True
+            assert device.wick_usage_percentage == 47
+            assert device.auto_regulated_humidity == 40
+            assert device.water_shortage is NotImplemented
+            assert device.wick_dry_mode is False
+            assert device.main_mode is NotImplemented
+            assert device.heat_temp is NotImplemented
+            assert device.heat_sub_mode is NotImplemented
+            assert device.heat_fan_speed is NotImplemented
+            assert device.cool_sub_mode is NotImplemented
+            assert device.cool_fan_speed is NotImplemented
+            assert device.ap_sub_mode is NotImplemented
+            assert device.fan_speed_0 is NotImplemented
+            assert device.temperature_unit is NotImplemented
+            assert device.mood_brightness is NotImplemented
+            assert device.water_refresher_usage_percentage is NotImplemented
+            assert device.water_level == 1
+            assert device.rssi is NotImplemented
+            assert device.night_light_brightness is NotImplemented
+            assert device.timer_state == 0
+            assert device.timer_level == 0
+            assert device.timer_start_timestamp == 0
+            assert device.timer_duration == 7200
+            assert device.hour_format is NotImplemented
+
+
 class NullValueTest(DeviceAwsTestBase):
     """Tests for TwoInOne."""
 
@@ -1113,6 +1235,9 @@ class NullValueTest(DeviceAwsTestBase):
         with assert_fully_checked(self.device) as device:
 
             assert device.model_name == "Blueair Mini Restful"
+
+            assert device.humidifier_mode is NotImplemented
+            assert device.combo_mode is NotImplemented
 
             assert device.pm1 is NotImplemented
             assert device.pm2_5 is NotImplemented
@@ -1184,6 +1309,8 @@ class MiniRestfulAlarmTest(DeviceAwsTestBase):
         with assert_fully_checked(self.device) as device:
             assert device.model_name == "Blueair Mini Restful"
             assert device.hw == "mrest"
+            assert device.humidifier_mode is NotImplemented
+            assert device.combo_mode is NotImplemented
             assert device.brightness == 40
             assert device.fan_speed == 51
             assert device.standby is False
