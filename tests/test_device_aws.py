@@ -1145,11 +1145,11 @@ class TwoInOneTest(DeviceAwsTestBase):
             assert device.hour_format is NotImplemented
 
     async def test_fan_speed_count(self):
-        # The Pro 2-in-1 (hw='cmb2in1_ii') is intentionally left on the
-        # default 100 scale: unlike the DH3i its fan-speed model is not
-        # field-verified to use the 0-91 gear steps.
+        # The Pro 2-in-1 (hw='cmb2in1_ii') shares the DH3i's 4-gear
+        # fan-speed class, so it uses the same 91 cap as the nb_/high
+        # family rather than the default 100.
         await self.device.refresh()
-        assert self.device.fan_speed_count == 100
+        assert self.device.fan_speed_count == 91
 
 
 class Combo2in1DH3iTest(DeviceAwsTestBase):
