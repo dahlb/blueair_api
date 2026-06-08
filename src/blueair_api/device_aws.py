@@ -478,7 +478,16 @@ class DeviceAws(CallbacksMixin):
         hw = self.hw if isinstance(self.hw, str) else ""
         if self._is_humidifier:
             return 3
-        if hw.startswith("nb_") or hw.startswith("high"):
+        # The DH3i 2-in-1 Purify + Humidify (hw='s_cmb2in1') reports its
+        # manual fan speed on the same 0-91 scale as the nb_/high family:
+        # observed manual steps are 0, 11, 37, 64, 91 (the device snaps a
+        # written value to its nearest gear). Capping at 91 lets the top
+        # gear map to 100% in the UI instead of being scaled against 100.
+        if (
+            hw.startswith("nb_")
+            or hw.startswith("high")
+            or hw.startswith("s_cmb2in1")
+        ):
             return 91
         if hw.startswith("cmb3in1"):
             return 4
