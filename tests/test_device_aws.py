@@ -398,6 +398,7 @@ class EmptyDeviceAwsTest(DeviceAwsTestBase):
             assert device.name is NotImplemented
             assert device.firmware is NotImplemented
             assert device.mcu_firmware is NotImplemented
+            assert device.overall_firmware is NotImplemented
             assert device.serial_number is NotImplemented
             assert device.sku is NotImplemented
             assert device.hw is NotImplemented
@@ -466,6 +467,7 @@ class H35iTest(DeviceAwsTestBase):
             assert device.name == "Bedroom"
             assert device.firmware == "1.0.1"
             assert device.mcu_firmware == "1.0.1"
+            assert device.overall_firmware == "1.0.1"
             assert device.serial_number == "111163300201110210004036"
             assert device.sku == "111633"
             assert device.hw == "hum"
@@ -534,6 +536,7 @@ class H38iTest(DeviceAwsTestBase):
             assert device.name == "Ezra Humidifier"
             assert device.firmware == "1.0.4"
             assert device.mcu_firmware == "1.0.1"
+            assert device.overall_firmware == "1.0.4"
             assert device.serial_number == "111335300201111210008658"
             assert device.sku == "113353"
             assert device.hw == "hum2_s"
@@ -602,6 +605,7 @@ class H76iTest(DeviceAwsTestBase):
             assert device.name == "Collin’s Bedroom Humidifier "
             assert device.firmware == "1.0.4"
             assert device.mcu_firmware == "1.0.4"
+            assert device.overall_firmware == "1.0.4"
             assert device.serial_number == "111336600201110510002463"
             assert device.sku == "113366"
             assert device.hw == "hum2_l"
@@ -669,6 +673,7 @@ class Max311iTest(DeviceAwsTestBase):
             assert device.name == "Loft"
             assert device.firmware == "1.0.4"
             assert device.mcu_firmware == "1.0.4"
+            assert device.overall_firmware == "1.0.4"
             assert device.serial_number == "111082900302313210005018"
             assert device.sku == "110829"
             assert device.hw == "nb_m_1.0"
@@ -737,6 +742,7 @@ class T10iTest(DeviceAwsTestBase):
             assert device.name == "Allen's Office"
             assert device.firmware == "1.0.4"
             assert device.mcu_firmware == "1.0.4"
+            assert device.overall_firmware == "1.0.4"
             assert device.serial_number == "111212400002313210001961"
             assert device.sku == "112124"
             assert device.hw == "cmb3in1"
@@ -812,6 +818,7 @@ class SP4iTest(DeviceAwsTestBase):
             assert device.name == "Blueair SP4i"
             assert device.firmware == "1.1.0"
             assert device.mcu_firmware == "1.1.0"
+            assert device.overall_firmware == "1.1.0"
             assert device.serial_number == "112936000000000000000000"
             assert device.sku == "112936"
             assert device.hw == "l_blue40"
@@ -903,6 +910,7 @@ class Protect7470iTest(DeviceAwsTestBase):
             assert device.name == "air filter in room"
             assert device.firmware == "2.1.1"
             assert device.mcu_firmware == "1.0.12"
+            assert device.overall_firmware == "2.1.1"
             assert device.serial_number == "110582600000110110016855"
             assert device.sku == "105826"
             assert device.hw == "high_1.5"
@@ -971,6 +979,7 @@ class Max211iTest(DeviceAwsTestBase):
             assert device.name == "Bedroom Purifier"
             assert device.firmware == "1.1.6"
             assert device.mcu_firmware == "1.1.6"
+            assert device.overall_firmware == "1.1.6"
             assert device.serial_number == "111005900201111210085956"
             assert device.sku == "110059"
             assert device.hw == "nb_h_1.0"
@@ -1039,6 +1048,7 @@ class PetAirProTest(DeviceAwsTestBase):
             assert device.name == "PetAir Pro"
             assert device.firmware == "1.0.3"
             assert device.mcu_firmware == "1.0.3"
+            assert device.overall_firmware == "1.0.3"
             assert device.serial_number == "111279300002313310000090"
             assert device.sku == "112793"
             assert device.hw == "pet20"
@@ -1107,6 +1117,7 @@ class TwoInOneTest(DeviceAwsTestBase):
             assert device.name == "Master Bedroom"
             assert device.firmware == "1.1.0"
             assert device.mcu_firmware == "1.1.0"
+            assert device.overall_firmware == "1.1.0"
             assert device.serial_number == "111382500002313310004087"
             assert device.sku == "113825"
             assert device.hw == "cmb2in1_ii"
@@ -1187,6 +1198,7 @@ class Combo2in1DH3iTest(DeviceAwsTestBase):
             assert device.name == "Master Bedroom"
             assert device.firmware == "1.0.6"
             assert device.mcu_firmware == "1.0.6"
+            assert device.overall_firmware == "1.0.6"
             assert device.serial_number == "111181100201111210007280"
             assert device.sku == "111811"
             assert device.hw == "s_cmb2in1"
@@ -1263,6 +1275,7 @@ class NullValueTest(DeviceAwsTestBase):
             assert device.name == "Bedroom Air Purifier"
             assert device.firmware == "1.0.1"
             assert device.mcu_firmware == "1.2.9"
+            assert device.overall_firmware == "1.2.9"
             assert device.serial_number == "111383600201111210001674"
             assert device.sku == "113836"
             assert device.hw == "mrest"
@@ -1336,6 +1349,7 @@ class MiniRestfulAlarmTest(DeviceAwsTestBase):
             assert device.sku == "113836"
             assert device.firmware == "1.0.1"
             assert device.mcu_firmware == "1.2.9"
+            assert device.overall_firmware == "1.2.9"
             assert device.serial_number == "111383600201111210001674"
             assert device.name == "Bedroom Air Purifier"
 
@@ -1710,6 +1724,27 @@ class ApplyStateChangeTest(DeviceAwsTestBase):
             self.device.apply_state_change({"bogus": 1, "brightness": 50})
         assert self.device.brightness == 50
         assert any("no_such_attr" in msg for msg in cm.output)
+
+    async def test_firmware_version_shadow(self):
+        """cfv/mfv/ofv shadow fields update the firmware attributes."""
+        await self.device.refresh()
+        self.device.apply_state_change({
+            "cfv": 16777473,
+            "mfv": 16777473,
+            "ofv": 16777473,
+        })
+        assert self.device.firmware == "1.0.1.1"
+        assert self.device.mcu_firmware == "1.0.1.1"
+        assert self.device.overall_firmware == "1.0.1.1"
+
+    async def test_firmware_version_shadow_decoding(self):
+        """A packed 32-bit firmware int decodes to a dotted string; a
+        string passes through; an out-of-range value is left as-is."""
+        from blueair_api.device_aws import _decode_firmware_version
+        assert _decode_firmware_version(16777473) == "1.0.1.1"
+        assert _decode_firmware_version(0x02010A00) == "2.1.10.0"
+        assert _decode_firmware_version("1.0.4") == "1.0.4"
+        assert _decode_firmware_version(-1) == -1
 
 
 class MiniRestfulShadowTest(DeviceAwsTestBase):
