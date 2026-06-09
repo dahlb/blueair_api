@@ -1144,6 +1144,13 @@ class TwoInOneTest(DeviceAwsTestBase):
             assert device.timer_duration == 1800
             assert device.hour_format is NotImplemented
 
+    async def test_fan_speed_count(self):
+        # The Pro 2-in-1 (hw='cmb2in1_ii') shares the DH3i's 4-gear
+        # fan-speed class, so it uses the same 91 cap as the nb_/high
+        # family rather than the default 100.
+        await self.device.refresh()
+        assert self.device.fan_speed_count == 91
+
 
 class Combo2in1DH3iTest(DeviceAwsTestBase):
     """Tests for the DH3i 2-in-1 Purify + Humidify combo (hw='s_cmb2in1').
@@ -1216,6 +1223,13 @@ class Combo2in1DH3iTest(DeviceAwsTestBase):
             assert device.timer_start_timestamp == 0
             assert device.timer_duration == 7200
             assert device.hour_format is NotImplemented
+
+    async def test_fan_speed_count(self):
+        # The DH3i reports its manual fan on the 0-91 gear scale (observed
+        # steps 0/11/37/64/91), so it uses the same 91 cap as the nb_/high
+        # family rather than the default 100.
+        await self.device.refresh()
+        assert self.device.fan_speed_count == 91
 
 
 class NullValueTest(DeviceAwsTestBase):

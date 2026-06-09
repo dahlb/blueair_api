@@ -478,7 +478,19 @@ class DeviceAws(CallbacksMixin):
         hw = self.hw if isinstance(self.hw, str) else ""
         if self._is_humidifier:
             return 3
-        if hw.startswith("nb_") or hw.startswith("high"):
+        # The 2-in-1 Purify + Humidify combos belong to the same 4-gear
+        # fan-speed family as the nb_/high purifiers: manual speed runs on
+        # a 0-91 scale (gears 0, 11, 37, 64, 91; the device snaps a written
+        # value to its nearest gear). Capping at 91 lets the top gear map
+        # to 100% in the UI instead of being scaled against 100.
+        #   - s_cmb2in1  : DH3i (field-confirmed from a live fan trace)
+        #   - cmb2in1_ii : 2-in-1 Pro (same fan capability class as the DH3i)
+        if (
+            hw.startswith("nb_")
+            or hw.startswith("high")
+            or hw.startswith("s_cmb2in1")
+            or hw.startswith("cmb2in1_ii")
+        ):
             return 91
         if hw.startswith("cmb3in1"):
             return 4
