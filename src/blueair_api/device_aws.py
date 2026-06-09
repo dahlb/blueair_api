@@ -64,7 +64,34 @@ SHADOW_FIELD_MAP: dict[str, str] = {
     "timts": "timer_start_timestamp",
     "timdur": "timer_duration",
     "hourformat": "hour_format",
+    # Firmware versions. REST delivers these as dotted strings; the MQTT
+    # shadow path delivers them as packed 32-bit ints (decoded on apply,
+    # see _decode_firmware_version).
+    "cfv": "firmware",
+    "mfv": "mcu_firmware",
+    "ofv": "overall_firmware",
 }
+
+# Shadow fields that carry a firmware version, needing int->str decoding.
+_FIRMWARE_SHADOW_FIELDS = frozenset({"cfv", "mfv", "ofv"})
+
+
+def _decode_firmware_version(value: Any) -> Any:
+    """Normalize a firmware version delivered by either transport.
+
+    The REST path (configuration.di.cfv/mfv/ofv) delivers a dotted string
+    like "1.0.4". The MQTT shadow path delivers the same version packed
+    into a 32-bit big-endian integer (e.g. 16777473 == 0x01000101 ->
+    "1.0.1.1"), one byte per component, most significant first.
+
+    Strings pass through unchanged; a 32-bit int is unpacked into a dotted
+    string; any other value (or an out-of-range int) is returned unchanged
+    so a version is never dropped.
+    """
+    if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 0xFFFFFFFF:
+        return ".".join(str(b) for b in value.to_bytes(4, "big"))
+    return value
+
 
 # Label map for the `apsubmode` shadow field on Signature-series air
 # purifiers (Blueair Blue Signature SP4i and related models with
@@ -163,6 +190,7 @@ class DeviceAws(CallbacksMixin):
     sku : AttributeType[str] = None
     firmware : AttributeType[str] = None
     mcu_firmware : AttributeType[str] = None
+    overall_firmware : AttributeType[str] = None
     serial_number : AttributeType[str] = None
 
     brightness : AttributeType[int] = None
@@ -248,6 +276,7 @@ class DeviceAws(CallbacksMixin):
         self.name = info_safe_get("configuration.di.name")
         self.firmware = info_safe_get("configuration.di.cfv")
         self.mcu_firmware = info_safe_get("configuration.di.mfv")
+        self.overall_firmware = info_safe_get("configuration.di.ofv")
         self.serial_number = info_safe_get("configuration.di.ds")
         self.sku = info_safe_get("configuration.di.sku")
         self.hw = info_safe_get("configuration.di.hw")
@@ -427,6 +456,8 @@ class DeviceAws(CallbacksMixin):
                     shadow_field, attr
                 )
                 continue
+            if shadow_field in _FIRMWARE_SHADOW_FIELDS:
+                value = _decode_firmware_version(value)
             try:
                 setattr(self, attr, value)
             except AttributeError:
