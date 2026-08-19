@@ -50,8 +50,11 @@ def request_with_errors(func):
                     _LOGGER.debug("response json found, checking status code from response")
                     status_code = response_json["statusCode"]
         except Exception as e:
-            _LOGGER.error(f"Error parsing response for errors {e}")
-            raise e
+            _LOGGER.debug(
+                f"response body was not valid JSON (http status {status_code}), "
+                f"treating as a transient session/auth error: {e}"
+            )
+            raise SessionError(f"non-JSON response (http status {status_code})") from e
         if status_code == 200:
             _LOGGER.debug("response 200")
             return response
