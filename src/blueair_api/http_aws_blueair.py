@@ -49,7 +49,7 @@ def request_with_errors(func):
                 if "statusCode" in response_json:
                     _LOGGER.debug("response json found, checking status code from response")
                     status_code = response_json["statusCode"]
-        except json.JSONDecodeError as e:
+        except (json.JSONDecodeError, ValueError) as e:
             _LOGGER.debug(
                 f"response body was not valid JSON (http status {status_code}), "
                 f"treating as a transient session/auth error: {e}"
