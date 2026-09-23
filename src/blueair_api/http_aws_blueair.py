@@ -13,6 +13,13 @@ from .errors import SessionError, LoginError
 
 _LOGGER = getLogger(__name__)
 
+# Gigya body-level statusCode / errorCode for "Account Pending Registration".
+# Blueair made profile field ``name`` a required registration field; accounts
+# created before that change are refused at accounts.login until registration
+# is completed (observed starting 2026-09-22, dahlb/ha_blueair#421).
+GIGYA_STATUS_CODE_PENDING_REGISTRATION = 206
+GIGYA_ERROR_CODE_PENDING_REGISTRATION = 206001
+
 
 def request_with_active_session(func):
     @functools.wraps(func)
@@ -71,7 +78,18 @@ def request_with_errors(func):
             else:
                 _LOGGER.debug("session error")
                 raise SessionError(response_text)
-        raise ValueError(f"unknown status code {status_code}")
+        if (
+            status_code == GIGYA_STATUS_CODE_PENDING_REGISTRATION
+            and "accounts.login" in kwargs["url"]
+        ):
+            # Gigya answers accounts.login with an HTTP 200 whose body
+            # carries statusCode 206 / errorCode 206001 when the account
+            # is pending registration.  Pass the response through so
+            # refresh_session() can complete the registration.
+            _LOGGER.debug("Gigya login returned pending-registration (206)")
+            return response
+        response_text = await response.text()
+        raise ValueError(f"unknown status code {status_code}: {response_text[:500]}")
 
     return request_with_errors_wrapper
 
@@ -196,20 +214,83 @@ class HttpAwsBlueair:
             url=url, data=form_data, json=json_body, headers=headers
         )
 
-    async def refresh_session(self) -> None:
-        _LOGGER.debug("refresh_session")
+    async def _accounts_login(self) -> ClientResponse:
         url = f"https://{AWS_APIKEYS[self.gigya_region]['gigyaRegion']}/accounts.login"
         form_data = FormData()
         form_data.add_field("apikey", AWS_APIKEYS[self.gigya_region]["apiKey"])
         form_data.add_field("loginID", self.username)
         form_data.add_field("password", self.password)
         form_data.add_field("targetEnv", "mobile")
+        return await self._post_request_with_logging_and_errors_raised(
+            url=url, form_data=form_data
+        )
+
+    async def _gigya_accounts_call(
+        self, path: str, reg_token: str, extra_fields: dict
+    ) -> dict:
+        url = f"https://{AWS_APIKEYS[self.gigya_region]['gigyaRegion']}/{path}"
+        form_data = FormData()
+        form_data.add_field("apikey", AWS_APIKEYS[self.gigya_region]["apiKey"])
+        form_data.add_field("regToken", reg_token)
+        for key, value in extra_fields.items():
+            form_data.add_field(key, value)
         response: ClientResponse = (
             await self._post_request_with_logging_and_errors_raised(
                 url=url, form_data=form_data
             )
         )
         response_json = await response.json(content_type="text/javascript")
+        if response_json.get("errorCode", 0) != 0:
+            raise LoginError(
+                f"{path} failed: {response_json.get('errorCode')} "
+                f"{response_json.get('errorMessage')}: "
+                f"{response_json.get('errorDetails')}"
+            )
+        return response_json
+
+    async def _complete_pending_registration(self, login_json: dict) -> None:
+        """Finish a Gigya registration that login refused with 206001.
+
+        Gigya returns errorCode 206001 ("Account Pending Registration") with a
+        ``regToken`` when the account is missing fields its schema marks as
+        required.  Blueair started requiring profile field ``name`` on
+        2026-09-22, so accounts created before then could no longer log in.
+        The native Blueair app completes this silently; we do the same using
+        the name already present in the profile.
+        """
+        reg_token = login_json.get("regToken")
+        profile = login_json.get("profile") or {}
+        name = " ".join(
+            part
+            for part in (profile.get("firstName"), profile.get("lastName"))
+            if part
+        ).strip()
+        if not reg_token or not name:
+            raise LoginError(
+                "Blueair account pending registration (Gigya 206001) and no "
+                "profile name available to complete it with. Set a name for "
+                "your account in the Blueair app and try again."
+            )
+        _LOGGER.info(
+            "Blueair account is pending registration (Gigya 206001); "
+            "completing it with profile name %r",
+            name,
+        )
+        await self._gigya_accounts_call(
+            "accounts.setAccountInfo",
+            reg_token,
+            {"profile": json.dumps({"name": name})},
+        )
+        await self._gigya_accounts_call("accounts.finalizeRegistration", reg_token, {})
+
+    async def refresh_session(self) -> None:
+        _LOGGER.debug("refresh_session")
+        response: ClientResponse = await self._accounts_login()
+        response_json = await response.json(content_type="text/javascript")
+        if response_json.get("errorCode") == GIGYA_ERROR_CODE_PENDING_REGISTRATION:
+            await self._complete_pending_registration(response_json)
+            response = await self._accounts_login()
+            response_json = await response.json(content_type="text/javascript")
         self.session_token = response_json["sessionInfo"]["sessionToken"]
         self.session_secret = response_json["sessionInfo"]["sessionSecret"]
 
