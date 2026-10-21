@@ -521,6 +521,7 @@ class DeviceAws(CallbacksMixin):
             or hw.startswith("high")
             or hw.startswith("s_cmb2in1")
             or hw.startswith("cmb2in1_ii")
+            or hw == "l_blue40"
         ):
             return 91
         if hw.startswith("cmb3in1"):
