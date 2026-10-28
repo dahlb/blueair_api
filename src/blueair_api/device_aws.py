@@ -113,7 +113,7 @@ def _decode_firmware_version(value: Any) -> Any:
 # field carries different value namespaces on different device
 # families. This dict is INTENTIONALLY Signature-only.
 #
-#   * Signature (blue40, hw='l_blue40'): values 0/2/3/4 mean
+#   * Signature (blue40, hw='l_blue40'): values 1/2/3/4 mean
 #     manual_fan/auto/night/eco. The device has no other preset
 #     mechanism — `apsubmode` is the sole control.
 #
@@ -136,23 +136,14 @@ def _decode_firmware_version(value: Any) -> Any:
 # `automode` and so are excluded.
 #
 # Consumers MUST NOT treat AP_SUB_MODE_LABELS as a global decoder
-# for `apsubmode` — that would mislabel T10i value 1 as missing
-# from the namespace when it is in fact a valid T10i value.
+# for `apsubmode`: T10i values 1/2 belong to its climate-mode namespace.
 #
-# NOTE on the manual_fan wire value: investigation of the Blueair
-# cloud API responses and AWS IoT protocol behavior suggests that
-# the canonical wire value for the manual / fan-speed-only mode is
-# **1**. The 0 mapping below is the value that was empirically
-# confirmed by the user who supplied the SP4i debug log (writing
-# apsubmode=0 successfully transitioned the SP4i into manual fan
-# mode and accepted subsequent fanspeed writes). Firmware appears
-# to accept either 0 or 1 as "exit current preset; resume manual
-# control" — keep 0 unless and until a tester confirms that
-# writing 1 has the same effect on real hardware. If 1 turns out
-# to be exclusively accepted by some firmware revision, switch
-# this mapping accordingly.
+# SP4i firmware 1.1.0 uses 1 for manual mode in the Blueair app and
+# reports apsubmode=1 on readback. Using 0 can leave the physical fan
+# unchanged despite a successful API response; it also prevents the
+# consumer from recognizing the reported manual preset.
 AP_SUB_MODE_LABELS: dict[int, str] = {
-    0: "manual_fan",
+    1: "manual_fan",
     2: "auto",
     3: "night",
     4: "eco",

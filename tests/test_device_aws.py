@@ -1493,7 +1493,7 @@ class ApSubModeLabelsTest(TestCase):
     def test_labels_match_known_signature_mapping(self):
         from blueair_api.device_aws import AP_SUB_MODE_LABELS
         assert AP_SUB_MODE_LABELS == {
-            0: "manual_fan",
+            1: "manual_fan",
             2: "auto",
             3: "night",
             4: "eco",
