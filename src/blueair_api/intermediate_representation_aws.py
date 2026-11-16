@@ -1,9 +1,11 @@
+"""Typed intermediate representation for the Blueair AWS device shadow schema."""
+
+import base64
+from collections.abc import Iterable
+import dataclasses
+from logging import getLogger
 import typing
 from typing import Any
-from collections.abc import Iterable
-from logging import getLogger
-import dataclasses
-import base64
 
 type ScalarType = str | float | bool | int | None
 type MappingType = dict[str, "ObjectType"]
@@ -12,7 +14,9 @@ type ObjectType = ScalarType | MappingType | SequenceType
 
 _LOGGER = getLogger(__name__)
 
+
 def query_json(jsonobj: ObjectType, path: str) -> ObjectType:
+    """Resolve a dotted/indexed ``path`` (e.g. ``a.0.b``) within ``jsonobj``."""
     value = jsonobj
     segs = path.split(".")
     for i, seg in enumerate(segs):
@@ -28,19 +32,23 @@ def query_json(jsonobj: ObjectType, path: str) -> ObjectType:
                 raise KeyError(
                     f"cannot resolve path segment on a scalar "
                     f"when resolving segment {i}:{seg} of {path}. "
-                    f"available keys are {value.keys()}.")
+                    f"available keys are {value.keys()}."
+                )
         else:
             raise KeyError(
                 f"cannot resolve path segment on a scalar "
-                f"when resolving segment {i}:{seg} of {path}.")
+                f"when resolving segment {i}:{seg} of {path}."
+            )
     return value
+
 
 def parse_json[T](kls: type[T], jsonobj: MappingType) -> dict[str, T]:
     """Parses a json mapping object to dict.
 
     The key is preserved. The value is parsed as dataclass type kls.
     """
-    assert dataclasses.is_dataclass(kls)
+    if not dataclasses.is_dataclass(kls):
+        raise TypeError(f"{kls} is not a dataclass")
     result = {}
     fields = dataclasses.fields(kls)
 
@@ -48,7 +56,7 @@ def parse_json[T](kls: type[T], jsonobj: MappingType) -> dict[str, T]:
         if not isinstance(value, dict):
             raise TypeError("expecting mapping value to be dict.")
         extra_fields = dict(value)  # make extra_fields copy.
-        kwargs : dict[str, Any] = {}
+        kwargs: dict[str, Any] = {}
         for field in fields:
             if field.name == "extra_fields":
                 kwargs[field.name] = extra_fields
@@ -58,29 +66,31 @@ def parse_json[T](kls: type[T], jsonobj: MappingType) -> dict[str, T]:
                 kwargs[field.name] = extra_fields.pop(field.name, field.default)
 
         obj = kls(**kwargs)
-        result[key] = typing.cast(T, obj)
+        result[key] = typing.cast("T", obj)
     return result
 
 
 ########################
 # Blueair AWS API Schema.
 
+
 @dataclasses.dataclass
 class Attribute:
-    """DeviceAttribute(da); defines an attribute
+    """DeviceAttribute(da); defines an attribute.
 
     An attribute is most likely mutable. An attribute may
     also have alias names, likely derived from the 'dc' relation
     e.g. a/sb, a/standby all refer to the 'sb' attribute.
     """
-    extra_fields : MappingType
-    n: str   # name
-    a: int | bool   # default attribute value, example value?
-    e: bool     # ??? always True
-    fe:bool     # ???  always True
-    ot: str     # object type? topic type?
-    p: bool     # only false for reboot and sflu
-    tn: str   # topic name a path-like name d/????/a/{n}
+
+    extra_fields: MappingType
+    n: str  # name
+    a: int | bool  # default attribute value, example value?
+    e: bool  # ??? always True
+    fe: bool  # ???  always True
+    ot: str  # object type? topic type?
+    p: bool  # only false for reboot and sflu
+    tn: str  # topic name a path-like name d/????/a/{n}
 
 
 @dataclasses.dataclass
@@ -91,15 +101,17 @@ class Sensor:
     the schema for 'h', 't', 'pm10' etc that gets returned in
     the sensor_data senml SensorPack.
     """
-    extra_fields : MappingType
-    n: str    # name
-    i: int    # integration time? in millis
-    e: bool   # ???
+
+    extra_fields: MappingType
+    n: str  # name
+    i: int  # integration time? in millis
+    e: bool  # ???
     fe: bool  # ??? always True.
-    ot: str   # object type / topic name
-    tn: str   # topic name a path-like name d/????/s/{n}
+    ot: str  # object type / topic name
+    tn: str  # topic name a path-like name d/????/s/{n}
     ttl: int  # only seen 0 or -1, not sure if used.
-    tf: str | None = None   # senml+json; topic format
+    tf: str | None = None  # senml+json; topic format
+
 
 @dataclasses.dataclass
 class Control:
@@ -109,7 +121,8 @@ class Control:
     in dc. The only exception is 'online' which is not defined
     here.
     """
-    extra_fields : MappingType
+
+    extra_fields: MappingType
     n: str  # name
     v: int | bool
     a: str | None = None
@@ -119,12 +132,17 @@ class Control:
 
 @dataclasses.dataclass
 class SensorRecord:
+    """A single timestamped set of sensor values."""
+
     values: dict[str, int]
     timestamp: float | None
 
 
 class SensorHistory(list[SensorRecord]):
-    def __init__(self, response):
+    """A time-ordered list of ``SensorRecord`` built from a datapoints response."""
+
+    def __init__(self, response: list[dict[str, Any]] | None) -> None:
+        """Build the history from a ``get_data_points_since``-style response."""
         if response is None:
             sensors = []
             datapoints = []
@@ -135,28 +153,31 @@ class SensorHistory(list[SensorRecord]):
         for datapoint in datapoints:
             values = {}
             for idx, sensor in enumerate(sensors):
-                if datapoint[idx+1] is not None:
-                    values[sensor] = int(datapoint[idx+1])
+                if datapoint[idx + 1] is not None:
+                    values[sensor] = int(datapoint[idx + 1])
             sensor_records.append(SensorRecord(timestamp=int(datapoint[0]), values=values))
         super().__init__(sensor_records)
 
     def to_latest(self) -> SensorRecord:
-        def key(e):
-            return e.timestamp
+        """Return the most recent record, or an empty one if there are none."""
+
+        def key(record: SensorRecord) -> float:
+            return record.timestamp if record.timestamp is not None else float("-inf")
+
         self.sort(key=key, reverse=True)
         if len(self) > 0:
             return self[0]
-        else:
-            return SensorRecord(values={},  timestamp=0)
-
+        return SensorRecord(values={}, timestamp=0)
 
 
 ########################
 # SenML RFC8428
 
+
 @dataclasses.dataclass
 class Record:
     """A RFC8428 SenML record, resolved to Python types."""
+
     name: str
     unit: str | None
     value: float | bool | str | bytes | None
@@ -167,59 +188,58 @@ class Record:
 class SensorPack(list[Record]):
     """Represents a RFC8428 SensorPack, resolved to Python Types."""
 
-    def __init__(self, stream: Iterable[MappingType]):
+    def __init__(self, stream: Iterable[MappingType]) -> None:
+        """Parse a stream of raw SenML records into ``Record`` instances."""
         seq = []
         for record in stream:
             rs = None
             rt = None
-            rn : str = ""
+            rn: str = ""
             ru = None
-            rv : float | bool | str | bytes | None = None
+            rv: float | bool | str | bytes | None = None
             for label, value in record.items():
-                _LOGGER.debug(f"parsing senml record field {label} with value {value}")
+                _LOGGER.debug("parsing senml record field %s with value %s", label, value)
                 if not isinstance(value, str | int | float | bool):
                     # Skip non-scalar values (e.g. 'vj' alarm JSON dicts).
-                    _LOGGER.debug(f"skipping non-scalar senml field {label}")
+                    _LOGGER.debug("skipping non-scalar senml field %s", label)
                     continue
                 match label:
-                    case 'bn' | 'bt' | 'bu' | 'bv' | 'bs' | 'bver':
+                    case "bn" | "bt" | "bu" | "bv" | "bs" | "bver":
                         raise ValueError("TODO: base fields not supported. c.f. RFC8428, 4.1")
-                    case 't':
+                    case "t":
                         rt = float(value)
-                    case 's':
+                    case "s":
                         rs = float(value)
-                    case 'v':
+                    case "v":
                         rv = float(value)
-                    case 'vb':
+                    case "vb":
                         rv = bool(value)
-                    case 'vs':
+                    case "vs":
                         rv = str(value)
-                    case 'vd':
+                    case "vd":
                         rv = bytes(base64.b64decode(str(value)))
-                    case 'vj':
+                    case "vj":
                         rv = value
-                    case 'n':
+                    case "n":
                         rn = str(value)
-                    case 'u':
+                    case "u":
                         ru = str(value)
             seq.append(Record(name=rn, unit=ru, value=rv, integral=rs, timestamp=rt))
         super().__init__(seq)
 
     def to_latest_value(self) -> dict[str, str | bool | float | bytes | None]:
-        return {rn : record.value for rn, record in self.to_latest().items()}
+        """Return the most recent value per record name."""
+        return {rn: record.value for rn, record in self.to_latest().items()}
 
     def to_latest(self) -> dict[str, Record]:
-        latest : dict[str, Record] = {}
+        """Return the most recent record per record name."""
+        latest: dict[str, Record] = {}
         for record in self:
             rn = record.name
             if record.name not in latest:
                 latest[rn] = record
                 continue
             lt = latest[record.name].timestamp
-            if record.timestamp is None:
-                latest[rn] = record
-            elif lt is None:
-                latest[rn] = record
-            elif lt < record.timestamp:
+            if record.timestamp is None or lt is None or lt < record.timestamp:
                 latest[rn] = record
         return latest

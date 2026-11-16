@@ -1,43 +1,24 @@
-name: "Lint"
+name: Lint
 
 on:
-  push:
-    branches:
-      - "main"
   pull_request:
     branches:
-      - "main"
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-  ruff:
-    name: "Ruff"
-    runs-on: "ubuntu-latest"
-    steps:
-        - name: "Checkout the repository"
-          uses: "actions/checkout@v7"
-        - name: "Set up Python"
-          uses: actions/setup-python@v7
-          with:
-            python-version: "3.14"
-            cache: "pip"
-        - name: "Install requirements"
-          run: python3 -m pip install -r requirements.txt
-        - name: "Run"
-          run: python3 -m ruff check .
-  mypy:
+  linters:
+    name: Run Linters
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.14"]
     steps:
-      - uses: actions/checkout@v7
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v7
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: developer mode install  # to pull in all dependencies.
-        run: pip install -e .
-      - name: Install mypy dependencies
-        run: pip install mypy
-      - name: Runs mypy
-        run: mypy src/blueair_api --explicit-package-bases
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Run prek
+        uses: j178/prek-action@v3.1.0

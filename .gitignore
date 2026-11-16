@@ -1,8 +1,26 @@
-.idea/
-**/__pycache__
-**.DS_Store
+.DS_Store
+
+# artifacts
+__pycache__
+.pytest*
+*.egg-info
+/build/
+/dist/
+*/build/*
+*/dist/*
+.mypy_cache
+.ruff_cache
+.venv
+
+# misc
+.coverage
+.vscode
+.idea
 **@eaDir
-venv/
-dist/
-src/blueair_api.egg-info/
-build/
+coverage.xml
+blueair_api.env
+blueair_api.txt
+blueair_api.toml
+blueair_api.yaml
+blueair_api.yml
+uv.lock

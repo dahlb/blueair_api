@@ -15,6 +15,7 @@ These verify:
 No network is required; we build the client and inspect attributes /
 constructed URLs.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -145,6 +146,5 @@ class TestUrlsUseCorrectRegion:
         # "Invalid apiKey").
         client = _make(gigya_region="eu", cloud_region="us")
         assert (
-            AWS_APIKEYS[client.gigya_region]["apiKey"]
-            != AWS_APIKEYS[client.cloud_region]["apiKey"]
+            AWS_APIKEYS[client.gigya_region]["apiKey"] != AWS_APIKEYS[client.cloud_region]["apiKey"]
         )

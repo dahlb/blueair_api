@@ -1,21 +1,23 @@
+"""Exception hierarchy raised by the Blueair API clients."""
+
 from aiohttp import ClientError
 
 
 class BaseError(ClientError):
-    pass
+    """Base class for all errors raised by this package."""
 
 
 class RateError(BaseError):
-    pass
+    """Raised when the Blueair API reports that a rate limit was hit."""
 
 
 class AuthError(BaseError):
-    pass
+    """Raised when authentication with the Blueair API fails."""
 
 
 class LoginError(AuthError):
-    pass
+    """Raised when a login attempt is rejected by the Blueair API."""
 
 
 class SessionError(AuthError):
-    pass
+    """Raised when an established session is no longer valid."""

@@ -21,22 +21,18 @@ The discovery probe is contract-tested for:
   raising.
 * Per-candidate timeout is respected.
 """
+
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 import logging
-from collections.abc import Awaitable, Callable
 from unittest import IsolatedAsyncioTestCase
 
 import pytest
 
 from blueair_api.http_aws_blueair import HttpAwsBlueair
-from blueair_api.region_discovery import (
-    CloudRegionScan,
-    device_state_looks_frozen,
-    discover_cloud_region,
-)
-
+from blueair_api.region_discovery import device_state_looks_frozen, discover_cloud_region
 
 # ---------------------------------------------------------------------------
 # device_state_looks_frozen
@@ -73,66 +69,78 @@ class TestDeviceStateLooksFrozen:
         # Even with identical timestamps, an explicitly online device
         # is not a region-mismatch signature -- it's just a device
         # that batch-updated all its fields at one moment.
-        payload = _states([
-            {"n": "fanspeed", "v": 11, "t": 1_700_000_000},
-            {"n": "standby", "vb": False, "t": 1_700_000_000},
-            {"n": "online", "vb": True, "t": 1_700_000_000},
-        ])
+        payload = _states(
+            [
+                {"n": "fanspeed", "v": 11, "t": 1_700_000_000},
+                {"n": "standby", "vb": False, "t": 1_700_000_000},
+                {"n": "online", "vb": True, "t": 1_700_000_000},
+            ]
+        )
         assert device_state_looks_frozen(payload) is False
 
     def test_online_absent_is_never_frozen(self) -> None:
         # No explicit online field -> we don't claim to know.
         # Conservative: not a frozen-snapshot signature.
-        payload = _states([
-            {"n": "fanspeed", "v": 11, "t": 1_700_000_000},
-            {"n": "standby", "vb": False, "t": 1_700_000_000},
-        ])
+        payload = _states(
+            [
+                {"n": "fanspeed", "v": 11, "t": 1_700_000_000},
+                {"n": "standby", "vb": False, "t": 1_700_000_000},
+            ]
+        )
         assert device_state_looks_frozen(payload) is False
 
     def test_offline_but_varied_timestamps_is_not_frozen(self) -> None:
         # A genuinely-offline device whose fields had varied last-
         # update times before going offline.  Real history, no
         # region issue.
-        payload = _states([
-            {"n": "fanspeed", "v": 91, "t": 1_750_000_000},
-            {"n": "brightness", "v": 50, "t": 1_751_000_000},
-            {"n": "standby", "vb": False, "t": 1_752_000_000},
-            {"n": "online", "vb": False, "t": 1_752_000_010},
-        ])
+        payload = _states(
+            [
+                {"n": "fanspeed", "v": 91, "t": 1_750_000_000},
+                {"n": "brightness", "v": 50, "t": 1_751_000_000},
+                {"n": "standby", "vb": False, "t": 1_752_000_000},
+                {"n": "online", "vb": False, "t": 1_752_000_010},
+            ]
+        )
         assert device_state_looks_frozen(payload) is False
 
     def test_issue_312_signature_is_frozen(self) -> None:
         # The exact pattern from issue #312: every state, including
         # online=False, sharing a single timestamp.
         frozen = 1_751_231_628
-        payload = _states([
-            {"n": "fanspeed", "v": 91, "t": frozen},
-            {"n": "standby", "vb": False, "t": frozen},
-            {"n": "brightness", "v": 100, "t": frozen},
-            {"n": "automode", "vb": False, "t": frozen},
-            {"n": "online", "vb": False, "t": frozen},
-        ])
+        payload = _states(
+            [
+                {"n": "fanspeed", "v": 91, "t": frozen},
+                {"n": "standby", "vb": False, "t": frozen},
+                {"n": "brightness", "v": 100, "t": frozen},
+                {"n": "automode", "vb": False, "t": frozen},
+                {"n": "online", "vb": False, "t": frozen},
+            ]
+        )
         assert device_state_looks_frozen(payload) is True
 
     def test_offline_with_no_numeric_timestamps_is_frozen(self) -> None:
         # Defensive: the rule treats <= 1 distinct timestamp as the
         # frozen-snapshot signature when combined with online=False.
         # Zero distinct timestamps satisfies that.
-        payload = _states([
-            {"n": "fanspeed", "v": 11},
-            {"n": "online", "vb": False, "t": "not-an-int"},
-        ])
+        payload = _states(
+            [
+                {"n": "fanspeed", "v": 11},
+                {"n": "online", "vb": False, "t": "not-an-int"},
+            ]
+        )
         assert device_state_looks_frozen(payload) is True
 
     def test_non_dict_state_entries_are_tolerated(self) -> None:
         # Garbage entries are ignored.  The remaining valid online=True
         # state means we don't flag this.
-        payload = _states([
-            "junk",
-            42,
-            {"n": "fanspeed", "v": 11, "t": 1_700_000_000},
-            {"n": "online", "vb": True, "t": 1_700_000_000},
-        ])
+        payload = _states(
+            [
+                "junk",
+                42,
+                {"n": "fanspeed", "v": 11, "t": 1_700_000_000},
+                {"n": "online", "vb": True, "t": 1_700_000_000},
+            ]
+        )
         assert device_state_looks_frozen(payload) is False
 
 
@@ -214,10 +222,10 @@ class _FakeSession:
         assert isinstance(entry, list) and entry, f"empty queue for {region}"
         return entry.pop(0)
 
-    async def post(self, *, url: str, headers=None, **kwargs):  # noqa: D401
+    async def post(self, *, url: str, headers=None, **kwargs):
         return await self._next_response(url)
 
-    async def get(self, *, url: str, headers=None, **kwargs):  # noqa: D401
+    async def get(self, *, url: str, headers=None, **kwargs):
         return await self._next_response(url)
 
 
@@ -242,7 +250,6 @@ def _make_client(
 
 def _ok(devices: int, *, online: int | None = None) -> Callable[[str], _FakeResponse]:
     """Build a fake responder that returns N devices for that region."""
-
     online_remaining = devices if online is None else online
 
     def responder(path: str) -> _FakeResponse:
@@ -357,7 +364,8 @@ class DiscoveryTest(IsolatedAsyncioTestCase):
 
         Probing both would double-count devices and falsely flag a
         multi-region account.  The dedup logic must keep only one of
-        them (the first in probe order)."""
+        them (the first in probe order).
+        """
         client = _make_client(
             cloud_region="us",
             by_region={"us": _ok(0), "eu": _ok(1)},
@@ -382,7 +390,9 @@ class DiscoveryTest(IsolatedAsyncioTestCase):
         scan = await discover_cloud_region(client, candidates=["us", "eu", "cn"])
         assert scan.candidates_tried[0] == "eu"
         first_login = next(
-            call for call in client.api_session.calls if call[1] == "login"  # type: ignore[attr-defined]
+            call
+            for call in client.api_session.calls
+            if call[1] == "login"  # type: ignore[attr-defined]
         )
         assert first_login[0] == "eu"
 

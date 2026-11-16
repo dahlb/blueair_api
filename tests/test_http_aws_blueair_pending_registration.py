@@ -11,16 +11,16 @@ Now ``refresh_session`` completes the pending registration transparently
 (``accounts.setAccountInfo`` with the profile name, then
 ``accounts.finalizeRegistration``) and retries the login once.
 """
+
 from __future__ import annotations
 
 import json
 from unittest import IsolatedAsyncioTestCase
 
+import pytest
+
 from blueair_api.errors import LoginError
-from blueair_api.http_aws_blueair import (
-    HttpAwsBlueair,
-    request_with_errors,
-)
+from blueair_api.http_aws_blueair import HttpAwsBlueair, request_with_errors
 
 PENDING_REGISTRATION_BODY = {
     "errorCode": 206001,
@@ -91,18 +91,15 @@ class TestSelfHealPendingRegistration(IsolatedAsyncioTestCase):
             ("accounts.login", _FakeResponse(200, LOGIN_SUCCESS_BODY)),
         ]
         await client.refresh_session()
-        self.assertEqual(client.session_token, "tok")
-        self.assertEqual(client.session_secret, "sec")
+        assert client.session_token == "tok"
+        assert client.session_secret == "sec"
         urls = [url for url, _ in client._post_request_with_logging_and_errors_raised.calls]
-        self.assertEqual(
-            urls,
-            [
-                "https://accounts.us1.gigya.com/accounts.login",
-                "https://accounts.us1.gigya.com/accounts.setAccountInfo",
-                "https://accounts.us1.gigya.com/accounts.finalizeRegistration",
-                "https://accounts.us1.gigya.com/accounts.login",
-            ],
-        )
+        assert urls == [
+            "https://accounts.us1.gigya.com/accounts.login",
+            "https://accounts.us1.gigya.com/accounts.setAccountInfo",
+            "https://accounts.us1.gigya.com/accounts.finalizeRegistration",
+            "https://accounts.us1.gigya.com/accounts.login",
+        ]
 
     async def test_refresh_session_without_profile_name_raises_login_error(self) -> None:
         body = dict(PENDING_REGISTRATION_BODY, profile={})
@@ -110,7 +107,7 @@ class TestSelfHealPendingRegistration(IsolatedAsyncioTestCase):
         client._post_request_with_logging_and_errors_raised.script = [
             ("accounts.login", _FakeResponse(200, body)),
         ]
-        with self.assertRaises(LoginError):
+        with pytest.raises(LoginError):
             await client.refresh_session()
 
     async def test_finalize_failure_raises_login_error(self) -> None:
@@ -125,7 +122,7 @@ class TestSelfHealPendingRegistration(IsolatedAsyncioTestCase):
             ("accounts.login", _FakeResponse(200, PENDING_REGISTRATION_BODY)),
             ("accounts.setAccountInfo", _FakeResponse(200, failure)),
         ]
-        with self.assertRaises(LoginError):
+        with pytest.raises(LoginError):
             await client.refresh_session()
 
     async def test_successful_login_is_unchanged(self) -> None:
@@ -134,8 +131,8 @@ class TestSelfHealPendingRegistration(IsolatedAsyncioTestCase):
             ("accounts.login", _FakeResponse(200, LOGIN_SUCCESS_BODY)),
         ]
         await client.refresh_session()
-        self.assertEqual(client.session_token, "tok")
-        self.assertEqual(client.session_secret, "sec")
+        assert client.session_token == "tok"
+        assert client.session_secret == "sec"
 
 
 @request_with_errors
@@ -146,20 +143,18 @@ async def _wrapped(*, url: str, response: _FakeResponse) -> _FakeResponse:
 class TestWrapperPasses206ThroughForLogin(IsolatedAsyncioTestCase):
     async def test_gigya_206_on_login_url_passes_through(self) -> None:
         response = _FakeResponse(200, PENDING_REGISTRATION_BODY)
-        result = await _wrapped(url="https://accounts.us1.gigya.com/accounts.login", response=response)
-        self.assertIs(result, response)
+        result = await _wrapped(
+            url="https://accounts.us1.gigya.com/accounts.login", response=response
+        )
+        assert result is response
 
     async def test_gigya_206_on_other_url_still_raises_value_error(self) -> None:
         response = _FakeResponse(200, PENDING_REGISTRATION_BODY)
-        with self.assertRaises(ValueError):
-            await _wrapped(
-                url="https://example/prod/c/registered-devices", response=response
-            )
+        with pytest.raises(ValueError):
+            await _wrapped(url="https://example/prod/c/registered-devices", response=response)
 
     async def test_unknown_status_error_includes_response_body(self) -> None:
         response = _FakeResponse(200, {"statusCode": 599, "error": "mystery"})
-        with self.assertRaises(ValueError) as ctx:
-            await _wrapped(
-                url="https://example/prod/c/registered-devices", response=response
-            )
-        self.assertIn("mystery", str(ctx.exception))
+        with pytest.raises(ValueError) as ctx:
+            await _wrapped(url="https://example/prod/c/registered-devices", response=response)
+        assert "mystery" in str(ctx.value)

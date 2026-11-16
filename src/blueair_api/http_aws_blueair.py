@@ -1,15 +1,21 @@
+"""HTTP client for Blueair's AWS-backed cloud API (Gigya auth + BlueCloud REST)."""
+
+import base64
+from collections.abc import Awaitable, Callable, Iterable
+from datetime import UTC, datetime, timedelta
 import functools
 import json
-import base64
-
 from logging import getLogger
-from typing import Any
-from aiohttp import ClientSession, ClientResponse, FormData
-from datetime import datetime, timedelta
+from typing import TYPE_CHECKING, Any
+
+from aiohttp import ClientResponse, ClientSession, FormData
 
 from .const import AWS_APIKEYS
+from .errors import LoginError, SessionError
 from .util_http import request_with_logging
-from .errors import SessionError, LoginError
+
+if TYPE_CHECKING:
+    from .region_discovery import CloudRegionScan
 
 _LOGGER = getLogger(__name__)
 
@@ -21,9 +27,13 @@ GIGYA_STATUS_CODE_PENDING_REGISTRATION = 206
 GIGYA_ERROR_CODE_PENDING_REGISTRATION = 206001
 
 
-def request_with_active_session(func):
+def request_with_active_session(
+    func: Callable[..., Awaitable[Any]],
+) -> Callable[..., Awaitable[Any]]:
+    """Retry ``func`` once with cleared session state after a ``SessionError``."""
+
     @functools.wraps(func)
-    async def request_with_active_session_wrapper(*args, **kwargs) -> ClientResponse:
+    async def request_with_active_session_wrapper(*args: Any, **kwargs: Any) -> ClientResponse:
         _LOGGER.debug("session")
         try:
             return await func(*args, **kwargs)
@@ -38,46 +48,49 @@ def request_with_active_session(func):
             self.mqtt_auth_signature = None
             self.mqtt_auth_token = None
             self.jwt = None
-            response = await func(*args, **kwargs)
-            return response
+            return await func(*args, **kwargs)
 
     return request_with_active_session_wrapper
 
 
-def request_with_errors(func):
+def request_with_errors(
+    func: Callable[..., Awaitable[Any]],
+) -> Callable[..., Awaitable[Any]]:
+    """Inspect a response for Gigya/BlueCloud error payloads and raise accordingly."""
+
     @functools.wraps(func)
-    async def request_with_errors_wrapper(*args, **kwargs) -> ClientResponse:
+    async def request_with_errors_wrapper(*args: Any, **kwargs: Any) -> ClientResponse:
         _LOGGER.debug("checking for errors")
         response: ClientResponse = await func(*args, **kwargs)
         status_code = response.status
         try:
             response_json = await response.json(content_type=None)
-            if response_json is not None:
-                if "statusCode" in response_json:
-                    _LOGGER.debug("response json found, checking status code from response")
-                    status_code = response_json["statusCode"]
+            if response_json is not None and "statusCode" in response_json:
+                _LOGGER.debug("response json found, checking status code from response")
+                status_code = response_json["statusCode"]
         except (json.JSONDecodeError, ValueError) as e:
             _LOGGER.debug(
-                f"response body was not valid JSON (http status {status_code}), "
-                f"treating as a transient session/auth error: {e}"
+                "response body was not valid JSON (http status %s), "
+                "treating as a transient session/auth error: %s",
+                status_code,
+                e,
             )
             raise SessionError(f"non-JSON response (http status {status_code})") from e
         except Exception as e:
-            _LOGGER.error(f"Error parsing response for errors {e}")
-            raise e
+            _LOGGER.error("Error parsing response for errors %s", e)
+            raise
         if status_code == 200:
             _LOGGER.debug("response 200")
             return response
         if 400 <= status_code <= 500:
-            _LOGGER.debug(f"auth error, {status_code}")
+            _LOGGER.debug("auth error, %s", status_code)
             url = kwargs["url"]
             response_text = await response.text()
             if "accounts.login" in url:
                 _LOGGER.debug("login error")
                 raise LoginError(response_text)
-            else:
-                _LOGGER.debug("session error")
-                raise SessionError(response_text)
+            _LOGGER.debug("session error")
+            raise SessionError(response_text)
         if (
             status_code == GIGYA_STATUS_CODE_PENDING_REGISTRATION
             and "accounts.login" in kwargs["url"]
@@ -95,6 +108,8 @@ def request_with_errors(func):
 
 
 class HttpAwsBlueair:
+    """Client for Blueair's AWS-backed cloud API (Gigya auth + BlueCloud REST)."""
+
     def __init__(
         self,
         username: str,
@@ -104,7 +119,7 @@ class HttpAwsBlueair:
         *,
         gigya_region: str | None = None,
         cloud_region: str | None = None,
-    ):
+    ) -> None:
         """Construct the Blueair AWS HTTP client.
 
         Parameters
@@ -139,13 +154,11 @@ class HttpAwsBlueair:
 
         if self.gigya_region not in AWS_APIKEYS:
             raise ValueError(
-                f"Unknown gigya_region {self.gigya_region!r}; expected one of "
-                f"{sorted(AWS_APIKEYS)}"
+                f"Unknown gigya_region {self.gigya_region!r}; expected one of {sorted(AWS_APIKEYS)}"
             )
         if self.cloud_region not in AWS_APIKEYS:
             raise ValueError(
-                f"Unknown cloud_region {self.cloud_region!r}; expected one of "
-                f"{sorted(AWS_APIKEYS)}"
+                f"Unknown cloud_region {self.cloud_region!r}; expected one of {sorted(AWS_APIKEYS)}"
             )
 
         self.session_token = None
@@ -165,7 +178,8 @@ class HttpAwsBlueair:
         else:
             self.api_session = client_session
 
-    async def cleanup_client_session(self):
+    async def cleanup_client_session(self) -> None:
+        """Close the underlying HTTP client session."""
         await self.api_session.close()
 
     @property
@@ -187,10 +201,7 @@ class HttpAwsBlueair:
         # subclasses or test fixtures that reassign it don't end up
         # with a Gigya/Cloud split they didn't ask for.
         if value not in AWS_APIKEYS:
-            raise ValueError(
-                f"Unknown region {value!r}; expected one of "
-                f"{sorted(AWS_APIKEYS)}"
-            )
+            raise ValueError(f"Unknown region {value!r}; expected one of {sorted(AWS_APIKEYS)}")
         self.gigya_region = value
         self.cloud_region = value
 
@@ -210,9 +221,7 @@ class HttpAwsBlueair:
         form_data: FormData | None = None,
         headers: dict | None = None,
     ) -> ClientResponse:
-        return await self.api_session.post(
-            url=url, data=form_data, json=json_body, headers=headers
-        )
+        return await self.api_session.post(url=url, data=form_data, json=json_body, headers=headers)
 
     async def _accounts_login(self) -> ClientResponse:
         url = f"https://{AWS_APIKEYS[self.gigya_region]['gigyaRegion']}/accounts.login"
@@ -221,23 +230,17 @@ class HttpAwsBlueair:
         form_data.add_field("loginID", self.username)
         form_data.add_field("password", self.password)
         form_data.add_field("targetEnv", "mobile")
-        return await self._post_request_with_logging_and_errors_raised(
-            url=url, form_data=form_data
-        )
+        return await self._post_request_with_logging_and_errors_raised(url=url, form_data=form_data)
 
-    async def _gigya_accounts_call(
-        self, path: str, reg_token: str, extra_fields: dict
-    ) -> dict:
+    async def _gigya_accounts_call(self, path: str, reg_token: str, extra_fields: dict) -> dict:
         url = f"https://{AWS_APIKEYS[self.gigya_region]['gigyaRegion']}/{path}"
         form_data = FormData()
         form_data.add_field("apikey", AWS_APIKEYS[self.gigya_region]["apiKey"])
         form_data.add_field("regToken", reg_token)
         for key, value in extra_fields.items():
             form_data.add_field(key, value)
-        response: ClientResponse = (
-            await self._post_request_with_logging_and_errors_raised(
-                url=url, form_data=form_data
-            )
+        response: ClientResponse = await self._post_request_with_logging_and_errors_raised(
+            url=url, form_data=form_data
         )
         response_json = await response.json(content_type="text/javascript")
         if response_json.get("errorCode", 0) != 0:
@@ -261,9 +264,7 @@ class HttpAwsBlueair:
         reg_token = login_json.get("regToken")
         profile = login_json.get("profile") or {}
         name = " ".join(
-            part
-            for part in (profile.get("firstName"), profile.get("lastName"))
-            if part
+            part for part in (profile.get("firstName"), profile.get("lastName")) if part
         ).strip()
         if not reg_token or not name:
             raise LoginError(
@@ -284,6 +285,7 @@ class HttpAwsBlueair:
         await self._gigya_accounts_call("accounts.finalizeRegistration", reg_token, {})
 
     async def refresh_session(self) -> None:
+        """Log in via Gigya and store the resulting session token/secret."""
         _LOGGER.debug("refresh_session")
         response: ClientResponse = await self._accounts_login()
         response_json = await response.json(content_type="text/javascript")
@@ -295,6 +297,7 @@ class HttpAwsBlueair:
         self.session_secret = response_json["sessionInfo"]["sessionSecret"]
 
     async def refresh_jwt(self) -> None:
+        """Exchange the Gigya session for a short-lived JWT."""
         _LOGGER.debug("refresh_jwt")
         if self.session_token is None or self.session_secret is None:
             await self.refresh_session()
@@ -303,15 +306,14 @@ class HttpAwsBlueair:
         form_data.add_field("oauth_token", self.session_token)
         form_data.add_field("secret", self.session_secret)
         form_data.add_field("targetEnv", "mobile")
-        response: ClientResponse = (
-            await self._post_request_with_logging_and_errors_raised(
-                url=url, form_data=form_data
-            )
+        response: ClientResponse = await self._post_request_with_logging_and_errors_raised(
+            url=url, form_data=form_data
         )
         response_json = await response.json(content_type="text/javascript")
         self.jwt = response_json["id_token"]
 
     async def refresh_access_token(self) -> None:
+        """Re-authenticate from scratch and store the new BlueCloud access token."""
         _LOGGER.debug("refresh_access_token")
         # Always do a full re-authentication from scratch.
         # The JWT from Gigya has a very short lifetime (~5 minutes) and cannot
@@ -324,10 +326,8 @@ class HttpAwsBlueair:
         await self.refresh_jwt()
         url = f"https://{AWS_APIKEYS[self.cloud_region]['restApiId']}.execute-api.{AWS_APIKEYS[self.cloud_region]['awsRegion']}/prod/c/login"
         headers = {"idtoken": self.jwt, "authorization": f"Bearer {self.jwt}"}
-        response: ClientResponse = (
-            await self._post_request_with_logging_and_errors_raised(
-                url=url, headers=headers
-            )
+        response: ClientResponse = await self._post_request_with_logging_and_errors_raised(
+            url=url, headers=headers
         )
         response_json = await response.json()
         self.access_token = response_json["access_token"]
@@ -344,68 +344,80 @@ class HttpAwsBlueair:
             )
         # Extract the username claim from the JWT to use as userId in API paths
         try:
-            assert self.access_token is not None
+            if self.access_token is None:
+                raise ValueError("no access_token to extract user_id from")
             payload = self.access_token.split(".")[1]
             # Add padding if needed
             payload += "=" * (4 - len(payload) % 4)
             claims = json.loads(base64.urlsafe_b64decode(payload))
             self.user_id = claims.get("username", "")
-            _LOGGER.debug(f"Extracted user_id from JWT: {self.user_id}")
-        except Exception as e:
-            _LOGGER.warning(f"Failed to extract user_id from access_token JWT: {e}")
+            _LOGGER.debug("Extracted user_id from JWT: %s", self.user_id)
+        except (IndexError, ValueError) as e:
+            _LOGGER.warning("Failed to extract user_id from access_token JWT: %s", e)
             self.user_id = None
 
     async def get_user_id(self) -> str:
+        """Return the cached user ID, refreshing the access token if needed."""
         if self.user_id is None:
             await self.refresh_access_token()
-        assert self.user_id is not None
+        if self.user_id is None:
+            raise SessionError("user_id was not available after refresh_access_token")
         return self.user_id
 
     async def get_access_token(self) -> str:
+        """Return the cached access token, refreshing it if needed."""
         _LOGGER.debug("get_access_token")
         if self.access_token is None:
             await self.refresh_access_token()
-        assert self.access_token is not None
+        if self.access_token is None:
+            raise SessionError("access_token was not available after refresh_access_token")
         return self.access_token
 
     @request_with_active_session
     async def devices(self) -> dict[str, Any]:
+        """Fetch the list of devices registered to the account."""
         _LOGGER.debug("devices")
         url = f"https://{AWS_APIKEYS[self.cloud_region]['restApiId']}.execute-api.{AWS_APIKEYS[self.cloud_region]['awsRegion']}/prod/c/registered-devices"
         headers = {
             "Authorization": f"Bearer {await self.get_access_token()}",
         }
-        response: ClientResponse = (
-            await self._get_request_with_logging_and_errors_raised(
-                url=url, headers=headers
-            )
+        response: ClientResponse = await self._get_request_with_logging_and_errors_raised(
+            url=url, headers=headers
         )
         response_json = await response.json()
         return response_json["devices"]
 
     @request_with_active_session
-    async def device_sensors(self, device_name, device_uuid, duration: timedelta = timedelta(hours=10)):
+    async def device_sensors(
+        self,
+        device_name: str,
+        device_uuid: str,
+        duration: timedelta = timedelta(hours=10),
+    ) -> Any:
+        """Fetch historical sensor telemetry for a device over ``duration``."""
         user_id = await self.get_user_id()
-        url = f"https://{AWS_APIKEYS[self.cloud_region]['restApiId']}.execute-api.{AWS_APIKEYS[self.cloud_region]['awsRegion']}/prod/c/{user_id}/r/telemetry/5m/historical"
+        url = (
+            f"https://{AWS_APIKEYS[self.cloud_region]['restApiId']}.execute-api."
+            f"{AWS_APIKEYS[self.cloud_region]['awsRegion']}"
+            f"/prod/c/{user_id}/r/telemetry/5m/historical"
+        )
         headers = {
             "Authorization": f"Bearer {await self.get_access_token()}",
         }
         params = {
             "did": device_uuid,
-            "from": int((datetime.now()-duration).timestamp()),
-            "to": int(datetime.now().timestamp()),
-            "s": ["pm1", "pm2_5", "pm10", "tVOC", "hcho", "h", "t", "fsp0"]
+            "from": int((datetime.now(UTC) - duration).timestamp()),
+            "to": int(datetime.now(UTC).timestamp()),
+            "s": ["pm1", "pm2_5", "pm10", "tVOC", "hcho", "h", "t", "fsp0"],
         }
-        response: ClientResponse = (
-            await self._get_request_with_logging_and_errors_raised(
-                url=url, headers=headers, params=params
-            )
+        response: ClientResponse = await self._get_request_with_logging_and_errors_raised(
+            url=url, headers=headers, params=params
         )
-        response_json = await response.json()
-        return response_json
+        return await response.json()
 
     @request_with_active_session
-    async def device_info(self, device_name, device_uuid) -> dict[str, Any]:
+    async def device_info(self, device_name: str, device_uuid: str) -> dict[str, Any]:
+        """Fetch the latest cached info (including states) for a device."""
         _LOGGER.debug("device_info")
         user_id = await self.get_user_id()
         url = f"https://{AWS_APIKEYS[self.cloud_region]['restApiId']}.execute-api.{AWS_APIKEYS[self.cloud_region]['awsRegion']}/prod/c/{user_id}/r/initial"
@@ -423,30 +435,31 @@ class HttpAwsBlueair:
                     },
                 },
             ],
-            "includestates": True
+            "includestates": True,
         }
-        response: ClientResponse = (
-            await self._post_request_with_logging_and_errors_raised(
-                url=url, headers=headers, json_body=json_body
-            )
+        response: ClientResponse = await self._post_request_with_logging_and_errors_raised(
+            url=url, headers=headers, json_body=json_body
         )
         response_json = await response.json()
         return response_json["deviceInfo"][0]
 
     @request_with_active_session
     async def set_device_info(
-        self, device_uuid, service_name, action_verb, action_value
+        self,
+        device_uuid: str,
+        service_name: str,
+        action_verb: str,
+        action_value: Any,
     ) -> bool:
+        """Write a single device attribute and return whether it succeeded."""
         _LOGGER.debug("set_device_info")
         url = f"https://{AWS_APIKEYS[self.cloud_region]['restApiId']}.execute-api.{AWS_APIKEYS[self.cloud_region]['awsRegion']}/prod/c/{device_uuid}/a/{service_name}"
         headers = {
             "Authorization": f"Bearer {await self.get_access_token()}",
         }
         json_body = {"n": service_name, action_verb: action_value}
-        response: ClientResponse = (
-            await self._post_request_with_logging_and_errors_raised(
-                url=url, headers=headers, json_body=json_body
-            )
+        response: ClientResponse = await self._post_request_with_logging_and_errors_raised(
+            url=url, headers=headers, json_body=json_body
         )
         response_text = await response.text()
         return response_text == "Success"
@@ -454,9 +467,9 @@ class HttpAwsBlueair:
     async def discover_cloud_region(
         self,
         *,
-        candidates=None,
+        candidates: Iterable[str] | None = None,
         per_candidate_timeout: float = 5.0,
-    ):
+    ) -> CloudRegionScan:
         """Probe candidate BlueCloud regions and return a recommendation.
 
         Thin wrapper around :func:`blueair_api.region_discovery.discover_cloud_region`
@@ -466,7 +479,7 @@ class HttpAwsBlueair:
         """
         # Local import to avoid a circular dependency at module load
         # time (region_discovery imports HttpAwsBlueair for type hints).
-        from .region_discovery import discover_cloud_region
+        from .region_discovery import discover_cloud_region  # noqa: PLC0415
 
         return await discover_cloud_region(
             self,

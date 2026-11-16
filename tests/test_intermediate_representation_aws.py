@@ -7,48 +7,21 @@ from blueair_api import intermediate_representation_aws as ir
 
 
 class SensorHistoryTest(TestCase):
-    def test_history_simple(self):
-        sh = ir.SensorHistory([
+    def test_history_simple(self) -> None:
+        sh = ir.SensorHistory(
+            [
                 {
                     "datapoints": [
-                        [
-                            "1",
-                            "4",
-                            "5",
-                            "6",
-                            "42",
-                            None,
-                            "51",
-                            "27",
-                            "87"
-                        ],
-                        [
-                            "3",
-                            "1",
-                            "2",
-                            "3",
-                            "43",
-                            None,
-                            "50",
-                            "24",
-                            "91"
-                        ],
+                        ["1", "4", "5", "6", "42", None, "51", "27", "87"],
+                        ["3", "1", "2", "3", "43", None, "50", "24", "91"],
                     ],
-                    "sensors": [
-                      "pm1",
-                      "pm2_5",
-                      "pm10",
-                      "tVOC",
-                      "hcho",
-                      "h",
-                      "t",
-                      "fsp0"
-                    ],
+                    "sensors": ["pm1", "pm2_5", "pm10", "tVOC", "hcho", "h", "t", "fsp0"],
                     "start": "1746401990",
                     "end": "1746409190",
-                    "did": "1d528642-56a9"
-                  }
-                ])
+                    "did": "1d528642-56a9",
+                }
+            ]
+        )
         assert sh[0].timestamp == 1
         assert sh[0].values == {
             "pm1": 4,
@@ -57,7 +30,7 @@ class SensorHistoryTest(TestCase):
             "tVOC": 42,
             "h": 51,
             "t": 27,
-            "fsp0": 87
+            "fsp0": 87,
         }
         assert sh[1].timestamp == 3
         assert sh[1].values == {
@@ -67,158 +40,185 @@ class SensorHistoryTest(TestCase):
             "tVOC": 43,
             "h": 50,
             "t": 24,
-            "fsp0": 91
+            "fsp0": 91,
         }
 
         assert sh.to_latest().timestamp == 3
 
 
 class SensorPackTest(TestCase):
-  def testSimple(self):
-    sp = ir.SensorPack( [
-            {'n': 'v', 't': 1, 'v': 1},
-            {'n': 'vb', 't': 2, 'vb': True},
-            {'n': 'vs', 't': 3, 'vs': "s"},
-            {'n': 'vd', 't': 4, 'vd': "MTIzCg=="},  # b'123\n'
-            {'n': 'no_t', 'v': 1},
-            {'n': 'no_s', 'v': 1},
-            {'n': 's', 'v': 1, 's': 2},
-            {'n': 'u', 'v': 1, 'u': "unit"},
-            {'n': 'no_u', 'v': 1},
-     ])
+    def test_simple(self) -> None:
+        sp = ir.SensorPack(
+            [
+                {"n": "v", "t": 1, "v": 1},
+                {"n": "vb", "t": 2, "vb": True},
+                {"n": "vs", "t": 3, "vs": "s"},
+                {"n": "vd", "t": 4, "vd": "MTIzCg=="},  # b'123\n'
+                {"n": "no_t", "v": 1},
+                {"n": "no_s", "v": 1},
+                {"n": "s", "v": 1, "s": 2},
+                {"n": "u", "v": 1, "u": "unit"},
+                {"n": "no_u", "v": 1},
+            ]
+        )
 
-    latest = sp.to_latest()
+        latest = sp.to_latest()
 
-    assert latest['v'].timestamp == 1
-    assert latest['v'].value == 1
-    assert isinstance(latest['v'].value, float)
+        assert latest["v"].timestamp == 1
+        assert latest["v"].value == 1
+        assert isinstance(latest["v"].value, float)
 
-    assert latest['vb'].timestamp == 2
-    assert latest['vb'].value is True
-    assert isinstance(latest['vb'].value, bool)
+        assert latest["vb"].timestamp == 2
+        assert latest["vb"].value is True
+        assert isinstance(latest["vb"].value, bool)
 
-    assert latest['vs'].timestamp == 3
-    assert latest['vs'].value == "s"
-    assert isinstance(latest['vs'].value, str)
+        assert latest["vs"].timestamp == 3
+        assert latest["vs"].value == "s"
+        assert isinstance(latest["vs"].value, str)
 
-    assert latest['vd'].timestamp == 4
-    assert latest['vd'].value == b"123\n"
-    assert isinstance(latest['vd'].value, bytes)
+        assert latest["vd"].timestamp == 4
+        assert latest["vd"].value == b"123\n"
+        assert isinstance(latest["vd"].value, bytes)
 
-    assert latest['no_t'].timestamp is None
+        assert latest["no_t"].timestamp is None
 
-    assert latest['no_s'].integral is None
-    assert latest['s'].integral == 2
-    assert latest['s'].value == 1
+        assert latest["no_s"].integral is None
+        assert latest["s"].integral == 2
+        assert latest["s"].value == 1
 
-    assert latest['no_u'].unit is None
-    assert latest['u'].unit == "unit"
+        assert latest["no_u"].unit is None
+        assert latest["u"].unit == "unit"
 
-  def testToLatestMissingT1None(self):
-    sp = ir.SensorPack( [
-            {'n': 'missing_t', 't': 1, 'v': 1},
-            {'n': 'missing_t', 'v': 2},
-    ])
+    def test_to_latest_missing_t1_none(self) -> None:
+        sp = ir.SensorPack(
+            [
+                {"n": "missing_t", "t": 1, "v": 1},
+                {"n": "missing_t", "v": 2},
+            ]
+        )
 
-    latest = sp.to_latest()
-    assert latest['missing_t'].value == 2
+        latest = sp.to_latest()
+        assert latest["missing_t"].value == 2
 
-  def testToLatestMissingTNoneNone(self):
-    sp = ir.SensorPack( [
-            {'n': 'missing_t', 'v': 1},
-            {'n': 'missing_t', 'v': 2},
-    ])
+    def test_to_latest_missing_t_none_none(self) -> None:
+        sp = ir.SensorPack(
+            [
+                {"n": "missing_t", "v": 1},
+                {"n": "missing_t", "v": 2},
+            ]
+        )
 
-    latest = sp.to_latest()
-    assert latest['missing_t'].value == 2
+        latest = sp.to_latest()
+        assert latest["missing_t"].value == 2
 
-  def testToLatestMissingTNone1(self):
-    sp = ir.SensorPack( [
-            {'n': 'missing_t', 'v': 1},
-            {'n': 'missing_t', 't': 1, 'v': 2},
-    ])
+    def test_to_latest_missing_t_none1(self) -> None:
+        sp = ir.SensorPack(
+            [
+                {"n": "missing_t", "v": 1},
+                {"n": "missing_t", "t": 1, "v": 2},
+            ]
+        )
 
-    latest = sp.to_latest()
-    assert latest['missing_t'].value == 2
+        latest = sp.to_latest()
+        assert latest["missing_t"].value == 2
 
-  def testToLatestReversedOrder(self):
-    sp = ir.SensorPack( [
-            {'n': 'missing_t', 't': 2, 'v': 2},
-            {'n': 'missing_t', 't': 1, 'v': 1},
-    ])
+    def test_to_latest_reversed_order(self) -> None:
+        sp = ir.SensorPack(
+            [
+                {"n": "missing_t", "t": 2, "v": 2},
+                {"n": "missing_t", "t": 1, "v": 1},
+            ]
+        )
 
-    latest = sp.to_latest()
-    assert latest['missing_t'].value == 2
+        latest = sp.to_latest()
+        assert latest["missing_t"].value == 2
 
-  def testVjNullString(self):
-    """Alarm fields with vj='null' should parse without crashing."""
-    sp = ir.SensorPack([
-            {'n': 'alarm1', 'vj': 'null', 't': 100},
-    ])
-    latest = sp.to_latest()
-    assert latest['alarm1'].value == 'null'
+    def test_vj_null_string(self) -> None:
+        """Alarm fields with vj='null' should parse without crashing."""
+        sp = ir.SensorPack(
+            [
+                {"n": "alarm1", "vj": "null", "t": 100},
+            ]
+        )
+        latest = sp.to_latest()
+        assert latest["alarm1"].value == "null"
 
-  def testVjAlarmDict(self):
-    """Alarm fields with vj=dict should skip the dict and not crash."""
-    alarm_obj = {'n': 'Alarm', 'e': True, 't': 25200, 'l': True, 'ld': 30, 's': 0, 'v': 50, 'r': 31}
-    sp = ir.SensorPack([
-            {'n': 'alarm1', 'vj': alarm_obj, 't': 200},
-    ])
-    latest = sp.to_latest()
-    # The dict is skipped by the non-scalar guard, so value stays None.
-    assert latest['alarm1'].value is None
+    def test_vj_alarm_dict(self) -> None:
+        """Alarm fields with vj=dict should skip the dict and not crash."""
+        alarm_obj = {
+            "n": "Alarm",
+            "e": True,
+            "t": 25200,
+            "l": True,
+            "ld": 30,
+            "s": 0,
+            "v": 50,
+            "r": 31,
+        }
+        sp = ir.SensorPack(
+            [
+                {"n": "alarm1", "vj": alarm_obj, "t": 200},
+            ]
+        )
+        latest = sp.to_latest()
+        # The dict is skipped by the non-scalar guard, so value stays None.
+        assert latest["alarm1"].value is None
 
-  def testMixedScalarAndNonScalar(self):
-    """Records with both scalar and non-scalar fields parse correctly."""
-    sp = ir.SensorPack([
-            {'n': 'fanspeed', 'v': 51, 't': 100},
-            {'n': 'alarm1', 'vj': {'n': 'Alarm', 'e': True}, 't': 100},
-            {'n': 'standby', 'vb': False, 't': 100},
-    ])
-    latest = sp.to_latest()
-    assert latest['fanspeed'].value == 51
-    assert latest['standby'].value is False
-    assert latest['alarm1'].value is None
+    def test_mixed_scalar_and_non_scalar(self) -> None:
+        """Records with both scalar and non-scalar fields parse correctly."""
+        sp = ir.SensorPack(
+            [
+                {"n": "fanspeed", "v": 51, "t": 100},
+                {"n": "alarm1", "vj": {"n": "Alarm", "e": True}, "t": 100},
+                {"n": "standby", "vb": False, "t": 100},
+            ]
+        )
+        latest = sp.to_latest()
+        assert latest["fanspeed"].value == 51
+        assert latest["standby"].value is False
+        assert latest["alarm1"].value is None
 
 
 class QueryJsonTest(TestCase):
-
-    def test_mapping_one(self):
+    def test_mapping_one(self) -> None:
         assert ir.query_json({"a": 0}, "a") == 0
 
-    def test_mapping_two(self):
+    def test_mapping_two(self) -> None:
         assert ir.query_json({"a": {"b": 0}}, "a.b") == 0
 
-    def test_sequence(self):
+    def test_sequence(self) -> None:
         assert ir.query_json([{"a": 1}], "0.a") == 1
 
-    def test_none(self):
+    def test_none(self) -> None:
         # last segment not found produces None.
         assert ir.query_json([{"a": 1}], "0.r") is None
 
-    def test_scalar_error(self):
+    def test_scalar_error(self) -> None:
         with pytest.raises(KeyError):
             ir.query_json(3, "0.r")
 
-    def test_key_error(self):
+    def test_key_error(self) -> None:
         with pytest.raises(KeyError):
             # intermediate segment not found produces KeyError
             ir.query_json({"a": {"b": 3}}, "r.b")
 
+
 @dataclasses.dataclass
 class FakeObjectType:
-    a : str
+    a: str
     extra_fields: ir.MappingType
 
+
 class ParseJsonTest(TestCase):
-
-    def test_mapping_one(self):
-        d = ir.parse_json(FakeObjectType, {
-              "one" :{"a": "1", "e" : 1},
-              "two" :{"a": "2", "e" : 2},
-            })
+    def test_mapping_one(self) -> None:
+        d = ir.parse_json(
+            FakeObjectType,
+            {
+                "one": {"a": "1", "e": 1},
+                "two": {"a": "2", "e": 2},
+            },
+        )
         assert d == {
-                "one" : FakeObjectType(a="1", extra_fields={"e":1}),
-                "two" : FakeObjectType(a="2", extra_fields={"e":2}),
-            }
-
+            "one": FakeObjectType(a="1", extra_fields={"e": 1}),
+            "two": FakeObjectType(a="2", extra_fields={"e": 2}),
+        }

@@ -14,14 +14,16 @@ MQTT broker endpoints and authentication flow determined through
 investigation of the Blueair cloud API responses and AWS IoT
 protocol behavior.
 """
+
 import asyncio
+from collections.abc import Callable, Coroutine
+import concurrent.futures
 import json
-import ssl
-import uuid
-import threading
 from logging import getLogger
+import ssl
+import threading
 from typing import Any
-from collections.abc import Callable, Awaitable
+import uuid
 
 import paho.mqtt.client as mqtt
 
@@ -33,7 +35,7 @@ _LOGGER = getLogger(__name__)
 SensorCallback = Callable[[str, dict[str, float]], None]
 StateCallback = Callable[[str, dict[str, Any]], None]
 EventCallback = Callable[[str, dict[str, Any]], None]
-CredentialRefresher = Callable[[], Awaitable[tuple[str, str, str]]]
+CredentialRefresher = Callable[[], Coroutine[Any, Any, tuple[str, str, str]]]
 
 # Default sensor stream TTL in seconds.  Devices declare their own TTL
 # in configuration.ds.rt5s.ttl; this fallback is used when no TTL is
@@ -82,7 +84,8 @@ class MqttAwsBlueair:
         mqtt_auth_signature: str,
         mqtt_auth_token: str,
         user_id: str,
-    ):
+    ) -> None:
+        """Store connection details; call ``connect()`` to open the MQTT link."""
         self._region = region
         self._mqtt_auth_name = mqtt_auth_name
         self._mqtt_auth_signature = mqtt_auth_signature
@@ -104,7 +107,7 @@ class MqttAwsBlueair:
 
         # Event loop for running the async credential refresher from
         # the synchronous paho callback thread.
-        self._event_loop = None
+        self._event_loop: asyncio.AbstractEventLoop | None = None
 
         self._client: mqtt.Client | None = None
         self._connected = False
@@ -114,13 +117,14 @@ class MqttAwsBlueair:
 
     @property
     def connected(self) -> bool:
+        """Whether the client currently has an open MQTT connection."""
         return self._connected
 
     def register_device(self, device_uuid: str) -> None:
         """Register a device UUID to subscribe to its topics."""
         if device_uuid not in self._device_ids:
             self._device_ids.append(device_uuid)
-            _LOGGER.debug(f"Registered device {device_uuid} (total: {len(self._device_ids)})")
+            _LOGGER.debug("Registered device %s (total: %s)", device_uuid, len(self._device_ids))
             # If already connected, subscribe to the new device immediately
             if self._connected and self._client is not None:
                 self._subscribe_device(device_uuid)
@@ -135,7 +139,7 @@ class MqttAwsBlueair:
         ]
         for topic in topics:
             self._client.subscribe(topic)
-            _LOGGER.debug(f"Subscribed to {topic}")
+            _LOGGER.debug("Subscribed to %s", topic)
 
     def set_sensor_ttl(self, ttl_seconds: int) -> None:
         """Set the sensor data stream TTL from the device configuration.
@@ -153,7 +157,11 @@ class MqttAwsBlueair:
         """
         if ttl_seconds > 0:
             self._sensor_ttl = ttl_seconds
-            _LOGGER.debug(f"Sensor TTL set to {ttl_seconds}s (re-subscribe every {int(ttl_seconds * _TTL_RESUBSCRIBE_RATIO)}s)")
+            _LOGGER.debug(
+                "Sensor TTL set to %ss (re-subscribe every %ss)",
+                ttl_seconds,
+                int(ttl_seconds * _TTL_RESUBSCRIBE_RATIO),
+            )
 
     def _resubscribe_sensor_topics(self) -> None:
         """Re-subscribe to sensor topics for all devices.
@@ -175,9 +183,9 @@ class MqttAwsBlueair:
             topic = f"d/{device_uuid}/s/5s"
             try:
                 client.subscribe(topic)
-                _LOGGER.debug(f"Re-subscribed to {topic} (TTL keepalive)")
+                _LOGGER.debug("Re-subscribed to %s (TTL keepalive)", topic)
             except Exception:
-                _LOGGER.exception(f"Failed to re-subscribe to {topic}")
+                _LOGGER.exception("Failed to re-subscribe to %s", topic)
 
     def _start_resubscribe_timer(self) -> None:
         """Start the periodic re-subscribe timer based on the sensor TTL."""
@@ -185,7 +193,9 @@ class MqttAwsBlueair:
         if self._sensor_ttl <= 0 or self._stopping:
             return
         interval = int(self._sensor_ttl * _TTL_RESUBSCRIBE_RATIO)
-        _LOGGER.debug(f"Starting sensor re-subscribe timer (every {interval}s, TTL={self._sensor_ttl}s)")
+        _LOGGER.debug(
+            "Starting sensor re-subscribe timer (every %ss, TTL=%ss)", interval, self._sensor_ttl
+        )
         self._resubscribe_timer = threading.Timer(interval, self._resubscribe_timer_fired)
         self._resubscribe_timer.daemon = True
         self._resubscribe_timer.start()
@@ -200,7 +210,10 @@ class MqttAwsBlueair:
         """Called when the re-subscribe timer fires."""
         if self._stopping or not self._connected:
             return
-        _LOGGER.debug(f"Sensor TTL keepalive: re-subscribing to sensor topics for {len(self._device_ids)} device(s)")
+        _LOGGER.debug(
+            "Sensor TTL keepalive: re-subscribing to sensor topics for %s device(s)",
+            len(self._device_ids),
+        )
         self._resubscribe_sensor_topics()
         # Restart the timer for the next cycle
         self._start_resubscribe_timer()
@@ -253,7 +266,7 @@ class MqttAwsBlueair:
         default_headers["X-Amz-CustomAuthorizer-Token"] = self._mqtt_auth_token
         return default_headers
 
-    def _on_pre_connect(self, client, userdata) -> None:
+    def _on_pre_connect(self, client: Any, userdata: Any) -> None:
         """Refresh credentials before each connection/reconnection attempt.
 
         Paho calls this synchronously immediately before ``reconnect()``
@@ -263,11 +276,13 @@ class MqttAwsBlueair:
         """
         _LOGGER.info("MQTT pre-connect: preparing for connection attempt")
         if not self.credential_refresher or not self._event_loop:
-            _LOGGER.debug("MQTT pre-connect: no credential_refresher configured, using existing tokens")
+            _LOGGER.debug(
+                "MQTT pre-connect: no credential_refresher configured, using existing tokens"
+            )
             return
         try:
-            future = asyncio.run_coroutine_threadsafe(
-                self.credential_refresher(), self._event_loop
+            future: concurrent.futures.Future[tuple[str, str, str]] = (
+                asyncio.run_coroutine_threadsafe(self.credential_refresher(), self._event_loop)
             )
             new_name, new_sig, new_token = future.result(timeout=30)
             self._mqtt_auth_name = new_name
@@ -280,7 +295,7 @@ class MqttAwsBlueair:
                 "will attempt reconnect with previous (possibly stale) tokens"
             )
 
-    def connect(self, event_loop=None) -> None:
+    def connect(self, event_loop: asyncio.AbstractEventLoop | None = None) -> None:
         """Connect to the MQTT broker and start the network loop.
 
         Parameters
@@ -300,15 +315,19 @@ class MqttAwsBlueair:
         if not self._mqtt_auth_name or not self._mqtt_auth_signature or not self._mqtt_auth_token:
             _LOGGER.error(
                 "MQTT auth credentials missing or empty "
-                f"(auth_name={bool(self._mqtt_auth_name)}, "
-                f"auth_signature={bool(self._mqtt_auth_signature)}, "
-                f"auth_token={bool(self._mqtt_auth_token)})"
+                "(auth_name=%s, auth_signature=%s, auth_token=%s)",
+                bool(self._mqtt_auth_name),
+                bool(self._mqtt_auth_signature),
+                bool(self._mqtt_auth_token),
             )
 
         _LOGGER.info(
-            f"Connecting to MQTT broker wss://{broker} "
-            f"(region={self._region}, client_id={self._client_id}, "
-            f"user_id={self._user_id}, devices={len(self._device_ids)})"
+            "Connecting to MQTT broker wss://%s (region=%s, client_id=%s, user_id=%s, devices=%s)",
+            broker,
+            self._region,
+            self._client_id,
+            self._user_id,
+            len(self._device_ids),
         )
 
         self._client = self._build_client()
@@ -327,14 +346,17 @@ class MqttAwsBlueair:
             self._connected = False
         self._client = None
 
-    def _on_connect(self, client, userdata, flags, reason_code, properties):
+    def _on_connect(
+        self, client: Any, userdata: Any, flags: Any, reason_code: Any, properties: Any
+    ) -> None:
+        """Handle a successful or failed connection attempt from paho."""
         if reason_code == 0:
-            _LOGGER.info(f"MQTT connected successfully (devices={len(self._device_ids)})")
+            _LOGGER.info("MQTT connected successfully (devices=%s)", len(self._device_ids))
             self._connected = True
             # Subscribe to per-user event topic
             user_topic = f"c/{self._user_id}/s/event"
             client.subscribe(user_topic)
-            _LOGGER.debug(f"Subscribed to {user_topic}")
+            _LOGGER.debug("Subscribed to %s", user_topic)
             # Subscribe to all registered devices
             for device_uuid in self._device_ids:
                 self._subscribe_device(device_uuid)
@@ -344,36 +366,45 @@ class MqttAwsBlueair:
             if self.on_connect_callback:
                 self.on_connect_callback()
         else:
-            _LOGGER.error(f"MQTT connection failed: reason_code={reason_code}")
+            _LOGGER.error("MQTT connection failed: reason_code=%s", reason_code)
 
-    def _on_disconnect(self, client, userdata, flags, reason_code, properties):
+    def _on_disconnect(
+        self, client: Any, userdata: Any, flags: Any, reason_code: Any, properties: Any
+    ) -> None:
+        """Handle an MQTT disconnect, clean or unexpected, from paho."""
         self._connected = False
         self._cancel_resubscribe_timer()
         if reason_code == 0 or self._stopping:
             _LOGGER.info("MQTT disconnected cleanly")
         else:
             _LOGGER.info(
-                f"MQTT disconnected unexpectedly: reason_code={reason_code}; "
-                f"paho will auto-reconnect with credential refresh"
+                "MQTT disconnected unexpectedly: reason_code=%s; "
+                "paho will auto-reconnect with credential refresh",
+                reason_code,
             )
         if self.on_disconnect_callback:
             self.on_disconnect_callback()
 
-    def _on_connect_fail(self, client, userdata):
+    def _on_connect_fail(self, client: Any, userdata: Any) -> None:
+        """Log a failed connection attempt; paho handles the retry."""
         _LOGGER.warning(
             "MQTT connection attempt failed (TCP/TLS/WebSocket handshake error); "
             "paho will retry with backoff"
         )
 
-    def _on_subscribe(self, client, userdata, mid, reason_codes, properties):
-        _LOGGER.debug(f"MQTT subscription confirmed (mid={mid})")
+    def _on_subscribe(
+        self, client: Any, userdata: Any, mid: Any, reason_codes: Any, properties: Any
+    ) -> None:
+        """Log a subscription acknowledgment from paho."""
+        _LOGGER.debug("MQTT subscription confirmed (mid=%s)", mid)
 
-    def _on_message(self, client, userdata, msg):
+    def _on_message(self, client: Any, userdata: Any, msg: Any) -> None:
+        """Parse an incoming MQTT message and dispatch it by topic."""
         topic = msg.topic
         try:
             payload = json.loads(msg.payload.decode())
         except (json.JSONDecodeError, UnicodeDecodeError) as e:
-            _LOGGER.warning(f"Failed to parse MQTT message on {topic}: {e}")
+            _LOGGER.warning("Failed to parse MQTT message on %s: %s", topic, e)
             return
 
         if topic.startswith("d/") and "/s/5s" in topic:
@@ -383,7 +414,7 @@ class MqttAwsBlueair:
         elif topic.endswith("/event"):
             self._handle_event(topic, payload)
         else:
-            _LOGGER.debug(f"Unhandled MQTT topic: {topic}")
+            _LOGGER.debug("Unhandled MQTT topic: %s", topic)
 
     def _handle_sensor_data(self, topic: str, payload: Any) -> None:
         """Parse sensor data from d/<deviceId>/s/5s topic."""
@@ -404,7 +435,7 @@ class MqttAwsBlueair:
             try:
                 self.on_sensor_data(device_id, sensors)
             except Exception:
-                _LOGGER.exception(f"Error in on_sensor_data callback for {device_id}")
+                _LOGGER.exception("Error in on_sensor_data callback for %s", device_id)
 
     def _handle_state_change(self, topic: str, payload: Any) -> None:
         """Parse state change from $aws/things/<deviceId>/shadow/update/documents."""
@@ -418,19 +449,14 @@ class MqttAwsBlueair:
             return
 
         # Extract the current reported state from the shadow document
-        state = (
-            payload
-            .get("current", {})
-            .get("state", {})
-            .get("reported", {})
-        )
+        state = payload.get("current", {}).get("state", {}).get("reported", {})
 
-        _LOGGER.debug(f"State change for {device_id}: {state}")
+        _LOGGER.debug("State change for %s: %s", device_id, state)
         if self.on_state_change:
             try:
                 self.on_state_change(device_id, state)
             except Exception:
-                _LOGGER.exception(f"Error in on_state_change callback for {device_id}")
+                _LOGGER.exception("Error in on_state_change callback for %s", device_id)
 
     def _handle_event(self, topic: str, payload: Any) -> None:
         """Parse connectivity event from c/<userId>/s/event.
@@ -450,7 +476,7 @@ class MqttAwsBlueair:
         # The event payload uses short field names: "o" for origin, "et" for event type.
         device_id = str(payload.get("o", payload.get("originDeviceId", "")))
         event_type = str(payload.get("et", payload.get("connectionEvent", "unknown")))
-        _LOGGER.debug(f"Device event for {device_id}: {event_type} ({payload.get('m', '')})")
+        _LOGGER.debug("Device event for %s: %s (%s)", device_id, event_type, payload.get("m", ""))
 
         # When a device comes online, re-subscribe to its sensor topic
         # to reset the TTL and start receiving 5s data.
@@ -459,12 +485,12 @@ class MqttAwsBlueair:
             topic = f"d/{device_id}/s/5s"
             try:
                 client.subscribe(topic)
-                _LOGGER.info(f"Re-subscribed to {topic} (device Connected event)")
+                _LOGGER.info("Re-subscribed to %s (device Connected event)", topic)
             except Exception:
-                _LOGGER.exception(f"Failed to re-subscribe on Connected event for {device_id}")
+                _LOGGER.exception("Failed to re-subscribe on Connected event for %s", device_id)
 
         if self.on_event:
             try:
                 self.on_event(device_id, payload)
             except Exception:
-                _LOGGER.exception(f"Error in on_event callback for {device_id}")
+                _LOGGER.exception("Error in on_event callback for %s", device_id)

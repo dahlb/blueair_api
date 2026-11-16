@@ -1,12 +1,13 @@
+"""Convenience factories that log in and build device objects in one call."""
+
 import logging
 
 from aiohttp import ClientSession
 
-from .http_blueair import HttpBlueair
-from .http_aws_blueair import HttpAwsBlueair
 from .device import Device
 from .device_aws import DeviceAws
-from typing import Optional
+from .http_aws_blueair import HttpAwsBlueair
+from .http_blueair import HttpBlueair
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -18,6 +19,7 @@ async def get_devices(
     auth_token: str | None = None,
     client_session: ClientSession | None = None,
 ) -> tuple[HttpBlueair, list[Device]]:
+    """Log in to the legacy Blueair API and build a ``Device`` per registered unit."""
     api = HttpBlueair(
         client_session=client_session,
         username=username,
@@ -26,14 +28,15 @@ async def get_devices(
         auth_token=auth_token,
     )
     api_devices = await api.get_devices()
-    devices = []
-    for api_device in api_devices:
-        devices.append(await Device.create_device(
+    devices = [
+        await Device.create_device(
             api=api,
             uuid=api_device["uuid"],
             name=api_device["name"],
-            mac=api_device["mac"]
-        ))
+            mac=api_device["mac"],
+        )
+        for api_device in api_devices
+    ]
     return (
         api,
         devices,
@@ -49,6 +52,7 @@ async def get_aws_devices(
     gigya_region: str | None = None,
     cloud_region: str | None = None,
 ) -> tuple[HttpAwsBlueair, list[DeviceAws]]:
+    """Log in to the AWS Blueair API and build a ``DeviceAws`` per registered unit."""
     api = HttpAwsBlueair(
         username=username,
         password=password,
@@ -61,14 +65,16 @@ async def get_aws_devices(
     devices = []
     for api_device in api_devices:
         _LOGGER.debug("api_device: %s", api_device)
-        devices.append(await DeviceAws.create_device(
-            api=api,
-            uuid=api_device["uuid"],
-            name=api_device["name"],
-            mac=api_device["mac"],
-            type_name=api_device["type"]
-        ))
+        devices.append(
+            await DeviceAws.create_device(
+                api=api,
+                uuid=api_device["uuid"],
+                name=api_device["name"],
+                mac=api_device["mac"],
+                type_name=api_device["type"],
+            )
+        )
     return (
         api,
-        devices
+        devices,
     )

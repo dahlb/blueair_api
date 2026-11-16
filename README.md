@@ -32,6 +32,35 @@ a lot of this is based on [hass-blueair](https://github.com/aijayadams/hass-blue
   `fan_speed_count` adapt automatically based on the device's hardware
   identifier.
 
+## Development
+
+Clone this repository and install the development environment:
+
+```bash
+git clone https://github.com/dahlb/blueair_api.git
+cd blueair_api
+scripts/setup
+```
+
+Use the repository scripts so commands run through the local `.venv`.
+
+```bash
+scripts/setup
+scripts/test
+scripts/lint
+```
+
+The underlying commands are:
+
+```bash
+./.venv/bin/pytest
+./.venv/bin/prek run --all-files
+./.venv/bin/mypy .
+```
+
+Add or update pytest coverage for behavior changes. Fixture data for device
+info responses lives under `tests/device_info`.
+
 ***
 
 [commits-shield]: https://img.shields.io/github/commit-activity/y/dahlb/blueair_api.svg?style=for-the-badge

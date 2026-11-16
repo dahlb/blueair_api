@@ -10,51 +10,49 @@ Then use pytest to drive the tests
 
     $ pytest tests
 """
-import typing
-from typing import Any
 
 import contextlib
 import dataclasses
 from importlib import resources
 import json
-from unittest import mock
-from unittest import IsolatedAsyncioTestCase, TestCase
+import typing
+from typing import Any
+from unittest import IsolatedAsyncioTestCase, TestCase, mock
 
-import pytest
-
-from blueair_api.device_aws import DeviceAws, AttributeType
-from blueair_api.sku_map import UNKNOWN_MODEL
-from blueair_api import http_aws_blueair
 from blueair_api import intermediate_representation_aws as ir
+from blueair_api.device_aws import AttributeType, DeviceAws
+from blueair_api.sku_map import UNKNOWN_MODEL
 
 
 class FakeDeviceInfoHelper:
     """Fake for the 'device info' interface of HttpAwsBlueAir class."""
-    def __init__(self, info: dict[str, Any]):
+
+    def __init__(self, info: dict[str, Any]) -> None:
         self.info = info
 
     async def device_info(self, *args, **kwargs):
         return self.info
 
-    async def set_device_info(self, device_uuid, service_name, action_verb, action_value):
+    async def set_device_info(self, device_uuid, service_name, action_verb, action_value) -> None:
         # this function seems to be only updating the states consider rename the method.
         # action_verb seems to be a type annotation:
         # c.f. senml: https://www.rfc-editor.org/rfc/rfc8428.html#section-5
         # the senml parsing library (utils.py) could use some additional love.
         # to make it more conformal to the RFC standard.
-        for state in self.info['states']:
-            if state['n'] == service_name:
+        for state in self.info["states"]:
+            if state["n"] == service_name:
                 break
         else:
-            state = {'n': service_name}
-            self.info['states'].append(state)
+            state = {"n": service_name}
+            self.info["states"].append(state)
         # Watch out: mutate after append produces desired mutation to info.
         state[action_verb] = action_value
 
 
 class AssertFullyCheckedHelper:
     """Assert that all attributes of AttributeType are accessed once."""
-    def __init__(self, device : DeviceAws):
+
+    def __init__(self, device: DeviceAws) -> None:
         self.device = device
         self.logs = []
         self.fields = set()
@@ -62,7 +60,7 @@ class AssertFullyCheckedHelper:
             if typing.get_origin(field.type) is AttributeType:
                 self.fields.add(field.name)
 
-    def __getattr__(self, attr):
+    def __getattr__(self, attr: str) -> Any:
         if attr in self.fields:
             self.logs.append(attr)
         return getattr(self.device, attr)
@@ -76,31 +74,37 @@ def assert_fully_checked(device):
 
 
 class DeviceAwsTestBase(IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
 
-    def setUp(self):
-
-        patcher = mock.patch('blueair_api.http_aws_blueair.HttpAwsBlueair', autospec=True)
+        patcher = mock.patch("blueair_api.http_aws_blueair.HttpAwsBlueair", autospec=True)
         self.api_class = patcher.start()
         self.addCleanup(patcher.stop)
         self.api = self.api_class(username="fake-username", password="fake-password")
 
-        self.device = DeviceAws(self.api,
-             name_api="fake-name-api",
-             uuid="fake-uuid",
-             name="fake-name",
-             mac="fake-mac",
-             type_name='fake-type-name')
+        self.device = DeviceAws(
+            self.api,
+            name_api="fake-name-api",
+            uuid="fake-uuid",
+            name="fake-name",
+            mac="fake-mac",
+            type_name="fake-type-name",
+        )
 
         self.device_info_helper = FakeDeviceInfoHelper(
-           {"configuration": {"di" : {}, "ds" : {}, "dc" : {}, "da" : {},},
-            "sensordata": [],
-            "states": [],
-           })
+            {
+                "configuration": {
+                    "di": {},
+                    "ds": {},
+                    "dc": {},
+                    "da": {},
+                },
+                "sensordata": [],
+                "states": [],
+            }
+        )
 
-        self.device_sensor_helper = {"mock_data": [{
-                "datapoints": [],
-                "sensors": []
-            }]}
+        self.device_sensor_helper = {"mock_data": [{"datapoints": [], "sensors": []}]}
+
         async def fake_sensors(device_name, device_uuid):
             return self.device_sensor_helper["mock_data"]
 
@@ -112,33 +116,35 @@ class DeviceAwsTestBase(IsolatedAsyncioTestCase):
 class DeviceAwsSetterTest(DeviceAwsTestBase):
     """Tests for all of the setters."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         super().setUp()
         # minimally populate dc to define the states.
         fake = {"n": "n", "v": 0}
-        ir.query_json(self.device_info_helper.info, "configuration.dc").update({
-            "brightness": fake,
-            "fanspeed": fake,
-            "standby": fake,
-            "germshield": fake,
-            "automode": fake,
-            "autorh": fake,
-            "childlock": fake,
-            "nightmode": fake,
-            "wickdrys": fake,
-            "hummode": fake,
-            "mode": fake,
-            "mainmode": fake,
-            "heattemp": fake,
-            "heatsubmode": fake,
-            "heatfs": fake,
-            "coolsubmode": fake,
-            "coolfs": fake,
-            "apsubmode": fake,
-            "fsp0": fake,
-        })
+        ir.query_json(self.device_info_helper.info, "configuration.dc").update(
+            {
+                "brightness": fake,
+                "fanspeed": fake,
+                "standby": fake,
+                "germshield": fake,
+                "automode": fake,
+                "autorh": fake,
+                "childlock": fake,
+                "nightmode": fake,
+                "wickdrys": fake,
+                "hummode": fake,
+                "mode": fake,
+                "mainmode": fake,
+                "heattemp": fake,
+                "heatsubmode": fake,
+                "heatfs": fake,
+                "coolsubmode": fake,
+                "coolfs": fake,
+                "apsubmode": fake,
+                "fsp0": fake,
+            }
+        )
 
-    async def test_brightness(self):
+    async def test_brightness(self) -> None:
         # test cache works
         self.device.brightness = None
         await self.device.set_brightness(1)
@@ -150,7 +156,7 @@ class DeviceAwsSetterTest(DeviceAwsTestBase):
         await self.device.refresh()
         assert self.device.brightness == 2
 
-    async def test_fan_speed(self):
+    async def test_fan_speed(self) -> None:
         # test cache works
         self.device.fan_speed = None
         await self.device.set_fan_speed(1)
@@ -162,7 +168,7 @@ class DeviceAwsSetterTest(DeviceAwsTestBase):
         await self.device.refresh()
         assert self.device.fan_speed == 2
 
-    async def test_germ_shield(self):
+    async def test_germ_shield(self) -> None:
         # test cache works
         self.device.germ_shield = None
         await self.device.set_germ_shield(False)
@@ -174,7 +180,7 @@ class DeviceAwsSetterTest(DeviceAwsTestBase):
         await self.device.refresh()
         assert self.device.germ_shield is True
 
-    async def test_standby(self):
+    async def test_standby(self) -> None:
         # test cache works
         self.device.standby = None
         await self.device.set_standby(False)
@@ -186,7 +192,7 @@ class DeviceAwsSetterTest(DeviceAwsTestBase):
         await self.device.refresh()
         assert self.device.standby is True
 
-    async def test_fan_auto_mode(self):
+    async def test_fan_auto_mode(self) -> None:
         # test cache works
         self.device.fan_auto_mode = None
         await self.device.set_fan_auto_mode(False)
@@ -198,7 +204,7 @@ class DeviceAwsSetterTest(DeviceAwsTestBase):
         await self.device.refresh()
         assert self.device.fan_auto_mode is True
 
-    async def test_auto_regulated_humidity(self):
+    async def test_auto_regulated_humidity(self) -> None:
         # test cache works
         self.device.auto_regulated_humidity = None
         await self.device.set_auto_regulated_humidity(1)
@@ -210,7 +216,7 @@ class DeviceAwsSetterTest(DeviceAwsTestBase):
         await self.device.refresh()
         assert self.device.auto_regulated_humidity == 2
 
-    async def test_child_lock(self):
+    async def test_child_lock(self) -> None:
         # test cache works
         self.device.child_lock = None
         await self.device.set_child_lock(False)
@@ -222,7 +228,7 @@ class DeviceAwsSetterTest(DeviceAwsTestBase):
         await self.device.refresh()
         assert self.device.child_lock is True
 
-    async def test_night_mode(self):
+    async def test_night_mode(self) -> None:
         # test cache works
         self.device.night_mode = None
         await self.device.set_night_mode(False)
@@ -234,7 +240,7 @@ class DeviceAwsSetterTest(DeviceAwsTestBase):
         await self.device.refresh()
         assert self.device.night_mode is True
 
-    async def test_wick_dry_mode(self):
+    async def test_wick_dry_mode(self) -> None:
         # test cache works
         self.device.wick_dry_mode = None
         await self.device.set_wick_dry_mode(False)
@@ -246,7 +252,7 @@ class DeviceAwsSetterTest(DeviceAwsTestBase):
         await self.device.refresh()
         assert self.device.wick_dry_mode is True
 
-    async def test_main_mode(self):
+    async def test_main_mode(self) -> None:
         # test cache works
         self.device.main_mode = None
         await self.device.set_main_mode(1)
@@ -258,7 +264,7 @@ class DeviceAwsSetterTest(DeviceAwsTestBase):
         await self.device.refresh()
         assert self.device.main_mode == 2
 
-    async def test_humidifier_mode(self):
+    async def test_humidifier_mode(self) -> None:
         # test cache works
         self.device.humidifier_mode = None
         await self.device.set_humidifier_mode(False)
@@ -270,7 +276,7 @@ class DeviceAwsSetterTest(DeviceAwsTestBase):
         await self.device.refresh()
         assert self.device.humidifier_mode is True
 
-    async def test_combo_mode(self):
+    async def test_combo_mode(self) -> None:
         # test cache works
         self.device.combo_mode = None
         await self.device.set_combo_mode(1)
@@ -282,7 +288,7 @@ class DeviceAwsSetterTest(DeviceAwsTestBase):
         await self.device.refresh()
         assert self.device.combo_mode == 2
 
-    async def test_heat_temp(self):
+    async def test_heat_temp(self) -> None:
         # test cache works
         self.device.heat_temp = None
         await self.device.set_heat_temp(1)
@@ -294,7 +300,7 @@ class DeviceAwsSetterTest(DeviceAwsTestBase):
         await self.device.refresh()
         assert self.device.heat_temp == 2
 
-    async def test_heat_sub_mode(self):
+    async def test_heat_sub_mode(self) -> None:
         # test cache works
         self.device.heat_sub_mode = None
         await self.device.set_heat_sub_mode(1)
@@ -306,7 +312,7 @@ class DeviceAwsSetterTest(DeviceAwsTestBase):
         await self.device.refresh()
         assert self.device.heat_sub_mode == 2
 
-    async def test_heat_fan_speed(self):
+    async def test_heat_fan_speed(self) -> None:
         # test cache works
         self.device.heat_fan_speed = None
         await self.device.set_heat_fan_speed(1)
@@ -318,7 +324,7 @@ class DeviceAwsSetterTest(DeviceAwsTestBase):
         await self.device.refresh()
         assert self.device.heat_fan_speed == 2
 
-    async def test_cool_sub_mode(self):
+    async def test_cool_sub_mode(self) -> None:
         # test cache works
         self.device.cool_sub_mode = None
         await self.device.set_cool_sub_mode(1)
@@ -330,7 +336,7 @@ class DeviceAwsSetterTest(DeviceAwsTestBase):
         await self.device.refresh()
         assert self.device.cool_sub_mode == 2
 
-    async def test_cool_fan_speed(self):
+    async def test_cool_fan_speed(self) -> None:
         # test cache works
         self.device.cool_fan_speed = None
         await self.device.set_cool_fan_speed(1)
@@ -342,7 +348,7 @@ class DeviceAwsSetterTest(DeviceAwsTestBase):
         await self.device.refresh()
         assert self.device.cool_fan_speed == 2
 
-    async def test_ap_sub_mode(self):
+    async def test_ap_sub_mode(self) -> None:
         # test cache works
         self.device.ap_sub_mode = None
         await self.device.set_ap_sub_mode(1)
@@ -354,7 +360,7 @@ class DeviceAwsSetterTest(DeviceAwsTestBase):
         await self.device.refresh()
         assert self.device.ap_sub_mode == 2
 
-    async def test_fan_speed_0(self):
+    async def test_fan_speed_0(self) -> None:
         # test cache works
         self.device.fan_speed_0 = None
         await self.device.set_fan_speed_0(1)
@@ -376,13 +382,12 @@ class EmptyDeviceAwsTest(DeviceAwsTestBase):
     golden dataset.
     """
 
-    async def test_attributes(self):
+    async def test_attributes(self) -> None:
 
         await self.device.refresh()
         self.api.device_info.assert_awaited_with("fake-name-api", "fake-uuid")
 
         with assert_fully_checked(self.device) as device:
-
             assert UNKNOWN_MODEL in device.model_name
 
             assert device.humidifier_mode is NotImplemented
@@ -440,19 +445,18 @@ class EmptyDeviceAwsTest(DeviceAwsTestBase):
 class H35iTest(DeviceAwsTestBase):
     """Tests for H35i."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         super().setUp()
-        with open(resources.files().joinpath('device_info/H35i.json')) as sample_file:
+        with resources.files().joinpath("device_info/H35i.json").open() as sample_file:
             info = json.load(sample_file)
         self.device_info_helper.info.update(info)
 
-    async def test_attributes(self):
+    async def test_attributes(self) -> None:
 
         await self.device.refresh()
         self.api.device_info.assert_awaited_with("fake-name-api", "fake-uuid")
 
         with assert_fully_checked(self.device) as device:
-
             assert device.model_name == "Blueair Humidifier H35i"
             assert device.humidifier_mode is NotImplemented
             assert device.combo_mode is NotImplemented
@@ -509,19 +513,18 @@ class H35iTest(DeviceAwsTestBase):
 class H38iTest(DeviceAwsTestBase):
     """Tests for H38i."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         super().setUp()
-        with open(resources.files().joinpath('device_info/H38i.json')) as sample_file:
+        with resources.files().joinpath("device_info/H38i.json").open() as sample_file:
             info = json.load(sample_file)
         self.device_info_helper.info.update(info)
 
-    async def test_attributes(self):
+    async def test_attributes(self) -> None:
 
         await self.device.refresh()
         self.api.device_info.assert_awaited_with("fake-name-api", "fake-uuid")
 
         with assert_fully_checked(self.device) as device:
-
             assert device.model_name == "Blueair DreamWell Humidifier H38i"
             assert device.humidifier_mode is NotImplemented
             assert device.combo_mode is NotImplemented
@@ -578,19 +581,18 @@ class H38iTest(DeviceAwsTestBase):
 class H76iTest(DeviceAwsTestBase):
     """Tests for H76i."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         super().setUp()
-        with open(resources.files().joinpath('device_info/H76i.json')) as sample_file:
+        with resources.files().joinpath("device_info/H76i.json").open() as sample_file:
             info = json.load(sample_file)
         self.device_info_helper.info.update(info)
 
-    async def test_attributes(self):
+    async def test_attributes(self) -> None:
 
         await self.device.refresh()
         self.api.device_info.assert_awaited_with("fake-name-api", "fake-uuid")
 
         with assert_fully_checked(self.device) as device:
-
             assert device.model_name == "Blueair DreamWell Humidifier H76i"
             assert device.humidifier_mode is NotImplemented
             assert device.combo_mode is NotImplemented
@@ -647,18 +649,17 @@ class H76iTest(DeviceAwsTestBase):
 class Max311iTest(DeviceAwsTestBase):
     """Tests for H35i."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         super().setUp()
-        with open(resources.files().joinpath('device_info/max_311i.json')) as sample_file:
+        with resources.files().joinpath("device_info/max_311i.json").open() as sample_file:
             info = json.load(sample_file)
         self.device_info_helper.info.update(info)
 
-    async def test_attributes(self):
+    async def test_attributes(self) -> None:
         await self.device.refresh()
         self.api.device_info.assert_awaited_with("fake-name-api", "fake-uuid")
 
         with assert_fully_checked(self.device) as device:
-
             assert device.model_name == "Blueair Blue Pure 311i Max"
             assert device.humidifier_mode is NotImplemented
             assert device.combo_mode is NotImplemented
@@ -715,19 +716,18 @@ class Max311iTest(DeviceAwsTestBase):
 class T10iTest(DeviceAwsTestBase):
     """Tests for T10i."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         super().setUp()
-        with open(resources.files().joinpath('device_info/T10i.json')) as sample_file:
+        with resources.files().joinpath("device_info/T10i.json").open() as sample_file:
             info = json.load(sample_file)
         self.device_info_helper.info.update(info)
 
-    async def test_attributes(self):
+    async def test_attributes(self) -> None:
 
         await self.device.refresh()
         self.api.device_info.assert_awaited_with("fake-name-api", "fake-uuid")
 
         with assert_fully_checked(self.device) as device:
-
             assert device.model_name == "Blueair ComfortPure 3-in-1 T10i"
             assert device.humidifier_mode is NotImplemented
             assert device.combo_mode is NotImplemented
@@ -791,19 +791,18 @@ class SP4iTest(DeviceAwsTestBase):
     (manual_fan / auto / night / eco) via AP_SUB_MODE_LABELS.
     """
 
-    def setUp(self):
+    def setUp(self) -> None:
         super().setUp()
-        with open(resources.files().joinpath('device_info/SP4i.json')) as sample_file:
+        with resources.files().joinpath("device_info/SP4i.json").open() as sample_file:
             info = json.load(sample_file)
         self.device_info_helper.info.update(info)
 
-    async def test_attributes(self):
+    async def test_attributes(self) -> None:
 
         await self.device.refresh()
         self.api.device_info.assert_awaited_with("fake-name-api", "fake-uuid")
 
         with assert_fully_checked(self.device) as device:
-
             assert device.model_name == "Blueair Blue Signature SP4i"
             assert device.humidifier_mode is NotImplemented
             assert device.combo_mode is NotImplemented
@@ -865,7 +864,7 @@ class SP4iTest(DeviceAwsTestBase):
             assert device.timer_duration == 7200
             assert device.hour_format is NotImplemented
 
-    async def test_mqtt_sensor_slugs(self):
+    async def test_mqtt_sensor_slugs(self) -> None:
         """SP4i rt5s declares the four MQTT slugs we expect.
 
         Note: `fsp0` is published on its OWN MQTT topic
@@ -873,30 +872,31 @@ class SP4iTest(DeviceAwsTestBase):
         `mqtt_sensor_slugs` only reflects `rt5s.sn`.
         """
         await self.device.refresh()
-        assert self.device.mqtt_sensor_slugs == [
-            "pm1", "pm2_5", "pm10", "rssi"
-        ]
+        assert self.device.mqtt_sensor_slugs == ["pm1", "pm2_5", "pm10", "rssi"]
 
 
 class Protect7470iTest(DeviceAwsTestBase):
     """Tests for protect7470i."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         super().setUp()
-        with open(resources.files().joinpath('device_info/protect_7470i.json')) as sample_file:
+        with resources.files().joinpath("device_info/protect_7470i.json").open() as sample_file:
             info = json.load(sample_file)
         self.device_info_helper.info.update(info)
-        with open(resources.files().joinpath('device_info/protect_7470i_sensors.json')) as sample_file:
+        with (
+            resources.files()
+            .joinpath("device_info/protect_7470i_sensors.json")
+            .open() as sample_file
+        ):
             sensors = json.load(sample_file)
         self.device_sensor_helper["mock_data"] = sensors
 
-    async def test_attributes(self):
+    async def test_attributes(self) -> None:
 
         await self.device.refresh()
         self.api.device_info.assert_awaited_with("fake-name-api", "fake-uuid")
 
         with assert_fully_checked(self.device) as device:
-
             assert device.model_name == "Blueair Protect 7470i"
             assert device.humidifier_mode is NotImplemented
             assert device.combo_mode is NotImplemented
@@ -952,19 +952,18 @@ class Protect7470iTest(DeviceAwsTestBase):
 class Max211iTest(DeviceAwsTestBase):
     """Tests for Max 211i."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         super().setUp()
-        with open(resources.files().joinpath('device_info/max_211i.json')) as sample_file:
+        with resources.files().joinpath("device_info/max_211i.json").open() as sample_file:
             info = json.load(sample_file)
         self.device_info_helper.info.update(info)
 
-    async def test_attributes(self):
+    async def test_attributes(self) -> None:
 
         await self.device.refresh()
         self.api.device_info.assert_awaited_with("fake-name-api", "fake-uuid")
 
         with assert_fully_checked(self.device) as device:
-
             assert device.model_name == "Blueair Blue Pure 211i Max"
             assert device.humidifier_mode is NotImplemented
             assert device.combo_mode is NotImplemented
@@ -1021,19 +1020,18 @@ class Max211iTest(DeviceAwsTestBase):
 class PetAirProTest(DeviceAwsTestBase):
     """Tests for PetPro."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         super().setUp()
-        with open(resources.files().joinpath('device_info/pet_air_pro.json')) as sample_file:
+        with resources.files().joinpath("device_info/pet_air_pro.json").open() as sample_file:
             info = json.load(sample_file)
         self.device_info_helper.info.update(info)
 
-    async def test_attributes(self):
+    async def test_attributes(self) -> None:
 
         await self.device.refresh()
         self.api.device_info.assert_awaited_with("fake-name-api", "fake-uuid")
 
         with assert_fully_checked(self.device) as device:
-
             assert device.model_name == "Blueair PetAir Pro P3i"
             assert device.humidifier_mode is NotImplemented
             assert device.combo_mode is NotImplemented
@@ -1090,19 +1088,18 @@ class PetAirProTest(DeviceAwsTestBase):
 class TwoInOneTest(DeviceAwsTestBase):
     """Tests for TwoInOne."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         super().setUp()
-        with open(resources.files().joinpath('device_info/two_in_one.json')) as sample_file:
+        with resources.files().joinpath("device_info/two_in_one.json").open() as sample_file:
             info = json.load(sample_file)
         self.device_info_helper.info.update(info)
 
-    async def test_attributes(self):
+    async def test_attributes(self) -> None:
 
         await self.device.refresh()
         self.api.device_info.assert_awaited_with("fake-name-api", "fake-uuid")
 
         with assert_fully_checked(self.device) as device:
-
             assert device.model_name == "Blueair Air Purifier + Humidifier 2-in-1 Pro"
             assert device.humidifier_mode is NotImplemented
             assert device.combo_mode is NotImplemented
@@ -1155,7 +1152,7 @@ class TwoInOneTest(DeviceAwsTestBase):
             assert device.timer_duration == 1800
             assert device.hour_format is NotImplemented
 
-    async def test_fan_speed_count(self):
+    async def test_fan_speed_count(self) -> None:
         # The Pro 2-in-1 (hw='cmb2in1_ii') shares the DH3i's 4-gear
         # fan-speed class, so it uses the same 91 cap as the nb_/high
         # family rather than the default 100.
@@ -1171,19 +1168,18 @@ class Combo2in1DH3iTest(DeviceAwsTestBase):
     preset selector. See https://github.com/dahlb/ha_blueair/issues/241.
     """
 
-    def setUp(self):
+    def setUp(self) -> None:
         super().setUp()
-        with open(resources.files().joinpath('device_info/two_in_one_dh3i.json')) as sample_file:
+        with resources.files().joinpath("device_info/two_in_one_dh3i.json").open() as sample_file:
             info = json.load(sample_file)
         self.device_info_helper.info.update(info)
 
-    async def test_attributes(self):
+    async def test_attributes(self) -> None:
 
         await self.device.refresh()
         self.api.device_info.assert_awaited_with("fake-name-api", "fake-uuid")
 
         with assert_fully_checked(self.device) as device:
-
             assert device.model_name == "Blueair 2-in-1 Purify + Humidify"
             assert device.humidifier_mode is True
             assert device.combo_mode == 2
@@ -1236,7 +1232,7 @@ class Combo2in1DH3iTest(DeviceAwsTestBase):
             assert device.timer_duration == 7200
             assert device.hour_format is NotImplemented
 
-    async def test_fan_speed_count(self):
+    async def test_fan_speed_count(self) -> None:
         # The DH3i reports its manual fan on the 0-91 gear scale (observed
         # steps 0/11/37/64/91), so it uses the same 91 cap as the nb_/high
         # family rather than the default 100.
@@ -1247,19 +1243,18 @@ class Combo2in1DH3iTest(DeviceAwsTestBase):
 class NullValueTest(DeviceAwsTestBase):
     """Tests for TwoInOne."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         super().setUp()
-        with open(resources.files().joinpath('device_info/null.json')) as sample_file:
+        with resources.files().joinpath("device_info/null.json").open() as sample_file:
             info = json.load(sample_file)
         self.device_info_helper.info.update(info)
 
-    async def test_attributes(self):
+    async def test_attributes(self) -> None:
 
         await self.device.refresh()
         self.api.device_info.assert_awaited_with("fake-name-api", "fake-uuid")
 
         with assert_fully_checked(self.device) as device:
-
             assert device.model_name == "Blueair Mini Restful"
 
             assert device.humidifier_mode is NotImplemented
@@ -1323,13 +1318,13 @@ class MiniRestfulAlarmTest(DeviceAwsTestBase):
     See: https://github.com/dahlb/ha_blueair/issues/334
     """
 
-    def setUp(self):
+    def setUp(self) -> None:
         super().setUp()
-        with open(resources.files().joinpath('device_info/mini_restful.json')) as sample_file:
+        with resources.files().joinpath("device_info/mini_restful.json").open() as sample_file:
             info = json.load(sample_file)
         self.device_info_helper.info.update(info)
 
-    async def test_refresh_with_active_alarm(self):
+    async def test_refresh_with_active_alarm(self) -> None:
         """refresh() should not crash when alarm1 has a dict vj value."""
         await self.device.refresh()
 
@@ -1395,15 +1390,17 @@ class OnlineStateTest(DeviceAwsTestBase):
     to gate entity availability.
     """
 
-    def setUp(self):
+    def setUp(self) -> None:
         super().setUp()
         fake = {"n": "n", "v": 0}
-        ir.query_json(self.device_info_helper.info, "configuration.dc").update({
-            "standby": fake,
-            "fanspeed": fake,
-        })
+        ir.query_json(self.device_info_helper.info, "configuration.dc").update(
+            {
+                "standby": fake,
+                "fanspeed": fake,
+            }
+        )
 
-    async def test_online_explicit_true(self):
+    async def test_online_explicit_true(self) -> None:
         """Explicit online=True in states → wifi_working=True."""
         self.device_info_helper.info["states"] = [
             {"n": "online", "vb": True},
@@ -1413,7 +1410,7 @@ class OnlineStateTest(DeviceAwsTestBase):
         await self.device.refresh()
         assert self.device.wifi_working is True
 
-    async def test_online_explicit_false(self):
+    async def test_online_explicit_false(self) -> None:
         """Explicit online=False in states → wifi_working=False.
 
         The cloud API frequently returns online=False even for active
@@ -1427,7 +1424,7 @@ class OnlineStateTest(DeviceAwsTestBase):
         await self.device.refresh()
         assert self.device.wifi_working is False
 
-    async def test_online_missing_defaults_true(self):
+    async def test_online_missing_defaults_true(self) -> None:
         """Missing online field → wifi_working defaults to True."""
         self.device_info_helper.info["states"] = [
             {"n": "standby", "vb": False},
@@ -1440,30 +1437,30 @@ class OnlineStateTest(DeviceAwsTestBase):
 class ModelNameTest(DeviceAwsTestBase):
     """Tests for model_name property (SKU dict lookup)."""
 
-    async def test_known_sku_from_dict(self):
+    async def test_known_sku_from_dict(self) -> None:
         """SKU in the dict returns the human-readable name."""
         ir.query_json(self.device_info_helper.info, "configuration.di")["sku"] = "111582"
         await self.device.refresh()
         assert self.device.model_name == "Blueair Blue Pure 511i Max"
 
-    async def test_another_known_sku(self):
+    async def test_another_known_sku(self) -> None:
         """Another SKU in the dict returns the correct name."""
         ir.query_json(self.device_info_helper.info, "configuration.di")["sku"] = "110829"
         await self.device.refresh()
         assert self.device.model_name == "Blueair Blue Pure 311i Max"
 
-    async def test_unknown_sku(self):
+    async def test_unknown_sku(self) -> None:
         """Completely unknown SKU falls back to 'Unknown (sku)'."""
         ir.query_json(self.device_info_helper.info, "configuration.di")["sku"] = "999999"
         await self.device.refresh()
         assert self.device.model_name == f"{UNKNOWN_MODEL} (999999)"
 
-    async def test_no_sku(self):
+    async def test_no_sku(self) -> None:
         """Missing SKU (NotImplemented) falls back gracefully."""
         await self.device.refresh()
         assert UNKNOWN_MODEL in self.device.model_name
 
-    async def test_sp4i_sku_known(self):
+    async def test_sp4i_sku_known(self) -> None:
         """SP4i SKU 112936 resolves to Blueair Blue Signature SP4i.
 
         Regression for ha_blueair#348 / #261 — the Signature/SP4i fan
@@ -1490,8 +1487,9 @@ class ApSubModeLabelsTest(TestCase):
     docstring in src/blueair_api/device_aws.py.
     """
 
-    def test_labels_match_known_signature_mapping(self):
+    def test_labels_match_known_signature_mapping(self) -> None:
         from blueair_api.device_aws import AP_SUB_MODE_LABELS
+
         assert AP_SUB_MODE_LABELS == {
             1: "manual_fan",
             2: "auto",
@@ -1499,60 +1497,64 @@ class ApSubModeLabelsTest(TestCase):
             4: "eco",
         }
 
-    def test_labels_are_unique(self):
-        """Two values mapping to the same preset would silently break
-        the consumer's reverse lookup (label -> apsubmode value)."""
+    def test_labels_are_unique(self) -> None:
+        """Two values mapping to the same preset would silently break the reverse lookup."""
         from blueair_api.device_aws import AP_SUB_MODE_LABELS
+
         assert len(set(AP_SUB_MODE_LABELS.values())) == len(AP_SUB_MODE_LABELS)
 
-    def test_labels_are_well_formed(self):
-        """Keys must be ints (the apsubmode wire type) and values must
-        be non-empty strings (HA preset_modes are str-typed)."""
+    def test_labels_are_well_formed(self) -> None:
+        """Keys must be ints (the apsubmode wire type); values must be non-empty strings."""
         from blueair_api.device_aws import AP_SUB_MODE_LABELS
-        assert all(isinstance(k, int) for k in AP_SUB_MODE_LABELS)
-        assert all(
-            isinstance(v, str) and v
-            for v in AP_SUB_MODE_LABELS.values()
-        )
 
-    def test_publicly_importable_from_package_root(self):
-        """Phase 3 (ha_blueair#353) and current ha_blueair#348 consumers
-        should be able to import the constant from the package root,
-        not reach into device_aws."""
+        assert all(isinstance(k, int) for k in AP_SUB_MODE_LABELS)
+        assert all(isinstance(v, str) and v for v in AP_SUB_MODE_LABELS.values())
+
+    def test_publicly_importable_from_package_root(self) -> None:
+        """ha_blueair consumers should import the constant from the package root."""
         import blueair_api
         from blueair_api.device_aws import AP_SUB_MODE_LABELS
+
         assert blueair_api.AP_SUB_MODE_LABELS is AP_SUB_MODE_LABELS
 
 
 class MqttSensorSlugsTest(DeviceAwsTestBase):
     """Tests that mqtt_sensor_slugs is populated from rt5s.sn."""
 
-    async def test_slugs_populated_from_rt5s(self):
+    async def test_slugs_populated_from_rt5s(self) -> None:
         ir.query_json(self.device_info_helper.info, "configuration.ds")["rt5s"] = {
             "sn": ["pm2_5", "fsp0", "rssi", "pm1", "pm10"],
-            "tn": "d/fake-uuid/s/5s", "ttl": 1200,
-            "n": "rt5s", "ot": "RT5s", "e": False, "i": 5000, "fe": True,
+            "tn": "d/fake-uuid/s/5s",
+            "ttl": 1200,
+            "n": "rt5s",
+            "ot": "RT5s",
+            "e": False,
+            "i": 5000,
+            "fe": True,
         }
         await self.device.refresh()
         assert self.device.mqtt_sensor_slugs == ["pm2_5", "fsp0", "rssi", "pm1", "pm10"]
 
-    async def test_slugs_empty_when_no_rt5s(self):
+    async def test_slugs_empty_when_no_rt5s(self) -> None:
         await self.device.refresh()
         assert self.device.mqtt_sensor_slugs == []
 
-    async def test_humidifier_slugs(self):
+    async def test_humidifier_slugs(self) -> None:
         ir.query_json(self.device_info_helper.info, "configuration.ds")["rt5s"] = {
             "sn": ["t", "h", "rssi"],
-            "tn": "d/fake-uuid/s/5s", "ttl": -1,
-            "n": "rt5s", "ot": "RT5s", "e": False, "i": 0, "fe": True,
+            "tn": "d/fake-uuid/s/5s",
+            "ttl": -1,
+            "n": "rt5s",
+            "ot": "RT5s",
+            "e": False,
+            "i": 0,
+            "fe": True,
         }
         await self.device.refresh()
         assert self.device.mqtt_sensor_slugs == ["t", "h", "rssi"]
 
-    async def test_slugs_robust_to_malformed_rt5s(self):
-        """Defensive parsing: if rt5s.sn is missing or wrong-shaped,
-        mqtt_sensor_slugs degrades to an empty list rather than
-        crashing the refresh pipeline.
+    async def test_slugs_robust_to_malformed_rt5s(self) -> None:
+        """Defensive parsing: a missing/wrong-shaped rt5s.sn degrades to an empty list.
 
         Note: cases where rt5s itself is malformed enough to fail the
         ds-schema parse upstream (rt5s = null, rt5s = []) are handled
@@ -1562,8 +1564,13 @@ class MqttSensorSlugsTest(DeviceAwsTestBase):
         """
         ds = ir.query_json(self.device_info_helper.info, "configuration.ds")
         well_formed_envelope = {
-            "tn": "d/fake-uuid/s/5s", "ttl": -1,
-            "n": "rt5s", "ot": "RT5s", "e": False, "i": 0, "fe": True,
+            "tn": "d/fake-uuid/s/5s",
+            "ttl": -1,
+            "n": "rt5s",
+            "ot": "RT5s",
+            "e": False,
+            "i": 0,
+            "fe": True,
         }
 
         # rt5s present but missing 'sn' entirely
@@ -1586,17 +1593,22 @@ class MqttSensorSlugsTest(DeviceAwsTestBase):
 class ApplySensorDataTest(DeviceAwsTestBase):
     """Tests for DeviceAws.apply_sensor_data()."""
 
-    async def test_known_fields_mapped(self):
+    async def test_known_fields_mapped(self) -> None:
         await self.device.refresh()
-        self.device.apply_sensor_data({
-            "pm1": 5.0, "pm2_5": 12.0, "pm10": 20.0, "fsp0": 37.0,
-        })
+        self.device.apply_sensor_data(
+            {
+                "pm1": 5.0,
+                "pm2_5": 12.0,
+                "pm10": 20.0,
+                "fsp0": 37.0,
+            }
+        )
         assert self.device.pm1 == 5
         assert self.device.pm2_5 == 12
         assert self.device.pm10 == 20
         assert self.device.fan_speed_0 == 37
 
-    async def test_renamed_fields_mapped(self):
+    async def test_renamed_fields_mapped(self) -> None:
         await self.device.refresh()
         self.device.apply_sensor_data({"t": 22.0, "h": 55.0, "tVOC": 100.0, "voc": 42.0})
         assert self.device.temperature == 22
@@ -1604,32 +1616,30 @@ class ApplySensorDataTest(DeviceAwsTestBase):
         assert self.device.total_voc == 100
         assert self.device.voc == 42
 
-    async def test_unknown_fields_go_to_extra_sensors(self):
+    async def test_unknown_fields_go_to_extra_sensors(self) -> None:
         await self.device.refresh()
         # Use a slug not in MQTT_SENSOR_FIELD_MAP (rssi is now first-class).
         self.device.apply_sensor_data({"unknownsensor": 99.5, "pm2_5": 3.0})
         assert self.device.pm2_5 == 3
         assert self.device.extra_sensors == {"unknownsensor": 99.5}
 
-    async def test_rssi_is_first_class(self):
-        """rssi is mapped to device.rssi, not extra_sensors."""
+    async def test_rssi_is_first_class(self) -> None:
+        """Rssi is mapped to device.rssi, not extra_sensors."""
         await self.device.refresh()
         self.device.apply_sensor_data({"rssi": -45.0})
         assert self.device.rssi == -45
         assert "rssi" not in self.device.extra_sensors
 
-    async def test_empty_sensors(self):
+    async def test_empty_sensors(self) -> None:
         await self.device.refresh()
         self.device.apply_sensor_data({})
         assert self.device.extra_sensors == {}
 
-    async def test_bad_value_logs_and_skips(self):
+    async def test_bad_value_logs_and_skips(self) -> None:
         """Non-numeric sensor value is logged and the rest of the batch lands."""
         await self.device.refresh()
         with self.assertLogs("blueair_api.device_aws", level="WARNING") as cm:
-            self.device.apply_sensor_data(
-                {"pm2_5": "not-a-number", "pm1": 5.0}
-            )
+            self.device.apply_sensor_data({"pm2_5": "not-a-number", "pm1": 5.0})
         # Bad value skipped, good value applied.
         assert self.device.pm1 == 5
         assert any("pm2_5" in m for m in cm.output)
@@ -1638,34 +1648,38 @@ class ApplySensorDataTest(DeviceAwsTestBase):
 class ApplyStateChangeTest(DeviceAwsTestBase):
     """Tests for DeviceAws.apply_state_change()."""
 
-    async def test_known_state_fields(self):
+    async def test_known_state_fields(self) -> None:
         await self.device.refresh()
-        self.device.apply_state_change({
-            "fanspeed": 51,
-            "standby": False,
-            "brightness": 64,
-        })
+        self.device.apply_state_change(
+            {
+                "fanspeed": 51,
+                "standby": False,
+                "brightness": 64,
+            }
+        )
         assert self.device.fan_speed == 51
         assert self.device.standby is False
         assert self.device.brightness == 64
 
-    async def test_all_shadow_fields(self):
+    async def test_all_shadow_fields(self) -> None:
         await self.device.refresh()
-        self.device.apply_state_change({
-            "nightmode": True,
-            "germshield": True,
-            "childlock": True,
-            "automode": True,
-            "filterusage": 42,
-            "nlbrightness": 80,
-            "wickusage": 30,
-            "wickdrys": True,
-            "autorh": 50,
-            "wshortage": False,
-            "wlevel": 3,
-            "fsp0": 64,
-            "tu": 1,
-        })
+        self.device.apply_state_change(
+            {
+                "nightmode": True,
+                "germshield": True,
+                "childlock": True,
+                "automode": True,
+                "filterusage": 42,
+                "nlbrightness": 80,
+                "wickusage": 30,
+                "wickdrys": True,
+                "autorh": 50,
+                "wshortage": False,
+                "wlevel": 3,
+                "fsp0": 64,
+                "tu": 1,
+            }
+        )
         assert self.device.night_mode is True
         assert self.device.germ_shield is True
         assert self.device.child_lock is True
@@ -1680,7 +1694,7 @@ class ApplyStateChangeTest(DeviceAwsTestBase):
         assert self.device.fan_speed_0 == 64
         assert self.device.temperature_unit == 1
 
-    async def test_humidifier_fan_speed_remapped(self):
+    async def test_humidifier_fan_speed_remapped(self) -> None:
         """Humidifier devices remap raw fan speed 11/37/64 → 1/2/3."""
         ir.query_json(self.device_info_helper.info, "configuration.di")["hw"] = "hum2_l"
         await self.device.refresh()
@@ -1694,25 +1708,25 @@ class ApplyStateChangeTest(DeviceAwsTestBase):
         self.device.apply_state_change({"fanspeed": 64})
         assert self.device.fan_speed == 3
 
-    async def test_non_humidifier_fan_speed_not_remapped(self):
+    async def test_non_humidifier_fan_speed_not_remapped(self) -> None:
         ir.query_json(self.device_info_helper.info, "configuration.di")["hw"] = "nb_h_1.0"
         await self.device.refresh()
         self.device.apply_state_change({"fanspeed": 37})
         assert self.device.fan_speed == 37
 
-    async def test_unknown_shadow_fields_ignored(self):
+    async def test_unknown_shadow_fields_ignored(self) -> None:
         await self.device.refresh()
         self.device.apply_state_change({"unknownfield": 99, "brightness": 50})
         assert self.device.brightness == 50
 
-    async def test_shadow_map_typo_logs_error_and_continues(self):
-        """A SHADOW_FIELD_MAP entry pointing at a non-existent attribute
-        logs ERROR but the rest of the batch still applies.
+    async def test_shadow_map_typo_logs_error_and_continues(self) -> None:
+        """A bad SHADOW_FIELD_MAP entry logs ERROR but the rest of the batch still applies.
 
         Guards against typos in the map (e.g. 'brightness' -> 'birghtness')
         from silently dropping otherwise-valid updates.
         """
         from blueair_api import device_aws as device_aws_module
+
         await self.device.refresh()
         with (
             mock.patch.dict(
@@ -1725,22 +1739,24 @@ class ApplyStateChangeTest(DeviceAwsTestBase):
         assert self.device.brightness == 50
         assert any("no_such_attr" in msg for msg in cm.output)
 
-    async def test_firmware_version_shadow(self):
+    async def test_firmware_version_shadow(self) -> None:
         """cfv/mfv/ofv shadow fields update the firmware attributes."""
         await self.device.refresh()
-        self.device.apply_state_change({
-            "cfv": 16777473,
-            "mfv": 16777473,
-            "ofv": 16777473,
-        })
+        self.device.apply_state_change(
+            {
+                "cfv": 16777473,
+                "mfv": 16777473,
+                "ofv": 16777473,
+            }
+        )
         assert self.device.firmware == "1.0.1.1"
         assert self.device.mcu_firmware == "1.0.1.1"
         assert self.device.overall_firmware == "1.0.1.1"
 
-    async def test_firmware_version_shadow_decoding(self):
-        """A packed 32-bit firmware int decodes to a dotted string; a
-        string passes through; an out-of-range value is left as-is."""
+    async def test_firmware_version_shadow_decoding(self) -> None:
+        """A packed 32-bit firmware int decodes to a string; other values pass through."""
         from blueair_api.device_aws import _decode_firmware_version
+
         assert _decode_firmware_version(16777473) == "1.0.1.1"
         assert _decode_firmware_version(0x02010A00) == "2.1.10.0"
         assert _decode_firmware_version("1.0.4") == "1.0.4"
@@ -1750,30 +1766,32 @@ class ApplyStateChangeTest(DeviceAwsTestBase):
 class MiniRestfulShadowTest(DeviceAwsTestBase):
     """Tests for Mini Restful sunrise / timer fields via shadow updates."""
 
-    async def test_sunrise_and_clock_via_shadow(self):
-        """nlstepless and hourformat propagate via apply_state_change."""
+    async def test_sunrise_and_clock_via_shadow(self) -> None:
+        """Nlstepless and hourformat propagate via apply_state_change."""
         await self.device.refresh()
         self.device.apply_state_change({"nlstepless": 75, "hourformat": True})
         assert self.device.night_light_brightness == 75
         assert self.device.hour_format is True
 
-    async def test_timer_via_shadow(self):
-        """timstate / timl / timts / timdur propagate via apply_state_change."""
+    async def test_timer_via_shadow(self) -> None:
+        """Timstate / timl / timts / timdur propagate via apply_state_change."""
         await self.device.refresh()
-        self.device.apply_state_change({
-            "timstate": 1,
-            "timl": 7200,
-            "timts": 1773716704,
-            "timdur": 7200,
-        })
+        self.device.apply_state_change(
+            {
+                "timstate": 1,
+                "timl": 7200,
+                "timts": 1773716704,
+                "timdur": 7200,
+            }
+        )
         assert self.device.timer_state == 1
         assert self.device.timer_level == 7200
         assert self.device.timer_start_timestamp == 1773716704
         assert self.device.timer_duration == 7200
 
-    async def test_refresh_populates_timer_fields(self):
+    async def test_refresh_populates_timer_fields(self) -> None:
         """Loading the mini_restful fixture populates timer/sunrise attrs from REST."""
-        with open(resources.files().joinpath('device_info/mini_restful.json')) as sample_file:
+        with resources.files().joinpath("device_info/mini_restful.json").open() as sample_file:
             info = json.load(sample_file)
         self.device_info_helper.info.update(info)
         await self.device.refresh()
@@ -1788,17 +1806,19 @@ class MiniRestfulShadowTest(DeviceAwsTestBase):
 class MiniRestfulSetterTest(DeviceAwsTestBase):
     """Tests for the new sunrise / timer / clock setters."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         super().setUp()
         # Populate dc so refresh() will read the states back.
         fake = {"n": "n", "v": 0}
-        ir.query_json(self.device_info_helper.info, "configuration.dc").update({
-            "nlstepless": fake,
-            "timdur": fake,
-            "hourformat": fake,
-        })
+        ir.query_json(self.device_info_helper.info, "configuration.dc").update(
+            {
+                "nlstepless": fake,
+                "timdur": fake,
+                "hourformat": fake,
+            }
+        )
 
-    async def test_set_night_light_brightness(self):
+    async def test_set_night_light_brightness(self) -> None:
         self.device.night_light_brightness = None
         await self.device.set_night_light_brightness(75)
         assert self.device.night_light_brightness == 75
@@ -1808,7 +1828,7 @@ class MiniRestfulSetterTest(DeviceAwsTestBase):
         await self.device.refresh()
         assert self.device.night_light_brightness == 50
 
-    async def test_set_timer_duration(self):
+    async def test_set_timer_duration(self) -> None:
         self.device.timer_duration = None
         await self.device.set_timer_duration(3600)
         assert self.device.timer_duration == 3600
@@ -1818,7 +1838,7 @@ class MiniRestfulSetterTest(DeviceAwsTestBase):
         await self.device.refresh()
         assert self.device.timer_duration == 7200
 
-    async def test_set_hour_format(self):
+    async def test_set_hour_format(self) -> None:
         self.device.hour_format = None
         await self.device.set_hour_format(True)
         assert self.device.hour_format is True
@@ -1827,4 +1847,3 @@ class MiniRestfulSetterTest(DeviceAwsTestBase):
         self.device.hour_format = None
         await self.device.refresh()
         assert self.device.hour_format is False
-
