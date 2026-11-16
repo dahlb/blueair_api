@@ -5,14 +5,14 @@ Everybody is invited and welcome to contribute to this project.
 The process is straight-forward.
 
  - Read [How to get faster PR reviews](https://github.com/kubernetes/community/blob/master/contributors/guide/pull-requests.md#best-practices-for-faster-reviews) by Kubernetes (but skip step 0 and 1)
- - Fork the [git repository](https://github.com/dahlb/kia_hyundai_api).
-   - Add a new method try to keep its signature as similar to other region/brands as possible.
-   - Add example responses
-     - modify a stub file
-     - run ```python src/kia_hyundai_api/us_hyundai_stub.py```
-     - add the logging from the console to the source code being sure to remove PII like lat/long and VIN numbers
- - Create a Pull Request against the [**master**](https://github.com/dahlb/kia_hyundai_api/master) branch.
+ - Fork the [git repository](https://github.com/dahlb/blueair_api).
+   - Add a new method try to keep its signature as similar to other device types as possible.
+   - Add or update deterministic pytest coverage and fixture data.
+   - Run `scripts/live_smoke_test` against a live Blueair account when practical.
+   - Update `src/blueair_api/live_smoke_test.py` only when the default smoke-test flow should cover a new reusable live API path.
+   - Keep one-off local probe edits out of the final PR, and turn useful live output into stored fixtures or pytest coverage, being sure to remove PII like MAC addresses and serial numbers.
+ - Create a Pull Request against the [**main**](https://github.com/dahlb/blueair_api/tree/main) branch.
 
 ## Issues (Features/Bugs)
 
-If you want to suggest a new feature or found a problem using the API, please open a ticket in [Issues](https://github.com/dahlb/ha_kia_hyundai/issues).
+If you want to suggest a new feature or found a problem using the API, please open a ticket in [Issues](https://github.com/dahlb/ha_blueair/issues).
