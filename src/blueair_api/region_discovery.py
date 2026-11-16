@@ -45,12 +45,13 @@ Implementation notes
   "discovery confirmed the configured region" — the caller already
   knows the outcome from the returned scan.
 """
+
 from __future__ import annotations
 
 import asyncio
-import logging
 from collections.abc import Iterable
 from dataclasses import dataclass, field
+import logging
 from typing import TYPE_CHECKING
 
 from aiohttp import ClientError
@@ -74,8 +75,7 @@ _DEFAULT_PER_CANDIDATE_TIMEOUT = 5.0
 
 
 def device_state_looks_frozen(initial_payload: dict | None) -> bool:
-    """Return ``True`` when an ``/r/initial`` payload shows the
-    structural signature of a wrong-region cloud snapshot.
+    """Return whether an ``/r/initial`` payload looks like a wrong-region snapshot.
 
     Returns ``True`` when either:
 
@@ -107,7 +107,7 @@ def device_state_looks_frozen(initial_payload: dict | None) -> bool:
         The single device's payload extracted from
         ``response_json["deviceInfo"][0]``.  ``None`` is tolerated.
 
-    Returns
+    Returns:
     -------
     bool
         ``True`` when the snapshot looks like a wrong-region record;
@@ -212,7 +212,7 @@ async def _probe_candidate(
     region: str,
     jwt: str,
     *,
-    timeout: float,
+    timeout: float,  # noqa: ASYNC109 -- private helper; caller supplies a per-candidate budget.
 ) -> CandidateProbe:
     """Run a single read-only probe against ``region``.
 
@@ -232,7 +232,7 @@ async def _probe_candidate(
 
     headers = {"idtoken": jwt, "authorization": f"Bearer {jwt}"}
 
-    def _release_response(response) -> None:
+    def _release_response(response: object) -> None:
         release = getattr(response, "release", None)
         if callable(release):
             release()
@@ -265,9 +265,7 @@ async def _probe_candidate(
                 return probe
             probe.cloud_login_ok = True
 
-            _LOGGER.debug(
-                "discover: probing /c/registered-devices at %s", region
-            )
+            _LOGGER.debug("discover: probing /c/registered-devices at %s", region)
             devices_resp = await api.api_session.get(  # type: ignore[union-attr]
                 url=f"{base}/registered-devices",
                 headers={"Authorization": f"Bearer {access_token}"},
@@ -350,7 +348,7 @@ async def discover_cloud_region(
     per_candidate_timeout
         Per-candidate probe deadline in seconds.
 
-    Returns
+    Returns:
     -------
     CloudRegionScan
         Scan summary; see the dataclass docstring.
@@ -381,8 +379,7 @@ async def discover_cloud_region(
         host_key = (conf["restApiId"], conf["awsRegion"])
         if host_key in seen_hosts:
             _LOGGER.debug(
-                "discover: skipping %s (shares BlueCloud host with an "
-                "already-queued region)",
+                "discover: skipping %s (shares BlueCloud host with an already-queued region)",
                 region,
             )
             continue
@@ -413,9 +410,7 @@ async def discover_cloud_region(
         probe = await _probe_candidate(api, region, jwt, timeout=per_candidate_timeout)
         scan.per_region[region] = probe
         if probe.error is not None:
-            _LOGGER.debug(
-                "discover: candidate %s rejected (%s)", region, probe.error
-            )
+            _LOGGER.debug("discover: candidate %s rejected (%s)", region, probe.error)
         else:
             _LOGGER.debug(
                 "discover: candidate %s -> %d device(s), %d online",

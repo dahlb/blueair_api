@@ -1,14 +1,14 @@
-from functools import cached_property
+"""AWS-backed Blueair device model, shared by the HTTP and MQTT clients."""
+
+from dataclasses import dataclass, field
+from json import dumps
+from logging import getLogger
 from typing import Any
 
-from logging import getLogger
-from json import dumps
-
+from . import intermediate_representation_aws as ir
 from .callbacks import CallbacksMixin
 from .http_aws_blueair import HttpAwsBlueair
 from .sku_map import model_name_from_sku
-from . import intermediate_representation_aws as ir
-from dataclasses import dataclass, field
 
 _LOGGER = getLogger(__name__)
 
@@ -149,11 +149,23 @@ AP_SUB_MODE_LABELS: dict[int, str] = {
     4: "eco",
 }
 
+
 @dataclass(slots=True)
 class DeviceAws(CallbacksMixin):
+    """A single Blueair device reachable through the AWS HTTP and MQTT clients."""
+
     @classmethod
-    async def create_device(cls, api, uuid, name, mac, type_name, refresh=False):
-        _LOGGER.debug("UUID:"+uuid)
+    async def create_device(
+        cls,
+        api: HttpAwsBlueair,
+        uuid: str,
+        name: str,
+        mac: str,
+        type_name: str,
+        refresh: bool = False,
+    ) -> DeviceAws:
+        """Build a ``DeviceAws``, optionally refreshing its state immediately."""
+        _LOGGER.debug("UUID:%s", uuid)
         device_aws = DeviceAws(
             api=api,
             uuid=uuid,
@@ -163,54 +175,54 @@ class DeviceAws(CallbacksMixin):
         )
         if refresh:
             await device_aws.refresh()
-        _LOGGER.debug(f"create_device blueair device_aws: {device_aws}")
+        _LOGGER.debug("create_device blueair device_aws: %s", device_aws)
         return device_aws
 
     api: HttpAwsBlueair = field(repr=False)
-    raw_info : dict[str, Any] = field(repr=False, init=False)
-    raw_sensors : dict[str, Any] = field(repr=False, init=False)
+    raw_info: dict[str, Any] = field(repr=False, init=False)
+    raw_sensors: list[dict[str, Any]] | None = field(repr=False, init=False)
 
-    uuid : str | None = None
-    name : str | None = None
-    name_api : str | None = None
-    mac : str | None = None
-    type_name : str | None = None
+    uuid: str | None = None
+    name: str | None = None
+    name_api: str | None = None
+    mac: str | None = None
+    type_name: str | None = None
 
     # Attributes are defined below.
     # We mandate that unittests shall test all fields of AttributeType.
-    sku : AttributeType[str] = None
-    firmware : AttributeType[str] = None
-    mcu_firmware : AttributeType[str] = None
-    overall_firmware : AttributeType[str] = None
-    serial_number : AttributeType[str] = None
+    sku: AttributeType[str] = None
+    firmware: AttributeType[str] = None
+    mcu_firmware: AttributeType[str] = None
+    overall_firmware: AttributeType[str] = None
+    serial_number: AttributeType[str] = None
 
-    brightness : AttributeType[int] = None
-    mood_brightness : AttributeType[int] = None
-    child_lock : AttributeType[bool] = None
-    fan_speed : AttributeType[int] = None
-    fan_auto_mode : AttributeType[bool] = None
-    standby : AttributeType[bool] = None
-    night_mode : AttributeType[bool] = None
-    germ_shield : AttributeType[bool] = None
+    brightness: AttributeType[int] = None
+    mood_brightness: AttributeType[int] = None
+    child_lock: AttributeType[bool] = None
+    fan_speed: AttributeType[int] = None
+    fan_auto_mode: AttributeType[bool] = None
+    standby: AttributeType[bool] = None
+    night_mode: AttributeType[bool] = None
+    germ_shield: AttributeType[bool] = None
 
-    pm1 : AttributeType[int] = None
-    pm2_5 : AttributeType[int] = None
-    pm10 : AttributeType[int] = None
-    total_voc : AttributeType[int] = None
-    voc : AttributeType[int] = None
-    temperature : AttributeType[int] = None
-    humidity : AttributeType[int] = None
-    filter_usage_percentage : AttributeType[int] = None
-    wifi_working : AttributeType[bool] = None
+    pm1: AttributeType[int] = None
+    pm2_5: AttributeType[int] = None
+    pm10: AttributeType[int] = None
+    total_voc: AttributeType[int] = None
+    voc: AttributeType[int] = None
+    temperature: AttributeType[int] = None
+    humidity: AttributeType[int] = None
+    filter_usage_percentage: AttributeType[int] = None
+    wifi_working: AttributeType[bool] = None
 
-    sensor_data_timestamp : float | None = None
+    sensor_data_timestamp: float | None = None
 
-    wick_usage_percentage : AttributeType[int] = None
-    water_refresher_usage_percentage : AttributeType[int] = None
-    wick_dry_mode : AttributeType[bool] = None
-    water_shortage : AttributeType[bool] = None
+    wick_usage_percentage: AttributeType[int] = None
+    water_refresher_usage_percentage: AttributeType[int] = None
+    wick_dry_mode: AttributeType[bool] = None
+    water_shortage: AttributeType[bool] = None
     water_level: AttributeType[int] = None
-    auto_regulated_humidity : AttributeType[int] = None
+    auto_regulated_humidity: AttributeType[int] = None
 
     # Combo (2-in-1 purify + humidify) controls. Present on DeviceCombo2in1
     # devices (hw='s_cmb2in1', e.g. the DH3i). `humidifier_mode` is the
@@ -222,16 +234,16 @@ class DeviceAws(CallbacksMixin):
     humidifier_mode: AttributeType[bool] = None
     combo_mode: AttributeType[int] = None
 
-    main_mode: AttributeType[int] = None # api value 0 purify only, 1 heat on, 2 cool on
-    heat_sub_mode: AttributeType[int] = None # api value 1 heat on, 2 heat on with fan auto
-    heat_fan_speed: AttributeType[int] = None # api value 11/37/64/91
-    heat_temp: AttributeType[int] = None # api value is celsius * 10
-    cool_sub_mode: AttributeType[int] = None # api value 1 cool on, 2 cool on with fan auto
-    cool_fan_speed: AttributeType[int] = None # api value 11/37/64/91
-    ap_sub_mode: AttributeType[int] = None # api value 1 manual speeed, 2 auto fan speed
-    fan_speed_0: AttributeType[int] = None # api value 11/37/64/91
-    temperature_unit: AttributeType[int] = None # api value of 1 is celcius
-    hw: AttributeType[str] = None # hardware identifier from configuration.di.hw
+    main_mode: AttributeType[int] = None  # api value 0 purify only, 1 heat on, 2 cool on
+    heat_sub_mode: AttributeType[int] = None  # api value 1 heat on, 2 heat on with fan auto
+    heat_fan_speed: AttributeType[int] = None  # api value 11/37/64/91
+    heat_temp: AttributeType[int] = None  # api value is celsius * 10
+    cool_sub_mode: AttributeType[int] = None  # api value 1 cool on, 2 cool on with fan auto
+    cool_fan_speed: AttributeType[int] = None  # api value 11/37/64/91
+    ap_sub_mode: AttributeType[int] = None  # api value 1 manual speeed, 2 auto fan speed
+    fan_speed_0: AttributeType[int] = None  # api value 11/37/64/91
+    temperature_unit: AttributeType[int] = None  # api value of 1 is celcius
+    hw: AttributeType[str] = None  # hardware identifier from configuration.di.hw
 
     # MQTT-only first-class sensor (signal strength, dBm).
     rssi: AttributeType[int] = None
@@ -248,15 +260,16 @@ class DeviceAws(CallbacksMixin):
     mqtt_sensor_slugs: list[str] = field(default_factory=list, repr=False, init=False)
     extra_sensors: dict[str, Any] = field(default_factory=dict, repr=False, init=False)
 
-    async def refresh(self):
-        _LOGGER.debug(f"refreshing blueair device aws: {self}")
+    async def refresh(self) -> None:
+        """Fetch the device's current info and sensor state from the API."""
+        _LOGGER.debug("refreshing blueair device aws: %s", self)
         self.raw_info = await self.api.device_info(self.name_api, self.uuid)
         self.raw_sensors = await self.api.device_sensors(self.name_api, self.uuid)
         _LOGGER.debug(dumps(self.raw_info, indent=2))
         if self.raw_sensors is not None:
             _LOGGER.debug(dumps(self.raw_sensors, indent=2))
 
-        def info_safe_get(path):
+        def info_safe_get(path: str) -> Any:
             # directly reads for the schema. If the schema field is
             # undefined, it is NotImplemented, not merely unavailable.
             value = ir.query_json(self.raw_info, path)
@@ -273,8 +286,14 @@ class DeviceAws(CallbacksMixin):
         self.hw = info_safe_get("configuration.di.hw")
 
         raw_ds = ir.query_json(self.raw_info, "configuration.ds")
+        if not isinstance(raw_ds, dict):
+            raise TypeError("expected configuration.ds to be a mapping")
         ds = ir.parse_json(ir.Sensor, raw_ds)
-        dc = ir.parse_json(ir.Control, ir.query_json(self.raw_info, "configuration.dc"))
+
+        raw_dc = ir.query_json(self.raw_info, "configuration.dc")
+        if not isinstance(raw_dc, dict):
+            raise TypeError("expected configuration.dc to be a mapping")
+        dc = ir.parse_json(ir.Control, raw_dc)
 
         # Store the list of MQTT sensor slugs from the 5-second polling
         # topic.  Defensive against malformed schemas: rt5s missing,
@@ -282,14 +301,11 @@ class DeviceAws(CallbacksMixin):
         # apply_sensor_data and is_implemented checks stay correct.
         rt5s_raw = raw_ds.get("rt5s") if isinstance(raw_ds, dict) else None
         sn = rt5s_raw.get("sn") if isinstance(rt5s_raw, dict) else None
-        self.mqtt_sensor_slugs = (
-            [str(s) for s in sn] if isinstance(sn, list) else []
-        )
+        self.mqtt_sensor_slugs = [str(s) for s in sn] if isinstance(sn, list) else []
         # Log once per refresh so the expected MQTT slug set is visible
         # in user-supplied debug logs.
         _LOGGER.debug(
-            "Device %s declares MQTT 5s sensor slugs: %s",
-            self.uuid, self.mqtt_sensor_slugs
+            "Device %s declares MQTT 5s sensor slugs: %s", self.uuid, self.mqtt_sensor_slugs
         )
 
         # Auto-populate dc from state keys the device reports but aren't
@@ -304,9 +320,9 @@ class DeviceAws(CallbacksMixin):
                 dc[key] = ir.Control(extra_fields={}, n=key, v=NotImplemented)
 
         sensor_data = ir.SensorHistory(self.raw_sensors).to_latest()
-        self.sensor_data_timestamp = sensor_data.timestamp if sensor_data.timestamp else None
+        self.sensor_data_timestamp = sensor_data.timestamp or None
 
-        def sensor_data_safe_get(key):
+        def sensor_data_safe_get(key: str) -> Any:
             return sensor_data.values.get(key) if key in ds else NotImplemented
 
         self.pm1 = sensor_data_safe_get("pm1")
@@ -321,7 +337,7 @@ class DeviceAws(CallbacksMixin):
 
         states = ir.SensorPack(self.raw_info["states"]).to_latest_value()
 
-        def states_safe_get(key):
+        def states_safe_get(key: str) -> Any:
             return states.get(key) if key in dc else NotImplemented
 
         # "online" is not defined in the schema (dc).
@@ -333,7 +349,7 @@ class DeviceAws(CallbacksMixin):
         # absent), but consumers should NOT gate entity availability on
         # this field. It is informational only.
         online_state = states.get("online")
-        self.wifi_working = online_state if online_state is not None else True
+        self.wifi_working = True if online_state is None else bool(online_state)
 
         self.standby = states_safe_get("standby")
         self.night_mode = states_safe_get("nightmode")
@@ -384,7 +400,7 @@ class DeviceAws(CallbacksMixin):
         self.hour_format = states_safe_get("hourformat")
 
         self.publish_updates()
-        _LOGGER.debug(f"refreshed blueair device aws: {self}")
+        _LOGGER.debug("refreshed blueair device aws: %s", self)
 
     def apply_sensor_data(self, sensors: dict[str, float]) -> None:
         """Apply MQTT sensor data to device attributes.
@@ -403,7 +419,9 @@ class DeviceAws(CallbacksMixin):
                 if slug not in self.extra_sensors:
                     _LOGGER.debug(
                         "MQTT sensor %r not in MQTT_SENSOR_FIELD_MAP; "
-                        "storing in extra_sensors (value=%r)", slug, value
+                        "storing in extra_sensors (value=%r)",
+                        slug,
+                        value,
                     )
                 self.extra_sensors[slug] = value
                 continue
@@ -411,15 +429,18 @@ class DeviceAws(CallbacksMixin):
                 setattr(self, attr, int(value))
             except (TypeError, ValueError):
                 _LOGGER.warning(
-                    "MQTT sensor %r (-> %s) has unexpected value %r; "
-                    "skipping this update", slug, attr, value
+                    "MQTT sensor %r (-> %s) has unexpected value %r; skipping this update",
+                    slug,
+                    attr,
+                    value,
                 )
             except AttributeError:
                 # slots=True: attr in map but not declared on dataclass.
                 _LOGGER.error(
                     "MQTT_SENSOR_FIELD_MAP maps %r to %r but DeviceAws "
                     "has no such attribute; this is a library bug",
-                    slug, attr
+                    slug,
+                    attr,
                 )
 
     def apply_state_change(self, state: dict[str, Any]) -> None:
@@ -435,8 +456,9 @@ class DeviceAws(CallbacksMixin):
             attr = SHADOW_FIELD_MAP.get(shadow_field)
             if attr is None:
                 _LOGGER.debug(
-                    "Shadow field %r not in SHADOW_FIELD_MAP; ignoring "
-                    "(value=%r)", shadow_field, value
+                    "Shadow field %r not in SHADOW_FIELD_MAP; ignoring (value=%r)",
+                    shadow_field,
+                    value,
                 )
                 continue
             if not hasattr(self, attr):
@@ -444,7 +466,8 @@ class DeviceAws(CallbacksMixin):
                 _LOGGER.error(
                     "SHADOW_FIELD_MAP maps %r to %r but DeviceAws has "
                     "no such attribute; this is a library bug",
-                    shadow_field, attr
+                    shadow_field,
+                    attr,
                 )
                 continue
             if shadow_field in _FIRMWARE_SHADOW_FIELDS:
@@ -454,7 +477,9 @@ class DeviceAws(CallbacksMixin):
             except AttributeError:
                 _LOGGER.error(
                     "Failed to set DeviceAws.%s = %r from shadow field %r",
-                    attr, value, shadow_field
+                    attr,
+                    value,
+                    shadow_field,
                 )
 
         # Apply humidifier fan speed remapping (same as refresh).
@@ -468,12 +493,14 @@ class DeviceAws(CallbacksMixin):
             elif self.fan_speed == 64:
                 self.fan_speed = 3
 
-    async def set_brightness(self, value: int):
+    async def set_brightness(self, value: int) -> None:
+        """Set the LED brightness and push the change to the API."""
         self.brightness = value
         await self.api.set_device_info(self.uuid, "brightness", "v", value)
         self.publish_updates()
 
-    async def set_mood_brightness(self, value: int):
+    async def set_mood_brightness(self, value: int) -> None:
+        """Set the mood-light brightness and push the change to the API."""
         self.mood_brightness = value
         await self.api.set_device_info(self.uuid, "nlbrightness", "v", value)
         self.publish_updates()
@@ -489,7 +516,8 @@ class DeviceAws(CallbacksMixin):
         """Max mood-light brightness the hardware supports.
 
         The H76i (hw='hum2_l') has a 3-step mood light; all other
-        models use a 0-100 percentage scale."""
+        models use a 0-100 percentage scale.
+        """
         hw = self.hw if isinstance(self.hw, str) else ""
         if hw == "hum2_l":
             return 3
@@ -497,6 +525,7 @@ class DeviceAws(CallbacksMixin):
 
     @property
     def fan_speed_count(self) -> int:
+        """Number of discrete fan speeds the device's manual control supports."""
         hw = self.hw if isinstance(self.hw, str) else ""
         if self._is_humidifier:
             return 3
@@ -507,19 +536,14 @@ class DeviceAws(CallbacksMixin):
         # to 100% in the UI instead of being scaled against 100.
         #   - s_cmb2in1  : DH3i (field-confirmed from a live fan trace)
         #   - cmb2in1_ii : 2-in-1 Pro (same fan capability class as the DH3i)
-        if (
-            hw.startswith("nb_")
-            or hw.startswith("high")
-            or hw.startswith("s_cmb2in1")
-            or hw.startswith("cmb2in1_ii")
-            or hw == "l_blue40"
-        ):
+        if hw.startswith(("nb_", "high", "s_cmb2in1", "cmb2in1_ii")) or hw == "l_blue40":
             return 91
         if hw.startswith("cmb3in1"):
             return 4
         return 100
 
-    async def set_fan_speed(self, value: int):
+    async def set_fan_speed(self, value: int) -> None:
+        """Set the fan speed, remapping for humidifiers, and push the change."""
         self.fan_speed = value
         if self._is_humidifier:
             if value == 1:
@@ -531,104 +555,121 @@ class DeviceAws(CallbacksMixin):
         await self.api.set_device_info(self.uuid, "fanspeed", "v", value)
         self.publish_updates()
 
-    async def set_standby(self, value: bool):
+    async def set_standby(self, value: bool) -> None:
+        """Set standby (whole-device power) and push the change to the API."""
         self.standby = value
         await self.api.set_device_info(self.uuid, "standby", "vb", value)
         self.publish_updates()
 
-    async def set_fan_auto_mode(self, fan_auto_mode: bool):
+    async def set_fan_auto_mode(self, fan_auto_mode: bool) -> None:
+        """Enable or disable fan auto mode and push the change to the API."""
         self.fan_auto_mode = fan_auto_mode
         await self.api.set_device_info(self.uuid, "automode", "vb", fan_auto_mode)
         self.publish_updates()
 
-    async def set_auto_regulated_humidity(self, value: int):
+    async def set_auto_regulated_humidity(self, value: int) -> None:
+        """Set the auto-regulated humidity target and push the change to the API."""
         self.auto_regulated_humidity = value
         await self.api.set_device_info(self.uuid, "autorh", "v", value)
         self.publish_updates()
 
-    async def set_humidifier_mode(self, value: bool):
+    async def set_humidifier_mode(self, value: bool) -> None:
+        """Enable or disable humidification and push the change to the API."""
         self.humidifier_mode = value
         await self.api.set_device_info(self.uuid, "hummode", "vb", value)
         self.publish_updates()
 
-    async def set_combo_mode(self, value: int):
+    async def set_combo_mode(self, value: int) -> None:
+        """Set the combo device's preset/mode and push the change to the API."""
         self.combo_mode = value
         await self.api.set_device_info(self.uuid, "mode", "v", value)
         self.publish_updates()
 
-    async def set_child_lock(self, child_lock: bool):
+    async def set_child_lock(self, child_lock: bool) -> None:
+        """Enable or disable the child lock and push the change to the API."""
         self.child_lock = child_lock
         await self.api.set_device_info(self.uuid, "childlock", "vb", child_lock)
         self.publish_updates()
 
-    async def set_night_mode(self, night_mode: bool):
+    async def set_night_mode(self, night_mode: bool) -> None:
+        """Enable or disable night mode and push the change to the API."""
         self.night_mode = night_mode
         await self.api.set_device_info(self.uuid, "nightmode", "vb", night_mode)
         self.publish_updates()
 
-    async def set_wick_dry_mode(self, value: bool):
+    async def set_wick_dry_mode(self, value: bool) -> None:
+        """Enable or disable wick dry mode and push the change to the API."""
         self.wick_dry_mode = value
         await self.api.set_device_info(self.uuid, "wickdrys", "vb", value)
         self.publish_updates()
 
-    async def set_germ_shield(self, value: bool):
+    async def set_germ_shield(self, value: bool) -> None:
+        """Enable or disable germ shield and push the change to the API."""
         self.germ_shield = value
         await self.api.set_device_info(self.uuid, "germshield", "vb", value)
         self.publish_updates()
 
-    async def set_main_mode(self, value: int):
+    async def set_main_mode(self, value: int) -> None:
+        """Set the main mode (purify/heat/cool) and push the change to the API."""
         self.main_mode = value
         await self.api.set_device_info(self.uuid, "mainmode", "v", value)
         self.publish_updates()
 
-    async def set_heat_temp(self, value: int):
+    async def set_heat_temp(self, value: int) -> None:
+        """Set the heat target temperature and push the change to the API."""
         self.heat_temp = value
         await self.api.set_device_info(self.uuid, "heattemp", "v", value)
         self.publish_updates()
 
-    async def set_heat_sub_mode(self, value: int):
+    async def set_heat_sub_mode(self, value: int) -> None:
+        """Set the heat sub-mode and push the change to the API."""
         self.heat_sub_mode = value
         await self.api.set_device_info(self.uuid, "heatsubmode", "v", value)
         self.publish_updates()
 
-    async def set_heat_fan_speed(self, value: int):
+    async def set_heat_fan_speed(self, value: int) -> None:
+        """Set the heat fan speed and push the change to the API."""
         self.heat_fan_speed = value
         await self.api.set_device_info(self.uuid, "heatfs", "v", value)
         self.publish_updates()
 
-    async def set_cool_sub_mode(self, value: int):
+    async def set_cool_sub_mode(self, value: int) -> None:
+        """Set the cool sub-mode and push the change to the API."""
         self.cool_sub_mode = value
         await self.api.set_device_info(self.uuid, "coolsubmode", "v", value)
         self.publish_updates()
 
-    async def set_cool_fan_speed(self, value: int):
+    async def set_cool_fan_speed(self, value: int) -> None:
+        """Set the cool fan speed and push the change to the API."""
         self.cool_fan_speed = value
         await self.api.set_device_info(self.uuid, "coolfs", "v", value)
         self.publish_updates()
 
-    async def set_ap_sub_mode(self, value: int):
+    async def set_ap_sub_mode(self, value: int) -> None:
+        """Set the Signature-series preset mode and push the change to the API."""
         self.ap_sub_mode = value
         await self.api.set_device_info(self.uuid, "apsubmode", "v", value)
         self.publish_updates()
 
-    async def set_fan_speed_0(self, value: int):
+    async def set_fan_speed_0(self, value: int) -> None:
+        """Set the raw gear-scale fan speed and push the change to the API."""
         self.fan_speed_0 = value
         await self.api.set_device_info(self.uuid, "fsp0", "v", value)
         self.publish_updates()
 
-    async def set_night_light_brightness(self, value: int):
+    async def set_night_light_brightness(self, value: int) -> None:
         """Set the sunrise / night light stepless brightness (0-100)."""
         self.night_light_brightness = value
         await self.api.set_device_info(self.uuid, "nlstepless", "v", value)
         self.publish_updates()
 
-    async def set_timer_duration(self, value: int):
+    async def set_timer_duration(self, value: int) -> None:
         """Set the sleep / off timer duration in seconds."""
         self.timer_duration = value
         await self.api.set_device_info(self.uuid, "timdur", "v", value)
         self.publish_updates()
 
-    async def set_hour_format(self, value: bool):
+    async def set_hour_format(self, value: bool) -> None:
         """Set the clock display: False = 12-hour, True = 24-hour."""
         self.hour_format = value
         await self.api.set_device_info(self.uuid, "hourformat", "vb", value)

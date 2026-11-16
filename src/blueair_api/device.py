@@ -1,19 +1,31 @@
+"""Legacy (non-AWS) Blueair device model."""
+
+from dataclasses import dataclass, field
+from logging import getLogger
 from typing import Any
 
 from .callbacks import CallbacksMixin
 from .http_blueair import HttpBlueair
-from .util import transform_data_points, safely_get_json_value, convert_none_to_not_implemented
-from dataclasses import dataclass, field
-from logging import getLogger
+from .util import convert_none_to_not_implemented, safely_get_json_value, transform_data_points
 
 _LOGGER = getLogger(__name__)
 
 
 @dataclass(slots=True)
 class Device(CallbacksMixin):
+    """A single Blueair device reachable through the legacy ``HttpBlueair`` client."""
+
     @classmethod
-    async def create_device(cls, api, uuid, name, mac, refresh=False):
-        _LOGGER.debug("UUID:"+uuid)
+    async def create_device(
+        cls,
+        api: HttpBlueair,
+        uuid: str,
+        name: str,
+        mac: str,
+        refresh: bool = False,
+    ) -> Device:
+        """Fetch a device's info and build a ``Device`` for it."""
+        _LOGGER.debug("UUID:%s", uuid)
         info = await api.get_info(uuid)
         device = Device(
             api=api,
@@ -22,15 +34,15 @@ class Device(CallbacksMixin):
             mac=mac,
             timezone=info.get("timezone", None),
             compatibility=info.get("compatibility", None),
-            model=info.get("model",None),
-            firmware=info.get('firmware', None),
-            mcu_firmware=info.get("mcuFirmware",None),
-            wlan_driver=info.get("wlanDriver",None),
-            room_location=info["roomLocation"]
+            model=info.get("model", None),
+            firmware=info.get("firmware", None),
+            mcu_firmware=info.get("mcuFirmware", None),
+            wlan_driver=info.get("wlanDriver", None),
+            room_location=info["roomLocation"],
         )
         if refresh:
             await device.refresh()
-        _LOGGER.debug(f"create_device blueair device: {device}")
+        _LOGGER.debug("create_device blueair device: %s", device)
         return device
 
     api: HttpBlueair = field(repr=False)
@@ -64,12 +76,21 @@ class Device(CallbacksMixin):
     humidity: float | None = NotImplemented
     all_pollution: float | None = NotImplemented
 
-    async def refresh(self):
+    @property
+    def _uuid_or_raise(self) -> str:
+        """Return ``uuid``, raising if the device was never fully constructed."""
+        if self.uuid is None:
+            raise ValueError("Device.uuid is not set")
+        return self.uuid
+
+    async def refresh(self) -> None:
+        """Fetch the device's current attributes and measurements from the API."""
         _LOGGER.debug("Requesting current attributes...")
+        uuid = self._uuid_or_raise
         self.raw_info = {}
-        attributes = await self.api.get_attributes(self.uuid)
+        attributes = await self.api.get_attributes(uuid)
         self.raw_info["attributes"] = attributes
-        _LOGGER.debug(f"result: {attributes}")
+        _LOGGER.debug("result: %s", attributes)
         if "brightness" in attributes:
             self.brightness = int(attributes["brightness"])
         else:
@@ -99,38 +120,57 @@ class Device(CallbacksMixin):
         else:
             self.wifi_working = False
         if self.compatibility != "sense+":
-            datapoints = transform_data_points(await self.api.get_data_points_since(self.uuid))
+            datapoints = transform_data_points(await self.api.get_data_points_since(uuid))
             self.raw_info["datapoints"] = datapoints
             for data_point in datapoints:
                 _LOGGER.debug(data_point)
-                self.pm25 = convert_none_to_not_implemented(safely_get_json_value(data_point, "pm25", int))
-                self.pm10 = convert_none_to_not_implemented(safely_get_json_value(data_point, "pm10", int))
-                self.pm1 = convert_none_to_not_implemented(safely_get_json_value(data_point, "pm1", int))
-                self.voc = convert_none_to_not_implemented(safely_get_json_value(data_point, "voc", int))
-                self.co2 = convert_none_to_not_implemented(safely_get_json_value(data_point, "co2", int))
-                self.temperature = convert_none_to_not_implemented(safely_get_json_value(data_point, "temperature", int))
-                self.humidity = convert_none_to_not_implemented(safely_get_json_value(data_point, "humidity", int))
-                self.all_pollution = convert_none_to_not_implemented(safely_get_json_value(data_point, "all_pollution", int))
-        _LOGGER.debug(f"refreshed blueair device: {self}")
+                self.pm25 = convert_none_to_not_implemented(
+                    safely_get_json_value(data_point, "pm25", int)
+                )
+                self.pm10 = convert_none_to_not_implemented(
+                    safely_get_json_value(data_point, "pm10", int)
+                )
+                self.pm1 = convert_none_to_not_implemented(
+                    safely_get_json_value(data_point, "pm1", int)
+                )
+                self.voc = convert_none_to_not_implemented(
+                    safely_get_json_value(data_point, "voc", int)
+                )
+                self.co2 = convert_none_to_not_implemented(
+                    safely_get_json_value(data_point, "co2", int)
+                )
+                self.temperature = convert_none_to_not_implemented(
+                    safely_get_json_value(data_point, "temperature", int)
+                )
+                self.humidity = convert_none_to_not_implemented(
+                    safely_get_json_value(data_point, "humidity", int)
+                )
+                self.all_pollution = convert_none_to_not_implemented(
+                    safely_get_json_value(data_point, "all_pollution", int)
+                )
+        _LOGGER.debug("refreshed blueair device: %s", self)
         self.publish_updates()
 
-    async def set_fan_speed(self, new_speed: str):
+    async def set_fan_speed(self, new_speed: str) -> None:
+        """Set the fan speed and push the change to the API."""
         self.fan_speed = int(new_speed)
-        await self.api.set_fan_speed(self.uuid, new_speed)
+        await self.api.set_fan_speed(self._uuid_or_raise, new_speed)
         self.publish_updates()
 
-    async def set_brightness(self, new_brightness: int):
+    async def set_brightness(self, new_brightness: int) -> None:
+        """Set the LED brightness and push the change to the API."""
         self.brightness = new_brightness
-        await self.api.set_brightness(self.uuid, new_brightness)
+        await self.api.set_brightness(self._uuid_or_raise, new_brightness)
         self.publish_updates()
 
-    async def set_child_lock(self, enabled: bool):
+    async def set_child_lock(self, enabled: bool) -> None:
+        """Enable or disable the child lock and push the change to the API."""
         self.child_lock = enabled
-        await self.api.set_child_lock(self.uuid, enabled)
+        await self.api.set_child_lock(self._uuid_or_raise, enabled)
         self.publish_updates()
 
-    async def set_fan_auto_mode(self, fan_auto_mode: bool):
+    async def set_fan_auto_mode(self, fan_auto_mode: bool) -> None:
+        """Enable or disable fan auto mode and push the change to the API."""
         self.fan_auto_mode = fan_auto_mode
-        await self.api.set_fan_auto_mode(self.uuid, fan_auto_mode)
+        await self.api.set_fan_auto_mode(self._uuid_or_raise, fan_auto_mode)
         self.publish_updates()
-

@@ -1,17 +1,21 @@
-from typing import Any
-import logging
+"""HTTP client for Blueair's legacy (pre-AWS) cloud API."""
 
-from aiohttp import ClientSession, ClientResponse
 import base64
+import logging
+from typing import Any
 
-from .util_http import request_with_logging
+from aiohttp import ClientResponse, ClientSession
+
 from .const import API_KEY
-from .errors import LoginError
+from .errors import BaseError, LoginError
+from .util_http import request_with_logging
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class HttpBlueair:
+    """Client for Blueair's legacy (pre-AWS) cloud API."""
+
     def __init__(
         self,
         username: str,
@@ -19,7 +23,8 @@ class HttpBlueair:
         home_host: str | None = None,
         auth_token: str | None = None,
         client_session: ClientSession | None = None,
-    ):
+    ) -> None:
+        """Store login details and set up (or reuse) an HTTP client session."""
         self.username = username
         self.password = password
         self.home_host = home_host
@@ -30,15 +35,18 @@ class HttpBlueair:
         else:
             self.api_session = client_session
 
-    async def cleanup_client_session(self):
+    async def cleanup_client_session(self) -> None:
+        """Close the underlying HTTP client session."""
         await self.api_session.close()
 
-    async def get_home_host(self):
+    async def get_home_host(self) -> str:
+        """Return the cached home host, fetching it from the API if needed."""
         if self.home_host is None:
             self.home_host = await self._get_home_host()
         return self.home_host
 
-    async def get_auth_token(self):
+    async def get_auth_token(self) -> str:
+        """Return the cached auth token, fetching it from the API if needed."""
         if self.auth_token is None:
             self.auth_token = await self._get_auth_token()
         return self.auth_token
@@ -56,8 +64,7 @@ class HttpBlueair:
         return await self.api_session.post(url=url, json=json_body, headers=headers)
 
     async def _get_home_host(self) -> str:
-        """
-        Retrieve the home host for the current username.
+        """Retrieve the home host for the current username.
 
         The home host is the server that is used to interact with the Blueair
         device. It can be stored and reused to avoid requesting it again when
@@ -65,18 +72,15 @@ class HttpBlueair:
         """
         url = f"https://api.blueair.io/v2/user/{self.username}/homehost/"
         headers = {"X-API-KEY-TOKEN": API_KEY}
-        response: ClientResponse = (
-            await self._get_request_with_logging_and_errors_raised(
-                url=url, headers=headers
-            )
+        response: ClientResponse = await self._get_request_with_logging_and_errors_raised(
+            url=url, headers=headers
         )
         if response.status == 404:
             raise LoginError("invalid username")
         return (await response.text()).replace('"', "")
 
     async def _get_auth_token(self) -> str:
-        """
-        Authenticate the user and retrieve the authentication token.
+        """Authenticate the user and retrieve the authentication token.
 
         The authentication token can be reused to prevent an additional network
         request when initializing the client.
@@ -87,22 +91,18 @@ class HttpBlueair:
             "Authorization": "Basic "
             + base64.b64encode((self.username + ":" + self.password).encode()).decode(),
         }
-        response: ClientResponse = (
-            await self._get_request_with_logging_and_errors_raised(
-                url=url, headers=headers
-            )
+        response: ClientResponse = await self._get_request_with_logging_and_errors_raised(
+            url=url, headers=headers
         )
         result = await response.text()
         if response.status == 404:
             raise LoginError("invalid username")
         if result == "true":
             return response.headers["X-AUTH-TOKEN"]
-        else:
-            raise LoginError("invalid password")
+        raise LoginError("invalid password")
 
     async def get_devices(self) -> list[dict[str, Any]]:
-        """
-        Fetch a list of devices.
+        """Fetch a list of devices.
 
         Returns a list of dictionaries. Each dictionary will have a UUID key
         (the device identifier), a user ID, MAC address, and device name.
@@ -116,17 +116,14 @@ class HttpBlueair:
             "X-API-KEY-TOKEN": API_KEY,
             "X-AUTH-TOKEN": await self.get_auth_token(),
         }
-        response: ClientResponse = (
-            await self._get_request_with_logging_and_errors_raised(
-                url=url, headers=headers
-            )
+        response: ClientResponse = await self._get_request_with_logging_and_errors_raised(
+            url=url, headers=headers
         )
         return await response.json()
 
     # Note: refreshes every 5 minutes
     async def get_attributes(self, device_uuid: str) -> dict[str, Any]:
-        """
-        Fetch a list of attributes for the provided device ID.
+        """Fetch a list of attributes for the provided device ID.
 
         The return value is a dictionary containing key-value pairs for any
         available attributes.
@@ -135,17 +132,13 @@ class HttpBlueair:
         Calling it more often will return the same respone from the server and
         should be avoided to limit server load.
         """
-        url = (
-            f"https://{await self.get_home_host()}/v2/device/{device_uuid}/attributes/"
-        )
+        url = f"https://{await self.get_home_host()}/v2/device/{device_uuid}/attributes/"
         headers = {
             "X-API-KEY-TOKEN": API_KEY,
             "X-AUTH-TOKEN": await self.get_auth_token(),
         }
-        response: ClientResponse = (
-            await self._get_request_with_logging_and_errors_raised(
-                url=url, headers=headers
-            )
+        response: ClientResponse = await self._get_request_with_logging_and_errors_raised(
+            url=url, headers=headers
         )
         raw_attributes = await response.json()
         attributes = {}
@@ -156,8 +149,7 @@ class HttpBlueair:
 
     # Note: refreshes every 5 minutes, timestamps are in seconds
     async def get_info(self, device_uuid: str) -> dict[str, Any]:
-        """
-        Fetch device information for the provided device ID.
+        """Fetch device information for the provided device ID.
 
         The return value is a dictionary containing key-value pairs for the
         available device information.
@@ -171,17 +163,14 @@ class HttpBlueair:
             "X-API-KEY-TOKEN": API_KEY,
             "X-AUTH-TOKEN": await self.get_auth_token(),
         }
-        response: ClientResponse = (
-            await self._get_request_with_logging_and_errors_raised(
-                url=url, headers=headers
-            )
+        response: ClientResponse = await self._get_request_with_logging_and_errors_raised(
+            url=url, headers=headers
         )
         return await response.json()
 
     # Note: refreshes every 5 minutes, timestamps are in seconds
     async def get_current_data_point(self, device_uuid: str) -> dict[str, Any]:
-        """
-        Fetch device information for the provided device ID.
+        """Fetch device information for the provided device ID.
 
         The return value is a dictionary containing key-value pairs for the
         available device information.
@@ -195,16 +184,18 @@ class HttpBlueair:
             "X-API-KEY-TOKEN": API_KEY,
             "X-AUTH-TOKEN": await self.get_auth_token(),
         }
-        response: ClientResponse = (
-            await self._get_request_with_logging_and_errors_raised(
-                url=url, headers=headers
-            )
+        response: ClientResponse = await self._get_request_with_logging_and_errors_raised(
+            url=url, headers=headers
         )
         return await response.json()
 
-    async def get_data_points_since(self, device_uuid: str, seconds_ago: int = 0, sample_period: int = 300) -> dict[str, Any]:
-        """
-        Fetch the list of data points between a relative timestamp (in seconds) and the current time.
+    async def get_data_points_since(
+        self,
+        device_uuid: str,
+        seconds_ago: int = 0,
+        sample_period: int = 300,
+    ) -> dict[str, Any]:
+        """Fetch the list of data points between a relative timestamp and now.
 
         An optional sample period can be provided to group data points
         together. The minimum sample period size is 300 (5 minutes).
@@ -213,28 +204,31 @@ class HttpBlueair:
         every 5 minutes.  Calling it more often will return the same response
         from the server and should be avoided to limit server load.
         """
-        url = f"https://{await self.get_home_host()}/v2/device/{device_uuid}/datapoint/{seconds_ago}/last/{sample_period}/"
+        url = (
+            f"https://{await self.get_home_host()}/v2/device/{device_uuid}"
+            f"/datapoint/{seconds_ago}/last/{sample_period}/"
+        )
         headers = {
             "X-API-KEY-TOKEN": API_KEY,
             "X-AUTH-TOKEN": await self.get_auth_token(),
         }
-        response: ClientResponse = (
-            await self._get_request_with_logging_and_errors_raised(
-                url=url, headers=headers
-            )
+        response: ClientResponse = await self._get_request_with_logging_and_errors_raised(
+            url=url, headers=headers
         )
         return await response.json()
 
-    async def set_fan_speed(self, device_uuid, new_speed: str):
-        """
-        Set the fan speed per @spikeyGG comment at https://community.home-assistant.io/t/blueair-purifier-addon/154456/14
+    async def set_fan_speed(self, device_uuid: str, new_speed: str) -> dict[str, Any]:
+        """Set the fan speed.
+
+        Per @spikeyGG comment at
+        https://community.home-assistant.io/t/blueair-purifier-addon/154456/14.
         """
         if new_speed == "auto":
             new_name = "mode"
         elif new_speed in ["0", "1", "2", "3"]:
             new_name = "fan_speed"
         else:
-            raise Exception("Speed not supported")
+            raise BaseError("Speed not supported")
         url = f"https://{await self.get_home_host()}/v2/device/{device_uuid}/attribute/fanspeed/"
         headers = {
             "X-API-KEY-TOKEN": API_KEY,
@@ -247,16 +241,15 @@ class HttpBlueair:
             "name": new_name,
             "uuid": str(device_uuid),
         }
-        response: ClientResponse = (
-            await self._post_request_with_logging_and_errors_raised(
-                url=url, json_body=json_body, headers=headers
-            )
+        response: ClientResponse = await self._post_request_with_logging_and_errors_raised(
+            url=url, json_body=json_body, headers=headers
         )
         return await response.json()
 
-    async def set_brightness(self, device_uuid, new_brightness: int):
+    async def set_brightness(self, device_uuid: str, new_brightness: int) -> dict[str, Any]:
+        """Set the LED brightness."""
         if new_brightness not in [0, 1, 2, 3, 4]:
-            raise Exception("Brightness not supported")
+            raise BaseError("Brightness not supported")
         url = f"https://{await self.get_home_host()}/v2/device/{device_uuid}/attribute/brightness/"
         headers = {
             "X-API-KEY-TOKEN": API_KEY,
@@ -268,14 +261,13 @@ class HttpBlueair:
             "name": "brightness",
             "uuid": str(device_uuid),
         }
-        response: ClientResponse = (
-            await self._post_request_with_logging_and_errors_raised(
-                url=url, json_body=json_body, headers=headers
-            )
+        response: ClientResponse = await self._post_request_with_logging_and_errors_raised(
+            url=url, json_body=json_body, headers=headers
         )
         return await response.json()
 
-    async def set_child_lock(self, device_uuid, enabled: bool):
+    async def set_child_lock(self, device_uuid: str, enabled: bool) -> dict[str, Any]:
+        """Enable or disable the child lock."""
         url = f"https://{await self.get_home_host()}/v2/device/{device_uuid}/attribute/child_lock/"
         new_value = "1" if enabled else "0"
         headers = {
@@ -288,14 +280,13 @@ class HttpBlueair:
             "name": "child_lock",
             "uuid": str(device_uuid),
         }
-        response: ClientResponse = (
-            await self._post_request_with_logging_and_errors_raised(
-                url=url, json_body=json_body, headers=headers
-            )
+        response: ClientResponse = await self._post_request_with_logging_and_errors_raised(
+            url=url, json_body=json_body, headers=headers
         )
         return await response.json()
 
-    async def set_fan_auto_mode(self, device_uuid, auto: bool):
+    async def set_fan_auto_mode(self, device_uuid: str, auto: bool) -> dict[str, Any]:
+        """Enable or disable fan auto mode."""
         url = f"https://{await self.get_home_host()}/v2/device/{device_uuid}/attribute/mode/"
         new_value = "auto" if auto else "manual"
         headers = {
@@ -308,9 +299,7 @@ class HttpBlueair:
             "name": "mode",
             "uuid": str(device_uuid),
         }
-        response: ClientResponse = (
-            await self._post_request_with_logging_and_errors_raised(
-                url=url, json_body=json_body, headers=headers
-            )
+        response: ClientResponse = await self._post_request_with_logging_and_errors_raised(
+            url=url, json_body=json_body, headers=headers
         )
         return await response.json()

@@ -14,6 +14,8 @@ from __future__ import annotations
 
 from unittest import IsolatedAsyncioTestCase
 
+import pytest
+
 from blueair_api.errors import LoginError, SessionError
 from blueair_api.http_aws_blueair import request_with_errors
 
@@ -47,10 +49,8 @@ class TestNonJsonResponseBody(IsolatedAsyncioTestCase):
 
     async def test_non_json_200_raises_session_error(self) -> None:
         response = _FakeResponse(200, json_exc=ValueError("not json"))
-        with self.assertRaises(SessionError):
-            await _wrapped(
-                url="https://example/prod/c/registered-devices", response=response
-            )
+        with pytest.raises(SessionError):
+            await _wrapped(url="https://example/prod/c/registered-devices", response=response)
 
     async def test_empty_body_non_login_url_raises_session_error(self) -> None:
         # The observed production failure: a zero-byte body during
@@ -58,10 +58,8 @@ class TestNonJsonResponseBody(IsolatedAsyncioTestCase):
         response = _FakeResponse(
             502, json_exc=ValueError("unexpected character: line 1 column 1 (char 0)")
         )
-        with self.assertRaises(SessionError):
-            await _wrapped(
-                url="https://example/prod/c/registered-devices", response=response
-            )
+        with pytest.raises(SessionError):
+            await _wrapped(url="https://example/prod/c/registered-devices", response=response)
 
     async def test_empty_body_login_url_still_raises_session_error(self) -> None:
         # Non-JSON classification happens before the login/session URL
@@ -71,7 +69,7 @@ class TestNonJsonResponseBody(IsolatedAsyncioTestCase):
         # LoginError specifically -- the caller just needs something
         # it knows how to retry.
         response = _FakeResponse(400, json_exc=ValueError("not json"))
-        with self.assertRaises(SessionError):
+        with pytest.raises(SessionError):
             await _wrapped(url="https://example/accounts.login", response=response)
 
 
@@ -80,26 +78,20 @@ class TestExistingClassificationUnaffected(IsolatedAsyncioTestCase):
 
     async def test_200_with_valid_json_returns_response(self) -> None:
         response = _FakeResponse(200, {"ok": True})
-        result = await _wrapped(
-            url="https://example/prod/c/registered-devices", response=response
-        )
-        self.assertIs(result, response)
+        result = await _wrapped(url="https://example/prod/c/registered-devices", response=response)
+        assert result is response
 
     async def test_400_login_url_raises_login_error(self) -> None:
         response = _FakeResponse(400, {"error": "bad credentials"})
-        with self.assertRaises(LoginError):
+        with pytest.raises(LoginError):
             await _wrapped(url="https://example/accounts.login", response=response)
 
     async def test_400_non_login_url_raises_session_error(self) -> None:
         response = _FakeResponse(400, {"error": "expired"})
-        with self.assertRaises(SessionError):
-            await _wrapped(
-                url="https://example/prod/c/registered-devices", response=response
-            )
+        with pytest.raises(SessionError):
+            await _wrapped(url="https://example/prod/c/registered-devices", response=response)
 
     async def test_unknown_status_code_raises_value_error(self) -> None:
         response = _FakeResponse(599, {})
-        with self.assertRaises(ValueError):
-            await _wrapped(
-                url="https://example/prod/c/registered-devices", response=response
-            )
+        with pytest.raises(ValueError):
+            await _wrapped(url="https://example/prod/c/registered-devices", response=response)

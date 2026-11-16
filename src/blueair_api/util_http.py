@@ -1,12 +1,21 @@
+"""Decorator that logs the request and response of an HTTP call."""
+
+from collections.abc import Awaitable, Callable
 import logging
+from typing import Any
 
 from .util import clean_dictionary_for_logging
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def request_with_logging(func):
-    async def request_with_logging_wrapper(*args, **kwargs):
+def request_with_logging(
+    func: Callable[..., Awaitable[Any]],
+) -> Callable[..., Awaitable[Any]]:
+    """Wrap an async HTTP call, logging its request and response for debugging."""
+
+    async def request_with_logging_wrapper(*args: Any, **kwargs: Any) -> Any:
+        """Log the outgoing request, call ``func``, then log the response."""
         url = kwargs["url"]
         request_message = f"sending {url} request"
         headers = kwargs.get("headers")
@@ -23,18 +32,14 @@ def request_with_logging(func):
             )
         _LOGGER.debug(request_message)
         response = await func(*args, **kwargs)
-        _LOGGER.debug(
-            f"response headers:{clean_dictionary_for_logging(response.headers)}"
-        )
-        _LOGGER.debug(f"response status: {response.status}")
+        _LOGGER.debug("response headers:%s", clean_dictionary_for_logging(response.headers))
+        _LOGGER.debug("response status: %s", response.status)
         try:
             response_json = await response.json(content_type=None)
-            _LOGGER.debug(
-                f"response json: {clean_dictionary_for_logging(response_json)}"
-            )
-        except Exception:
+            _LOGGER.debug("response json: %s", clean_dictionary_for_logging(response_json))
+        except (ValueError, UnicodeDecodeError):
             response_text = await response.text()
-            _LOGGER.debug(f"response raw: {response_text}")
+            _LOGGER.debug("response raw: %s", response_text)
         return response
 
     return request_with_logging_wrapper

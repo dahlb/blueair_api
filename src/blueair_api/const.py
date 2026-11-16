@@ -1,5 +1,9 @@
+"""Constants, API keys, and typed structures used across the Blueair API client."""
+
 from collections.abc import Mapping
 from typing import TypedDict
+
+VERSION: str = "1.56.5"
 
 SENSITIVE_FIELD_NAMES = [
     "username",
@@ -48,6 +52,8 @@ AWS_MQTT_BROKERS = {
 
 
 class MeasurementBundle(TypedDict):
+    """A single sensor/datapoint history bundle returned by the AWS API."""
+
     sensors: list[str]
     datapoints: list[list[int | float]]
 
