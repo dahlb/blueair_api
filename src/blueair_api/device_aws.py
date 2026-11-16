@@ -427,7 +427,7 @@ class DeviceAws(CallbacksMixin):
                 continue
             try:
                 setattr(self, attr, int(value))
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 _LOGGER.warning(
                     "MQTT sensor %r (-> %s) has unexpected value %r; skipping this update",
                     slug,

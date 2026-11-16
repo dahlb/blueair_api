@@ -37,7 +37,7 @@ def request_with_logging(
         try:
             response_json = await response.json(content_type=None)
             _LOGGER.debug("response json: %s", clean_dictionary_for_logging(response_json))
-        except (ValueError, UnicodeDecodeError):
+        except ValueError, UnicodeDecodeError:
             response_text = await response.text()
             _LOGGER.debug("response raw: %s", response_text)
         return response

@@ -212,6 +212,10 @@ addopts = """
 """
 testpaths = ["tests"]
 asyncio_mode = "auto"
+# Silences pytest-asyncio's own PytestDeprecationWarning about this
+# option being unset; without it, filterwarnings below turns that
+# warning into a collection-time error before any test can run.
+asyncio_default_fixture_loop_scope = "function"
 # Surface latent NotImplemented / int(x or 0) / similar bugs while
 # they are still deprecation warnings, before they become hard
 # TypeErrors. bool(NotImplemented) is the canonical example:

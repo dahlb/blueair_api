@@ -250,7 +250,7 @@ async def _probe_candidate(
                 return probe
             try:
                 login_json = await login_resp.json()
-            except (ValueError, ClientError):
+            except ValueError, ClientError:
                 # Non-JSON 200 (CloudFront error page, captive portal,
                 # truncated body, etc.).  Treat as a soft failure of
                 # this candidate so the scan can keep going.
@@ -276,7 +276,7 @@ async def _probe_candidate(
                 return probe
             try:
                 devices_json = await devices_resp.json()
-            except (ValueError, ClientError):
+            except ValueError, ClientError:
                 probe.error = "devices: non-json response"
                 return probe
             devices = devices_json.get("devices") if isinstance(devices_json, dict) else None
@@ -298,7 +298,7 @@ async def _probe_candidate(
                         _release_response(status_resp)
                         continue
                     status_json = await status_resp.json()
-                except (ValueError, ClientError):
+                except ValueError, ClientError:
                     continue
                 if isinstance(status_json, dict) and status_json.get("online") is True:
                     probe.online_count += 1
