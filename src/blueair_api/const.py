@@ -3,7 +3,7 @@
 from collections.abc import Mapping
 from typing import TypedDict
 
-VERSION: str = "1.56.5"
+VERSION: str = "1.56.6"
 
 SENSITIVE_FIELD_NAMES = [
     "username",
