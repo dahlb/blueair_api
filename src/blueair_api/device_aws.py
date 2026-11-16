@@ -240,9 +240,9 @@ class DeviceAws(CallbacksMixin):
     heat_temp: AttributeType[int] = None  # api value is celsius * 10
     cool_sub_mode: AttributeType[int] = None  # api value 1 cool on, 2 cool on with fan auto
     cool_fan_speed: AttributeType[int] = None  # api value 11/37/64/91
-    ap_sub_mode: AttributeType[int] = None  # api value 1 manual speeed, 2 auto fan speed
+    ap_sub_mode: AttributeType[int] = None  # api value 1 manual speed, 2 auto fan speed
     fan_speed_0: AttributeType[int] = None  # api value 11/37/64/91
-    temperature_unit: AttributeType[int] = None  # api value of 1 is celcius
+    temperature_unit: AttributeType[int] = None  # api value of 1 is celsius
     hw: AttributeType[str] = None  # hardware identifier from configuration.di.hw
 
     # MQTT-only first-class sensor (signal strength, dBm).

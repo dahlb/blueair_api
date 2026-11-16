@@ -129,7 +129,7 @@ class HttpBlueair:
         available attributes.
 
         Note: the data for this API call is only updated once every 5 minutes.
-        Calling it more often will return the same respone from the server and
+        Calling it more often will return the same response from the server and
         should be avoided to limit server load.
         """
         url = f"https://{await self.get_home_host()}/v2/device/{device_uuid}/attributes/"
@@ -155,7 +155,7 @@ class HttpBlueair:
         available device information.
 
         Note: the data for this API call is only updated once every 5 minutes.
-        Calling it more often will return the same respone from the server and
+        Calling it more often will return the same response from the server and
         should be avoided to limit server load.
         """
         url = f"https://{await self.get_home_host()}/v2/device/{device_uuid}/info/"

@@ -198,7 +198,11 @@ max-complexity = 25
 convention = "google"
 
 [tool.codespell]
-ignore-words-list = "hass"
+# hass: shorthand for Home Assistant used throughout this codebase.
+# ot: a Blueair device-info JSON field abbreviation (configuration.df.ot).
+# bu: a SenML base-field name (RFC 8428 section 4.1), used verbatim in
+# intermediate_representation_aws.py's base-field detection.
+ignore-words-list = "hass,ot,bu"
 
 [tool.pytest.ini_options]
 addopts = """
