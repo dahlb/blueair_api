@@ -155,7 +155,7 @@ ignore = [
 fixable = ["ALL"]
 
 [tool.ruff.lint.per-file-ignores]
-"src/blueair_api/stub.py" = [
+"src/blueair_api/live_smoke_test.py" = [
     "E402", # Interactive script mutates sys.path before importing the local package.
     "T201", # Interactive script intentionally prints inspected state.
 ]
@@ -233,7 +233,7 @@ filterwarnings = [
 [tool.coverage.run]
 branch = true
 source = ["blueair_api"]
-omit = ["src/blueair_api/stub.py"]
+omit = ["src/blueair_api/live_smoke_test.py"]
 relative_files = true
 parallel = false
 

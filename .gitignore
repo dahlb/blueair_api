@@ -1,4 +1,5 @@
 .DS_Store
+src/blueair_api/stub.py
 
 # artifacts
 __pycache__

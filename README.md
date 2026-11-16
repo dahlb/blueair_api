@@ -61,6 +61,42 @@ The underlying commands are:
 Add or update pytest coverage for behavior changes. Fixture data for device
 info responses lives under `tests/device_info`.
 
+## Live Smoke Test
+
+The live smoke test connects to a real Blueair account, loads and refreshes
+AWS devices, prints their state, starts the MQTT real-time listener, sends one
+sample control update to the first AWS device, and checks the legacy API.
+
+```bash
+scripts/live_smoke_test
+```
+
+Use it only when you want to exercise the live Blueair APIs. The sample control
+update writes the first AWS device's current LED brightness back to it, so the
+setting is unchanged but the control path and MQTT shadow update are exercised.
+The script then waits 5 minutes so MQTT messages can be observed.
+
+To run non-interactively, put credentials in a local `env` file and pass it
+with `--credentials-file`. Supported keys are `BLUEAIR_USERNAME`/`BLUEAIR_PASSWORD`
+(see `scripts/blueair_api.env.example`); TOML and JSON files with
+`username`/`password` keys also work, as do `BLUEAIR_USERNAME`/`BLUEAIR_PASSWORD`
+environment variables.
+
+```bash
+scripts/live_smoke_test --credentials-file scripts/blueair_api.env --output-file /private/tmp/blueair_api.txt --read-only
+```
+
+Other options:
+
+- `--output-file` writes a full transcript (stdout, stderr, and logs) for later
+  API debugging or fixture updates.
+- `--read-only` skips the sample control update while still loading devices and
+  listening for MQTT messages.
+- `--region` selects the Blueair region (`au`, `cn`, `eu`, `us`; default `us`).
+  `--gigya-region` and `--cloud-region` override the account-auth and
+  device-control regions separately; see [AWS account and BlueCloud regions](docs/regions.md).
+- `--skip-legacy` skips the legacy (non-AWS) API check.
+
 ***
 
 [commits-shield]: https://img.shields.io/github/commit-activity/y/dahlb/blueair_api.svg?style=for-the-badge
