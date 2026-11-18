@@ -44,7 +44,7 @@ def test_clean_dictionary_for_logging_handles_top_level_list() -> None:
 
 
 def test_clean_dictionary_for_logging_handles_header_proxy() -> None:
-    """aiohttp response headers (``CIMultiDictProxy``) are accepted."""
+    """Response headers from aiohttp (``CIMultiDictProxy``) are accepted."""
     headers = CIMultiDictProxy(CIMultiDict({"Username": "u", "Server": "s"}))
     cleaned = clean_dictionary_for_logging(headers)
     assert cleaned == {"Username": "***", "Server": "s"}
