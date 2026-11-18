@@ -9,22 +9,30 @@ from .const import SENSITIVE_FIELD_NAMES, MeasurementList
 _LOGGER = logging.getLogger(__name__)
 
 
-def clean_dictionary_for_logging(dictionary: dict[str, Any]) -> dict[str, Any]:
-    """Return a copy of ``dictionary`` with sensitive fields masked for logging."""
-    mutable_dictionary = dictionary.copy()
-    for key in dictionary:
-        if key.lower() in SENSITIVE_FIELD_NAMES:
+def clean_dictionary_for_logging(dictionary: Any) -> Any:
+    """Return a copy of ``dictionary`` with sensitive fields masked for logging.
+
+    API responses are not always JSON objects: some endpoints (e.g. the legacy
+    home host lookup) return a bare JSON string, and others return a list.
+    Mappings are masked recursively, lists are cleaned item by item, and any
+    other value is returned unchanged so logging never breaks a request.
+
+    Args:
+        dictionary: A decoded JSON value or header mapping to sanitize.
+
+    Returns:
+        A sanitized copy for mappings and lists, otherwise ``dictionary`` itself.
+    """
+    if isinstance(dictionary, list):
+        return [clean_dictionary_for_logging(item) for item in dictionary]
+    if not isinstance(dictionary, Mapping):
+        return dictionary
+    mutable_dictionary: dict[Any, Any] = {}
+    for key, value in dictionary.items():
+        if isinstance(key, str) and key.lower() in SENSITIVE_FIELD_NAMES:
             mutable_dictionary[key] = "***"
-        if type(mutable_dictionary[key]) is dict:
-            mutable_dictionary[key] = clean_dictionary_for_logging(mutable_dictionary[key].copy())
-        if type(mutable_dictionary[key]) is list:
-            new_array = []
-            for item in mutable_dictionary[key]:
-                if type(item) is dict:
-                    new_array.append(clean_dictionary_for_logging(item.copy()))
-                else:
-                    new_array.append(item)
-            mutable_dictionary[key] = new_array
+        else:
+            mutable_dictionary[key] = clean_dictionary_for_logging(value)
 
     return mutable_dictionary
 
