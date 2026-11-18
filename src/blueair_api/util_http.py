@@ -36,8 +36,13 @@ def request_with_logging(
         _LOGGER.debug("response status: %s", response.status)
         try:
             response_json = await response.json(content_type=None)
-            _LOGGER.debug("response json: %s", clean_dictionary_for_logging(response_json))
-        except ValueError, UnicodeDecodeError:
+            if isinstance(response_json, dict):
+                _LOGGER.debug("response json: %s", clean_dictionary_for_logging(response_json))
+            else:
+                # JSON may be a string, list or scalar. Never log its raw content;
+                # it may contain an authentication token or other secrets.
+                _LOGGER.debug("response json type: %s", type(response_json).__name__)
+        except (ValueError, UnicodeDecodeError):
             response_text = await response.text()
             _LOGGER.debug("response raw: %s", response_text)
         return response
