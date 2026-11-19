@@ -5,10 +5,38 @@ from typing import TypedDict
 
 VERSION: str = "1.56.7"
 
+# Field and header names (compared lowercase) whose values are masked in
+# debug logs: credentials, tokens, session secrets, signatures and email.
 SENSITIVE_FIELD_NAMES = [
     "username",
     "password",
+    "loginid",
+    "email",
+    "authorization",
+    "idtoken",
+    "id_token",
+    "access_token",
+    "refresh_token",
+    "oauth_token",
+    "secret",
+    "regtoken",
+    "sessiontoken",
+    "sessionsecret",
+    "cookievalue",
+    "uidsignature",
+    "x-auth-token",
+    "ba_x-amz-customauthorizer-signature",
+    "ba_x-amz-customauthorizer-token",
 ]
+
+# Total time allowed for one HTTP request to the Blueair API, in seconds.
+REQUEST_TIMEOUT_SECONDS: float = 20
+
+# Refresh the BlueCloud access token this many seconds before its ``exp``
+# claim, so requests in flight do not carry a token that expires mid-request.
+# Capped at half the token's lifetime so a short-lived token is not refreshed
+# on every request.
+ACCESS_TOKEN_REFRESH_MARGIN_SECONDS: float = 60
 
 # The BlueAir API uses a fixed API key.
 API_KEY = "eyJhbGciOiJIUzI1NiJ9.eyJncmFudGVlIjoiYmx1ZWFpciIsImlhdCI6MTQ1MzEyNTYzMiwidmFsaWRpdHkiOi0xLCJqdGkiOiJkNmY3OGE0Yi1iMWNkLTRkZDgtOTA2Yi1kN2JkNzM0MTQ2NzQiLCJwZXJtaXNzaW9ucyI6WyJhbGwiXSwicXVvdGEiOi0xLCJyYXRlTGltaXQiOi0xfQ.CJsfWVzFKKDDA6rWdh-hjVVVE9S3d6Hu9BzXG9htWFw"  # noqa: E501

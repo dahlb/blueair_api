@@ -8,7 +8,7 @@ from aiohttp import ClientResponse, ClientSession
 
 from .const import API_KEY
 from .errors import BaseError, LoginError
-from .util_http import request_with_logging
+from .util_http import REQUEST_TIMEOUT, request_with_logging, send_with_timeout
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,19 +24,37 @@ class HttpBlueair:
         auth_token: str | None = None,
         client_session: ClientSession | None = None,
     ) -> None:
-        """Store login details and set up (or reuse) an HTTP client session."""
+        """Store login details and set up (or reuse) an HTTP client session.
+
+        Args:
+            username: Account username.
+            password: Account password.
+            home_host: Optional cached home host, to skip looking it up.
+            auth_token: Optional cached auth token, to skip logging in.
+            client_session: Optional aiohttp session to reuse. A session passed
+                in belongs to the caller: ``cleanup_client_session`` leaves it
+                open. A new session is created when omitted.
+        """
         self.username = username
         self.password = password
         self.home_host = home_host
         self.auth_token = auth_token
 
+        self._owns_session = client_session is None
         if client_session is None:
             self.api_session = ClientSession(raise_for_status=False)
         else:
             self.api_session = client_session
 
     async def cleanup_client_session(self) -> None:
-        """Close the underlying HTTP client session."""
+        """Close the HTTP client session if this client created it.
+
+        A session passed in as ``client_session`` belongs to the caller and is
+        left open.
+        """
+        if not self._owns_session:
+            _LOGGER.debug("Leaving caller-provided aiohttp session open")
+            return
         await self.api_session.close()
 
     async def get_home_host(self) -> str:
@@ -55,13 +73,17 @@ class HttpBlueair:
     async def _get_request_with_logging_and_errors_raised(
         self, url: str, headers: dict | None = None
     ) -> ClientResponse:
-        return await self.api_session.get(url=url, headers=headers)
+        return await send_with_timeout(
+            self.api_session.get(url=url, headers=headers, timeout=REQUEST_TIMEOUT)
+        )
 
     @request_with_logging
     async def _post_request_with_logging_and_errors_raised(
         self, url: str, json_body: dict, headers: dict | None = None
     ) -> ClientResponse:
-        return await self.api_session.post(url=url, json=json_body, headers=headers)
+        return await send_with_timeout(
+            self.api_session.post(url=url, json=json_body, headers=headers, timeout=REQUEST_TIMEOUT)
+        )
 
     async def _get_home_host(self) -> str:
         """Retrieve the home host for the current username.

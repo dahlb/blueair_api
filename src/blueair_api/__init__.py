@@ -2,7 +2,16 @@
 
 from .device import Device
 from .device_aws import AP_SUB_MODE_LABELS, DeviceAws
-from .errors import AuthError, BaseError, LoginError, RateError, SessionError
+from .errors import (
+    AuthError,
+    BaseError,
+    LoginError,
+    RateError,
+    RequestTimeoutError,
+    ResponseError,
+    ServerError,
+    SessionError,
+)
 from .http_aws_blueair import HttpAwsBlueair
 from .http_blueair import HttpBlueair
 from .mqtt_aws_blueair import MqttAwsBlueair
@@ -29,6 +38,9 @@ __all__ = [
     "LoginError",
     "MqttAwsBlueair",
     "RateError",
+    "RequestTimeoutError",
+    "ResponseError",
+    "ServerError",
     "SessionError",
     "device_state_looks_frozen",
     "discover_cloud_region",
