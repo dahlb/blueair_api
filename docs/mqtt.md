@@ -221,7 +221,9 @@ inside paho's reconnect flow:
 1. **`on_pre_connect` callback** — Called by paho immediately before each
    `reconnect()` creates a new socket. We use this to call the async
    `credential_refresher` (which calls `refresh_access_token()` on the
-   HTTP client) and update the stored auth credentials.
+   HTTP client) and update the stored auth credentials. It waits up to
+   `MQTT_CREDENTIAL_REFRESH_TIMEOUT_SECONDS` (120s), long enough for a full
+   re-authentication of up to six 20-second requests.
 
 2. **`ws_set_options(headers=callable)`** — Instead of passing a static
    dict of WebSocket headers, we pass a callable that returns the
@@ -261,6 +263,7 @@ race conditions.
 | --- | --- |
 | Token expires, AWS closes connection | Paho detects loss → waits 5s → `on_pre_connect` refreshes → reconnects with new tokens |
 | Token refresh fails (e.g., network down) | `on_pre_connect` catches exception, logs it → paho tries with stale tokens → WS handshake fails → paho backs off → retries (calls `on_pre_connect` again) |
+| Token refresh takes longer than 120s | `on_pre_connect` cancels the refresh, logs a warning → same as a failed refresh |
 | AWS broker unreachable | Paho retries with exponential backoff up to 300s → keeps trying indefinitely |
 | Clean disconnect (`disconnect()` called) | Paho stops the loop — no reconnect attempted |
 

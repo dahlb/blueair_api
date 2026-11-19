@@ -1,8 +1,8 @@
 """Helpers for HTTP calls: request/response debug logging and request timeouts."""
 
 from collections.abc import Awaitable, Callable
+import functools
 import logging
-from typing import Any
 
 from aiohttp import ClientResponse, ClientTimeout
 
@@ -41,9 +41,9 @@ async def send_with_timeout(request: Awaitable[ClientResponse]) -> ClientRespons
         ) from error
 
 
-def request_with_logging(
-    func: Callable[..., Awaitable[Any]],
-) -> Callable[..., Awaitable[Any]]:
+def request_with_logging[**P](
+    func: Callable[P, Awaitable[ClientResponse]],
+) -> Callable[P, Awaitable[ClientResponse]]:
     """Wrap an async HTTP call, logging its request and response for debugging.
 
     Request headers, params and JSON bodies and the response headers and JSON
@@ -54,10 +54,11 @@ def request_with_logging(
         func: The HTTP call to wrap. It must take ``url`` as a keyword argument.
 
     Returns:
-        The wrapped call.
+        The wrapped call, with the same signature, name and docstring.
     """
 
-    async def request_with_logging_wrapper(*args: Any, **kwargs: Any) -> Any:
+    @functools.wraps(func)
+    async def request_with_logging_wrapper(*args: P.args, **kwargs: P.kwargs) -> ClientResponse:
         """Log the outgoing request, call ``func``, then log the response.
 
         Args:

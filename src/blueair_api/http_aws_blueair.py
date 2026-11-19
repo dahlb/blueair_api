@@ -28,9 +28,9 @@ GIGYA_STATUS_CODE_PENDING_REGISTRATION = 206
 GIGYA_ERROR_CODE_PENDING_REGISTRATION = 206001
 
 
-def request_with_active_session(
-    func: Callable[..., Awaitable[Any]],
-) -> Callable[..., Awaitable[Any]]:
+def request_with_active_session[R](
+    func: Callable[..., Awaitable[R]],
+) -> Callable[..., Awaitable[R]]:
     """Retry ``func`` once with cleared session state after a ``SessionError``.
 
     Only the access token the request used is discarded. If a concurrent
@@ -41,36 +41,40 @@ def request_with_active_session(
         func: An ``HttpAwsBlueair`` method that makes an authenticated request.
 
     Returns:
-        The wrapped method.
+        The wrapped method. It keeps ``func``'s return type; its arguments
+        are not checked against ``func``'s, because ``DeviceAws`` passes
+        ``str | None`` identifiers that are always set in practice.
     """
 
     @functools.wraps(func)
-    async def request_with_active_session_wrapper(*args: Any, **kwargs: Any) -> Any:
+    async def request_with_active_session_wrapper(
+        self: HttpAwsBlueair, *args: Any, **kwargs: Any
+    ) -> R:
         """Call ``func``, re-authenticating and retrying once on ``SessionError``.
 
         Args:
-            args: Positional arguments for ``func``; ``args[0]`` is the client.
+            self: Client making the request.
+            args: Positional arguments for ``func`` after the client.
             kwargs: Keyword arguments for ``func``.
 
         Returns:
             The result of ``func``.
         """
         _LOGGER.debug("session")
-        self: HttpAwsBlueair = args[0]
         rejected_access_token = self.access_token
         try:
-            return await func(*args, **kwargs)
+            return await func(self, *args, **kwargs)
         except SessionError:
             _LOGGER.debug("got invalid session, attempting to repair and resend")
             await self._discard_rejected_session(rejected_access_token)
-            return await func(*args, **kwargs)
+            return await func(self, *args, **kwargs)
 
     return request_with_active_session_wrapper
 
 
-def request_with_errors(
-    func: Callable[..., Awaitable[Any]],
-) -> Callable[..., Awaitable[ClientResponse]]:
+def request_with_errors[**P](
+    func: Callable[P, Awaitable[ClientResponse]],
+) -> Callable[P, Awaitable[ClientResponse]]:
     """Inspect a response for Gigya/BlueCloud error payloads and raise accordingly.
 
     The status is the body's ``statusCode`` when present, else the HTTP status.
@@ -94,7 +98,7 @@ def request_with_errors(
     """
 
     @functools.wraps(func)
-    async def request_with_errors_wrapper(*args: Any, **kwargs: Any) -> ClientResponse:
+    async def request_with_errors_wrapper(*args: P.args, **kwargs: P.kwargs) -> ClientResponse:
         """Call ``func`` and raise the package error matching its response.
 
         Args:
@@ -143,16 +147,15 @@ def request_with_errors(
             raise RateError(await response.text())
         if 400 <= status_code < 500:
             _LOGGER.debug("auth error, %s", status_code)
-            url = kwargs["url"]
+            url = str(kwargs["url"])
             response_text = await response.text()
             if "accounts.login" in url:
                 _LOGGER.debug("login error")
                 raise LoginError(response_text)
             _LOGGER.debug("session error")
             raise SessionError(response_text)
-        if (
-            status_code == GIGYA_STATUS_CODE_PENDING_REGISTRATION
-            and "accounts.login" in kwargs["url"]
+        if status_code == GIGYA_STATUS_CODE_PENDING_REGISTRATION and "accounts.login" in str(
+            kwargs["url"]
         ):
             # Gigya answers accounts.login with an HTTP 200 whose body
             # carries statusCode 206 / errorCode 206001 when the account
@@ -492,6 +495,8 @@ class HttpAwsBlueair:
         self.session_secret = None
         self.jwt = None
         await self.refresh_jwt()
+        if self.jwt is None:
+            raise SessionError("jwt was not available after refresh_jwt")
         url = f"https://{AWS_APIKEYS[self.cloud_region]['restApiId']}.execute-api.{AWS_APIKEYS[self.cloud_region]['awsRegion']}/prod/c/login"
         headers = {"idtoken": self.jwt, "authorization": f"Bearer {self.jwt}"}
         response: ClientResponse = await self._post_request_with_logging_and_errors_raised(
@@ -567,7 +572,7 @@ class HttpAwsBlueair:
         return self.access_token
 
     @request_with_active_session
-    async def devices(self) -> dict[str, Any]:
+    async def devices(self) -> list[dict[str, Any]]:
         """Fetch the list of devices registered to the account."""
         _LOGGER.debug("devices")
         url = f"https://{AWS_APIKEYS[self.cloud_region]['restApiId']}.execute-api.{AWS_APIKEYS[self.cloud_region]['awsRegion']}/prod/c/registered-devices"
@@ -578,7 +583,7 @@ class HttpAwsBlueair:
             url=url, headers=headers
         )
         response_json = await response.json()
-        devices: dict[str, Any] = response_json["devices"]
+        devices: list[dict[str, Any]] = response_json["devices"]
         return devices
 
     @request_with_active_session

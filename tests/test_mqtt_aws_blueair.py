@@ -13,6 +13,8 @@ from unittest import TestCase, mock
 
 import pytest
 
+from blueair_api.const import MQTT_CREDENTIAL_REFRESH_TIMEOUT_SECONDS, REQUEST_TIMEOUT_SECONDS
+from blueair_api.errors import RequestTimeoutError
 from blueair_api.mqtt_aws_blueair import MqttAwsBlueair
 
 FAKE_DEVICE_UUID = "14ad6685-408a-4aa2-a923-a561e0872cc4"
@@ -792,3 +794,102 @@ class TestConnectedEventResubscribe(TestCase):
 
         mock_paho.unsubscribe.assert_not_called()
         mock_paho.subscribe.assert_not_called()
+
+
+def _run_loop_in_thread() -> tuple[asyncio.AbstractEventLoop, threading.Thread]:
+    """Start an event loop on a background thread, as Home Assistant's loop runs.
+
+    Returns:
+        The running loop and its thread.
+    """
+    loop = asyncio.new_event_loop()
+    loop_thread = threading.Thread(target=loop.run_forever, daemon=True)
+    loop_thread.start()
+    return loop, loop_thread
+
+
+def _stop_loop(loop: asyncio.AbstractEventLoop, loop_thread: threading.Thread) -> None:
+    """Stop and close a loop started by ``_run_loop_in_thread``.
+
+    Args:
+        loop: The running loop.
+        loop_thread: The thread running it.
+    """
+    loop.call_soon_threadsafe(loop.stop)
+    loop_thread.join(timeout=5)
+    loop.close()
+
+
+def test_credential_refresh_wait_covers_a_full_re_authentication() -> None:
+    """Wait long enough for every request of a full re-authentication."""
+    assert MQTT_CREDENTIAL_REFRESH_TIMEOUT_SECONDS >= 6 * REQUEST_TIMEOUT_SECONDS
+
+
+def test_on_pre_connect_cancels_a_refresh_that_runs_past_the_wait(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Cancel an unfinished refresh and keep the previous tokens.
+
+    Args:
+        monkeypatch: Pytest helper for shortening the wait.
+        caplog: Pytest log capture fixture.
+    """
+    monkeypatch.setattr(
+        "blueair_api.mqtt_aws_blueair.MQTT_CREDENTIAL_REFRESH_TIMEOUT_SECONDS", 0.05
+    )
+    client = make_mqtt_client()
+    loop, loop_thread = _run_loop_in_thread()
+    client._event_loop = loop
+    cancelled = threading.Event()
+
+    async def slow_refresh() -> tuple[str, str, str]:
+        """Outlast the wait, recording cancellation.
+
+        Returns:
+            Never returns before it is cancelled.
+        """
+        try:
+            await asyncio.sleep(5)
+        except asyncio.CancelledError:
+            cancelled.set()
+            raise
+        return ("late-name", "late-sig", "late-token")
+
+    client.credential_refresher = slow_refresh
+
+    client._on_pre_connect(None, None)
+
+    assert cancelled.wait(timeout=2)
+    _stop_loop(loop, loop_thread)
+    assert client._mqtt_auth_name == "custom-authorizer"
+    assert "did not finish within 0.05 seconds" in caplog.text
+
+
+def test_on_pre_connect_reports_a_refresher_timeout_as_a_failure(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Report a refresher's own request timeout as a failed refresh, not a slow one.
+
+    Args:
+        caplog: Pytest log capture fixture.
+    """
+    client = make_mqtt_client()
+    loop, loop_thread = _run_loop_in_thread()
+    client._event_loop = loop
+
+    async def timing_out_refresh() -> Never:
+        """Fail the way a request timeout inside the refresher does.
+
+        Raises:
+            RequestTimeoutError: Always.
+        """
+        raise RequestTimeoutError("Blueair request timed out after 20 seconds")
+
+    client.credential_refresher = timing_out_refresh
+
+    client._on_pre_connect(None, None)
+
+    _stop_loop(loop, loop_thread)
+    assert client._mqtt_auth_name == "custom-authorizer"
+    assert "Failed to refresh MQTT credentials" in caplog.text
+    assert "did not finish within" not in caplog.text

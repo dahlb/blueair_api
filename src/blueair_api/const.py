@@ -32,6 +32,12 @@ SENSITIVE_FIELD_NAMES = [
 # Total time allowed for one HTTP request to the Blueair API, in seconds.
 REQUEST_TIMEOUT_SECONDS: float = 20
 
+# How long the MQTT client waits for a credential refresh before a reconnect.
+# A full refresh makes up to 6 requests in sequence (Gigya login, plus
+# completing a pending registration and logging in again when needed, then
+# getJWT and the BlueCloud login), each bounded by REQUEST_TIMEOUT_SECONDS.
+MQTT_CREDENTIAL_REFRESH_TIMEOUT_SECONDS: float = 6 * REQUEST_TIMEOUT_SECONDS
+
 # Refresh the BlueCloud access token this many seconds before its ``exp``
 # claim, so requests in flight do not carry a token that expires mid-request.
 # Capped at half the token's lifetime so a short-lived token is not refreshed

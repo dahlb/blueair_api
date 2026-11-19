@@ -392,3 +392,79 @@ async def test_requests_carry_the_request_timeout() -> None:
     assert [call["timeout"] for call in aws_session.calls + legacy_session.calls] == [
         REQUEST_TIMEOUT
     ] * 4
+
+
+async def test_devices_returns_the_device_list() -> None:
+    """Return the ``devices`` list from the registered-devices response."""
+    devices = [{"uuid": "u-1", "name": "Bedroom", "mac": "m", "type": "t"}]
+
+    class DevicesResponse:
+        """Fake registered-devices response."""
+
+        status = 200
+
+        async def json(self, content_type: str | None = None) -> dict[str, Any]:
+            """Return the registered-devices body.
+
+            Args:
+                content_type: Ignored content type check.
+
+            Returns:
+                The response body.
+            """
+            return {"devices": devices}
+
+    class DevicesClient(CountingClient):
+        """Client that fakes the registered-devices request."""
+
+        async def _get_request_with_logging_and_errors_raised(  # type: ignore[override]
+            self, **kwargs: Any
+        ) -> DevicesResponse:
+            """Return the fake response.
+
+            Args:
+                kwargs: Request keyword arguments.
+
+            Returns:
+                The fake response.
+            """
+            return DevicesResponse()
+
+    result = await DevicesClient().devices()
+
+    assert isinstance(result, list)
+    assert result == devices
+
+
+def test_decorators_keep_the_wrapped_method_names() -> None:
+    """Keep names and docstrings on decorated methods, for logs and tracebacks."""
+    assert HttpAwsBlueair.devices.__name__ == "devices"
+    assert HttpAwsBlueair.devices.__doc__ == (
+        "Fetch the list of devices registered to the account."
+    )
+    request = HttpAwsBlueair._get_request_with_logging_and_errors_raised
+    assert request.__name__ == "_get_request_with_logging_and_errors_raised"
+    assert request.__wrapped__.__name__ == request.__name__  # type: ignore[attr-defined]
+    assert HttpBlueair._get_request_with_logging_and_errors_raised.__name__ == (
+        "_get_request_with_logging_and_errors_raised"
+    )
+
+
+async def test_refresh_access_token_rejects_a_missing_jwt() -> None:
+    """Raise ``SessionError`` instead of sending ``Bearer None`` to the cloud login."""
+
+    class NoJwtClient(HttpAwsBlueair):
+        """Client whose Gigya step leaves no JWT."""
+
+        async def refresh_jwt(self) -> None:
+            """Leave ``jwt`` unset."""
+            self.jwt = None
+
+    client = NoJwtClient(
+        username="user@example.com",
+        password="password",
+        client_session=_FakeSession(),  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(SessionError):
+        await client.refresh_access_token()
