@@ -179,7 +179,7 @@ class SmokeTestTranscript:
         self._transcript: TextIO | None = None
         self._stdout: TextIO | None = None
         self._stderr: TextIO | None = None
-        self._original_handler_streams: list[tuple[logging.StreamHandler, TextIO]] = []
+        self._original_handler_streams: list[tuple[logging.StreamHandler[TextIO], TextIO]] = []
 
     def __enter__(self) -> None:
         """Start teeing stdout, stderr, and logger streams."""
@@ -518,15 +518,37 @@ class MqttUpdatePrinter:
         Args:
             mqtt_client: MQTT client whose callbacks should be wired up.
         """
-        mqtt_client.on_sensor_data = lambda device_id, sensors: self._loop.call_soon_threadsafe(
-            self.handle_sensor_data, device_id, sensors
-        )
-        mqtt_client.on_state_change = lambda device_id, state: self._loop.call_soon_threadsafe(
-            self.handle_state_change, device_id, state
-        )
-        mqtt_client.on_event = lambda device_id, event: self._loop.call_soon_threadsafe(
-            self.handle_event, device_id, event
-        )
+
+        def on_sensor_data(device_id: str, sensors: dict[str, float]) -> None:
+            """Hand sensor data from the MQTT thread to the event loop.
+
+            Args:
+                device_id: Device the readings belong to.
+                sensors: Sensor readings.
+            """
+            self._loop.call_soon_threadsafe(self.handle_sensor_data, device_id, sensors)
+
+        def on_state_change(device_id: str, state: dict[str, Any]) -> None:
+            """Hand a state change from the MQTT thread to the event loop.
+
+            Args:
+                device_id: Device whose state changed.
+                state: Changed state attributes.
+            """
+            self._loop.call_soon_threadsafe(self.handle_state_change, device_id, state)
+
+        def on_event(device_id: str, event: dict[str, Any]) -> None:
+            """Hand a device event from the MQTT thread to the event loop.
+
+            Args:
+                device_id: Device the event belongs to.
+                event: Event payload.
+            """
+            self._loop.call_soon_threadsafe(self.handle_event, device_id, event)
+
+        mqtt_client.on_sensor_data = on_sensor_data
+        mqtt_client.on_state_change = on_state_change
+        mqtt_client.on_event = on_event
 
     def handle_sensor_data(self, device_id: str, sensors: dict[str, float]) -> None:
         """Apply MQTT sensor data to a device and print its state.

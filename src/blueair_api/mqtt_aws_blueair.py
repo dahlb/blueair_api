@@ -26,6 +26,7 @@ from typing import Any
 import uuid
 
 import paho.mqtt.client as mqtt
+from paho.mqtt.enums import CallbackAPIVersion
 
 from .const import AWS_MQTT_BROKERS
 
@@ -225,7 +226,7 @@ class MqttAwsBlueair:
             raise ValueError(f"No MQTT broker configured for region: {self._region}")
 
         client = mqtt.Client(
-            callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+            callback_api_version=CallbackAPIVersion.VERSION2,
             client_id=self._client_id,
             transport="websockets",
         )

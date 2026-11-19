@@ -67,11 +67,12 @@ blueair_api = ["py.typed"]
 python_version = "3.14"
 # Scoped to the library only: the test suite relies heavily on dynamically
 # attaching extra attributes to mock callables (e.g. `.calls`, `.script`),
-# which doesn't type-check without a disproportionate rewrite. mypy isn't
-# run in CI (see lint.yml / prek.toml), so this only affects local `scripts/lint`.
+# which doesn't type-check without a disproportionate rewrite. The Lint
+# workflow's typing job and `scripts/lint` both run mypy over these files.
 files = ["src/blueair_api"]
 mypy_path = "src"
-check_untyped_defs = true
+# Strict mode, matching ha_carrier and carrier_api. It implies check_untyped_defs.
+strict = true
 explicit_package_bases = true
 pretty = true
 show_error_codes = true

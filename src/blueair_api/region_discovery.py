@@ -52,7 +52,7 @@ import asyncio
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from aiohttp import ClientError
 
@@ -74,7 +74,7 @@ _DEFAULT_PER_CANDIDATE_TIMEOUT = 5.0
 # ---------------------------------------------------------------------------
 
 
-def device_state_looks_frozen(initial_payload: dict | None) -> bool:
+def device_state_looks_frozen(initial_payload: dict[str, Any] | None) -> bool:
     """Return whether an ``/r/initial`` payload looks like a wrong-region snapshot.
 
     Returns ``True`` when either:
@@ -241,9 +241,7 @@ async def _probe_candidate(
         async with asyncio.timeout(timeout):
             # /c/login swap (no _LOGGER.info — caller decides what to surface)
             _LOGGER.debug("discover: probing /c/login at %s (%s)", region, rest_id)
-            login_resp = await api.api_session.post(  # type: ignore[union-attr]
-                url=f"{base}/login", headers=headers
-            )
+            login_resp = await api.api_session.post(url=f"{base}/login", headers=headers)
             if login_resp.status != 200:
                 probe.error = f"http {login_resp.status}"
                 _release_response(login_resp)
@@ -266,7 +264,7 @@ async def _probe_candidate(
             probe.cloud_login_ok = True
 
             _LOGGER.debug("discover: probing /c/registered-devices at %s", region)
-            devices_resp = await api.api_session.get(  # type: ignore[union-attr]
+            devices_resp = await api.api_session.get(
                 url=f"{base}/registered-devices",
                 headers={"Authorization": f"Bearer {access_token}"},
             )
@@ -289,7 +287,7 @@ async def _probe_candidate(
                 if not device_id:
                     continue
                 try:
-                    status_resp = await api.api_session.post(  # type: ignore[union-attr]
+                    status_resp = await api.api_session.post(
                         url=f"{base}/device-status",
                         headers={"Authorization": f"Bearer {access_token}"},
                         json={"deviceId": device_id},

@@ -76,8 +76,12 @@ The underlying commands are:
 ```bash
 ./.venv/bin/pytest
 ./.venv/bin/prek run --all-files
-./.venv/bin/mypy .
+./.venv/bin/mypy
 ```
+
+`mypy` runs in strict mode (`strict = true` in `pyproject.toml`) over
+`src/blueair_api`. The Lint workflow runs the same check on every push and pull
+request.
 
 Add or update pytest coverage for behavior changes. Fixture data for device
 info responses lives under `tests/device_info`.
