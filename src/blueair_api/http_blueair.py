@@ -71,7 +71,7 @@ class HttpBlueair:
 
     @request_with_logging
     async def _get_request_with_logging_and_errors_raised(
-        self, url: str, headers: dict | None = None
+        self, url: str, headers: dict[str, str] | None = None
     ) -> ClientResponse:
         return await send_with_timeout(
             self.api_session.get(url=url, headers=headers, timeout=REQUEST_TIMEOUT)
@@ -79,7 +79,7 @@ class HttpBlueair:
 
     @request_with_logging
     async def _post_request_with_logging_and_errors_raised(
-        self, url: str, json_body: dict, headers: dict | None = None
+        self, url: str, json_body: dict[str, Any], headers: dict[str, str] | None = None
     ) -> ClientResponse:
         return await send_with_timeout(
             self.api_session.post(url=url, json=json_body, headers=headers, timeout=REQUEST_TIMEOUT)
@@ -141,7 +141,8 @@ class HttpBlueair:
         response: ClientResponse = await self._get_request_with_logging_and_errors_raised(
             url=url, headers=headers
         )
-        return await response.json()
+        result: list[dict[str, Any]] = await response.json()
+        return result
 
     # Note: refreshes every 5 minutes
     async def get_attributes(self, device_uuid: str) -> dict[str, Any]:
@@ -188,7 +189,8 @@ class HttpBlueair:
         response: ClientResponse = await self._get_request_with_logging_and_errors_raised(
             url=url, headers=headers
         )
-        return await response.json()
+        result: dict[str, Any] = await response.json()
+        return result
 
     # Note: refreshes every 5 minutes, timestamps are in seconds
     async def get_current_data_point(self, device_uuid: str) -> dict[str, Any]:
@@ -209,7 +211,8 @@ class HttpBlueair:
         response: ClientResponse = await self._get_request_with_logging_and_errors_raised(
             url=url, headers=headers
         )
-        return await response.json()
+        result: dict[str, Any] = await response.json()
+        return result
 
     async def get_data_points_since(
         self,
@@ -237,7 +240,8 @@ class HttpBlueair:
         response: ClientResponse = await self._get_request_with_logging_and_errors_raised(
             url=url, headers=headers
         )
-        return await response.json()
+        result: dict[str, Any] = await response.json()
+        return result
 
     async def set_fan_speed(self, device_uuid: str, new_speed: str) -> dict[str, Any]:
         """Set the fan speed.
@@ -266,7 +270,8 @@ class HttpBlueair:
         response: ClientResponse = await self._post_request_with_logging_and_errors_raised(
             url=url, json_body=json_body, headers=headers
         )
-        return await response.json()
+        result: dict[str, Any] = await response.json()
+        return result
 
     async def set_brightness(self, device_uuid: str, new_brightness: int) -> dict[str, Any]:
         """Set the LED brightness."""
@@ -286,7 +291,8 @@ class HttpBlueair:
         response: ClientResponse = await self._post_request_with_logging_and_errors_raised(
             url=url, json_body=json_body, headers=headers
         )
-        return await response.json()
+        result: dict[str, Any] = await response.json()
+        return result
 
     async def set_child_lock(self, device_uuid: str, enabled: bool) -> dict[str, Any]:
         """Enable or disable the child lock."""
@@ -305,7 +311,8 @@ class HttpBlueair:
         response: ClientResponse = await self._post_request_with_logging_and_errors_raised(
             url=url, json_body=json_body, headers=headers
         )
-        return await response.json()
+        result: dict[str, Any] = await response.json()
+        return result
 
     async def set_fan_auto_mode(self, device_uuid: str, auto: bool) -> dict[str, Any]:
         """Enable or disable fan auto mode."""
@@ -324,4 +331,5 @@ class HttpBlueair:
         response: ClientResponse = await self._post_request_with_logging_and_errors_raised(
             url=url, json_body=json_body, headers=headers
         )
-        return await response.json()
+        result: dict[str, Any] = await response.json()
+        return result

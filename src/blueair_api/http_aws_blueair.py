@@ -45,7 +45,7 @@ def request_with_active_session(
     """
 
     @functools.wraps(func)
-    async def request_with_active_session_wrapper(*args: Any, **kwargs: Any) -> ClientResponse:
+    async def request_with_active_session_wrapper(*args: Any, **kwargs: Any) -> Any:
         """Call ``func``, re-authenticating and retrying once on ``SessionError``.
 
         Args:
@@ -70,7 +70,7 @@ def request_with_active_session(
 
 def request_with_errors(
     func: Callable[..., Awaitable[Any]],
-) -> Callable[..., Awaitable[Any]]:
+) -> Callable[..., Awaitable[ClientResponse]]:
     """Inspect a response for Gigya/BlueCloud error payloads and raise accordingly.
 
     The status is the body's ``statusCode`` when present, else the HTTP status.
@@ -314,7 +314,7 @@ class HttpAwsBlueair:
     @request_with_errors
     @request_with_logging
     async def _get_request_with_logging_and_errors_raised(
-        self, url: str, headers: dict | None = None, params: dict | None = None
+        self, url: str, headers: dict[str, str] | None = None, params: dict[str, Any] | None = None
     ) -> ClientResponse:
         return await send_with_timeout(
             self.api_session.get(url=url, headers=headers, params=params, timeout=REQUEST_TIMEOUT)
@@ -325,9 +325,9 @@ class HttpAwsBlueair:
     async def _post_request_with_logging_and_errors_raised(
         self,
         url: str,
-        json_body: dict | None = None,
+        json_body: dict[str, Any] | None = None,
         form_data: FormData | None = None,
-        headers: dict | None = None,
+        headers: dict[str, str] | None = None,
     ) -> ClientResponse:
         return await send_with_timeout(
             self.api_session.post(
@@ -348,7 +348,9 @@ class HttpAwsBlueair:
         form_data.add_field("targetEnv", "mobile")
         return await self._post_request_with_logging_and_errors_raised(url=url, form_data=form_data)
 
-    async def _gigya_accounts_call(self, path: str, reg_token: str, extra_fields: dict) -> dict:
+    async def _gigya_accounts_call(
+        self, path: str, reg_token: str, extra_fields: dict[str, str]
+    ) -> dict[str, Any]:
         url = f"https://{AWS_APIKEYS[self.gigya_region]['gigyaRegion']}/{path}"
         form_data = FormData()
         form_data.add_field("apikey", AWS_APIKEYS[self.gigya_region]["apiKey"])
@@ -358,7 +360,7 @@ class HttpAwsBlueair:
         response: ClientResponse = await self._post_request_with_logging_and_errors_raised(
             url=url, form_data=form_data
         )
-        response_json = await response.json(content_type="text/javascript")
+        response_json: dict[str, Any] = await response.json(content_type="text/javascript")
         if response_json.get("errorCode", 0) != 0:
             raise LoginError(
                 f"{path} failed: {response_json.get('errorCode')} "
@@ -367,7 +369,7 @@ class HttpAwsBlueair:
             )
         return response_json
 
-    async def _complete_pending_registration(self, login_json: dict) -> None:
+    async def _complete_pending_registration(self, login_json: dict[str, Any]) -> None:
         """Finish a Gigya registration that login refused with 206001.
 
         Gigya returns errorCode 206001 ("Account Pending Registration") with a
@@ -576,7 +578,8 @@ class HttpAwsBlueair:
             url=url, headers=headers
         )
         response_json = await response.json()
-        return response_json["devices"]
+        devices: dict[str, Any] = response_json["devices"]
+        return devices
 
     @request_with_active_session
     async def device_sensors(
@@ -632,7 +635,8 @@ class HttpAwsBlueair:
             url=url, headers=headers, json_body=json_body
         )
         response_json = await response.json()
-        return response_json["deviceInfo"][0]
+        device_info: dict[str, Any] = response_json["deviceInfo"][0]
+        return device_info
 
     @request_with_active_session
     async def set_device_info(
