@@ -14,9 +14,10 @@ from __future__ import annotations
 
 from unittest import IsolatedAsyncioTestCase
 
+from aiohttp import ClientError
 import pytest
 
-from blueair_api.errors import LoginError, SessionError
+from blueair_api.errors import LoginError, RateError, ResponseError, ServerError, SessionError
 from blueair_api.http_aws_blueair import request_with_errors
 
 
@@ -52,11 +53,22 @@ class TestNonJsonResponseBody(IsolatedAsyncioTestCase):
         with pytest.raises(SessionError):
             await _wrapped(url="https://example/prod/c/registered-devices", response=response)
 
-    async def test_empty_body_non_login_url_raises_session_error(self) -> None:
+    async def test_empty_body_5xx_raises_retryable_server_error(self) -> None:
         # The observed production failure: a zero-byte body during
-        # refresh_jwt(), surfaced by orjson as a JSONDecodeError.
+        # refresh_jwt(), surfaced by orjson as a JSONDecodeError. With an
+        # HTTP 5xx it is a server error, not a session problem, so it does
+        # not force a re-login; it is still a ClientError callers can retry.
         response = _FakeResponse(
             502, json_exc=ValueError("unexpected character: line 1 column 1 (char 0)")
+        )
+        with pytest.raises(ServerError) as error:
+            await _wrapped(url="https://example/prod/c/registered-devices", response=response)
+        assert isinstance(error.value, ClientError)
+        assert not isinstance(error.value, SessionError)
+
+    async def test_empty_body_non_5xx_raises_session_error(self) -> None:
+        response = _FakeResponse(
+            401, json_exc=ValueError("unexpected character: line 1 column 1 (char 0)")
         )
         with pytest.raises(SessionError):
             await _wrapped(url="https://example/prod/c/registered-devices", response=response)
@@ -92,6 +104,38 @@ class TestExistingClassificationUnaffected(IsolatedAsyncioTestCase):
             await _wrapped(url="https://example/prod/c/registered-devices", response=response)
 
     async def test_unknown_status_code_raises_value_error(self) -> None:
-        response = _FakeResponse(599, {})
-        with pytest.raises(ValueError):
+        response = _FakeResponse(302, {})
+        with pytest.raises(ValueError) as error:
             await _wrapped(url="https://example/prod/c/registered-devices", response=response)
+        assert isinstance(error.value, ResponseError)
+        assert isinstance(error.value, ClientError)
+
+
+class TestRateLimitAndServerErrors(IsolatedAsyncioTestCase):
+    """Rate limits and server errors do not look like expired sessions."""
+
+    async def test_429_raises_rate_error(self) -> None:
+        response = _FakeResponse(429, {"message": "Too Many Requests"})
+        with pytest.raises(RateError) as error:
+            await _wrapped(url="https://example/prod/c/registered-devices", response=response)
+        assert not isinstance(error.value, SessionError)
+
+    async def test_body_status_429_raises_rate_error(self) -> None:
+        response = _FakeResponse(200, {"statusCode": 429})
+        with pytest.raises(RateError):
+            await _wrapped(url="https://example/accounts.login", response=response)
+
+    async def test_5xx_raise_server_error(self) -> None:
+        for status in (500, 502, 503, 599):
+            response = _FakeResponse(status, {"statusCode": status})
+            with pytest.raises(ServerError) as error:
+                await _wrapped(url="https://example/prod/c/registered-devices", response=response)
+            # Still a ValueError, like the unknown-status error it replaces.
+            assert isinstance(error.value, ValueError)
+            assert not isinstance(error.value, SessionError)
+
+    async def test_401_and_403_still_raise_session_error(self) -> None:
+        for status in (401, 403):
+            response = _FakeResponse(status, {"statusCode": status})
+            with pytest.raises(SessionError):
+                await _wrapped(url="https://example/prod/c/registered-devices", response=response)

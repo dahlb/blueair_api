@@ -48,3 +48,42 @@ def test_clean_dictionary_for_logging_handles_header_proxy() -> None:
     headers = CIMultiDictProxy(CIMultiDict({"Username": "u", "Server": "s"}))
     cleaned = clean_dictionary_for_logging(headers)
     assert cleaned == {"Username": "***", "Server": "s"}
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "Authorization",
+        "idtoken",
+        "id_token",
+        "access_token",
+        "refresh_token",
+        "oauth_token",
+        "secret",
+        "regToken",
+        "sessionToken",
+        "sessionSecret",
+        "UIDSignature",
+        "email",
+        "loginID",
+        "X-AUTH-TOKEN",
+        "ba_X-Amz-CustomAuthorizer-Signature",
+        "ba_X-Amz-CustomAuthorizer-Token",
+    ],
+)
+def test_clean_dictionary_for_logging_masks_tokens_and_secrets(key: str) -> None:
+    """Credentials, tokens, session secrets and signatures never reach the logs."""
+    cleaned = clean_dictionary_for_logging({"outer": {key: "value-to-hide"}, "keep": 1})
+
+    assert cleaned == {"outer": {key: "***"}, "keep": 1}
+
+
+def test_clean_dictionary_for_logging_masks_gigya_login_response() -> None:
+    """Mask the session secrets inside a Gigya ``accounts.login`` response."""
+    cleaned = clean_dictionary_for_logging(
+        {"sessionInfo": {"sessionToken": "st", "sessionSecret": "ss", "expires_in": "3600"}}
+    )
+
+    assert cleaned == {
+        "sessionInfo": {"sessionToken": "***", "sessionSecret": "***", "expires_in": "3600"}
+    }

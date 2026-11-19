@@ -1,5 +1,6 @@
 """HTTP client for Blueair's AWS-backed cloud API (Gigya auth + BlueCloud REST)."""
 
+from asyncio import Lock
 import base64
 from collections.abc import Awaitable, Callable, Iterable
 from datetime import UTC, datetime, timedelta
@@ -10,9 +11,9 @@ from typing import TYPE_CHECKING, Any
 
 from aiohttp import ClientResponse, ClientSession, FormData
 
-from .const import AWS_APIKEYS
-from .errors import LoginError, SessionError
-from .util_http import request_with_logging
+from .const import ACCESS_TOKEN_REFRESH_MARGIN_SECONDS, AWS_APIKEYS
+from .errors import LoginError, RateError, ResponseError, ServerError, SessionError
+from .util_http import REQUEST_TIMEOUT, request_with_logging, send_with_timeout
 
 if TYPE_CHECKING:
     from .region_discovery import CloudRegionScan
@@ -30,24 +31,38 @@ GIGYA_ERROR_CODE_PENDING_REGISTRATION = 206001
 def request_with_active_session(
     func: Callable[..., Awaitable[Any]],
 ) -> Callable[..., Awaitable[Any]]:
-    """Retry ``func`` once with cleared session state after a ``SessionError``."""
+    """Retry ``func`` once with cleared session state after a ``SessionError``.
+
+    Only the access token the request used is discarded. If a concurrent
+    request has already replaced it, the new token is kept, so several
+    requests rejected together cause one re-login instead of one each.
+
+    Args:
+        func: An ``HttpAwsBlueair`` method that makes an authenticated request.
+
+    Returns:
+        The wrapped method.
+    """
 
     @functools.wraps(func)
     async def request_with_active_session_wrapper(*args: Any, **kwargs: Any) -> ClientResponse:
+        """Call ``func``, re-authenticating and retrying once on ``SessionError``.
+
+        Args:
+            args: Positional arguments for ``func``; ``args[0]`` is the client.
+            kwargs: Keyword arguments for ``func``.
+
+        Returns:
+            The result of ``func``.
+        """
         _LOGGER.debug("session")
+        self: HttpAwsBlueair = args[0]
+        rejected_access_token = self.access_token
         try:
             return await func(*args, **kwargs)
         except SessionError:
             _LOGGER.debug("got invalid session, attempting to repair and resend")
-            self = args[0]
-            self.session_token = None
-            self.session_secret = None
-            self.access_token = None
-            self.user_id = None
-            self.mqtt_auth_name = None
-            self.mqtt_auth_signature = None
-            self.mqtt_auth_token = None
-            self.jwt = None
+            await self._discard_rejected_session(rejected_access_token)
             return await func(*args, **kwargs)
 
     return request_with_active_session_wrapper
@@ -56,10 +71,46 @@ def request_with_active_session(
 def request_with_errors(
     func: Callable[..., Awaitable[Any]],
 ) -> Callable[..., Awaitable[Any]]:
-    """Inspect a response for Gigya/BlueCloud error payloads and raise accordingly."""
+    """Inspect a response for Gigya/BlueCloud error payloads and raise accordingly.
+
+    The status is the body's ``statusCode`` when present, else the HTTP status.
+
+    * 200 returns the response, as does Gigya's 206 pending-registration
+      answer to ``accounts.login``.
+    * 429 raises ``RateError``.
+    * Other 4xx raise ``LoginError`` for ``accounts.login`` and
+      ``SessionError`` otherwise, which makes ``request_with_active_session``
+      re-authenticate and retry.
+    * 5xx raise ``ServerError``, without discarding the session.
+    * Anything else raises ``ResponseError``.
+    * A body that is not JSON raises ``ServerError`` for an HTTP 5xx and
+      ``SessionError`` otherwise.
+
+    Args:
+        func: The HTTP call to wrap. It must take ``url`` as a keyword argument.
+
+    Returns:
+        The wrapped call.
+    """
 
     @functools.wraps(func)
     async def request_with_errors_wrapper(*args: Any, **kwargs: Any) -> ClientResponse:
+        """Call ``func`` and raise the package error matching its response.
+
+        Args:
+            args: Positional arguments for ``func``.
+            kwargs: Keyword arguments for ``func``, including ``url``.
+
+        Returns:
+            The response, when it reports success.
+
+        Raises:
+            LoginError: If ``accounts.login`` rejects the credentials.
+            RateError: If the API reports a rate limit.
+            ResponseError: If the API answers with an unexpected status.
+            ServerError: If the API fails with a server error.
+            SessionError: If the session is rejected or the body is not JSON.
+        """
         _LOGGER.debug("checking for errors")
         response: ClientResponse = await func(*args, **kwargs)
         status_code = response.status
@@ -69,6 +120,14 @@ def request_with_errors(
                 _LOGGER.debug("response json found, checking status code from response")
                 status_code = response_json["statusCode"]
         except (json.JSONDecodeError, ValueError) as e:
+            if status_code >= 500:
+                _LOGGER.debug(
+                    "response body was not valid JSON (http status %s), "
+                    "treating as a server error: %s",
+                    status_code,
+                    e,
+                )
+                raise ServerError(f"non-JSON response (http status {status_code})") from e
             _LOGGER.debug(
                 "response body was not valid JSON (http status %s), "
                 "treating as a transient session/auth error: %s",
@@ -76,13 +135,13 @@ def request_with_errors(
                 e,
             )
             raise SessionError(f"non-JSON response (http status {status_code})") from e
-        except Exception as e:
-            _LOGGER.error("Error parsing response for errors %s", e)
-            raise
         if status_code == 200:
             _LOGGER.debug("response 200")
             return response
-        if 400 <= status_code <= 500:
+        if status_code == 429:
+            _LOGGER.debug("rate limited, %s", status_code)
+            raise RateError(await response.text())
+        if 400 <= status_code < 500:
             _LOGGER.debug("auth error, %s", status_code)
             url = kwargs["url"]
             response_text = await response.text()
@@ -102,9 +161,38 @@ def request_with_errors(
             _LOGGER.debug("Gigya login returned pending-registration (206)")
             return response
         response_text = await response.text()
-        raise ValueError(f"unknown status code {status_code}: {response_text[:500]}")
+        if 500 <= status_code < 600:
+            _LOGGER.debug("server error, %s", status_code)
+            raise ServerError(f"server error {status_code}: {response_text[:500]}")
+        raise ResponseError(f"unknown status code {status_code}: {response_text[:500]}")
 
     return request_with_errors_wrapper
+
+
+def _refresh_time_from_claims(claims: dict[str, Any]) -> datetime | None:
+    """Return when to refresh an access token, from its decoded JWT claims.
+
+    The token is refreshed ``ACCESS_TOKEN_REFRESH_MARGIN_SECONDS`` before its
+    ``exp`` claim, or halfway through its remaining lifetime when that is
+    shorter, so a short-lived token is not refreshed on every request.
+
+    Args:
+        claims: Decoded JWT payload of the access token.
+
+    Returns:
+        The refresh time, or ``None`` when the token has no usable ``exp``.
+    """
+    exp = claims.get("exp")
+    if isinstance(exp, bool) or not isinstance(exp, int | float):
+        return None
+    now = datetime.now(UTC)
+    try:
+        expires_at = datetime.fromtimestamp(exp, UTC)
+    except OverflowError, OSError, ValueError:
+        return None
+    remaining = (expires_at - now).total_seconds()
+    margin = min(ACCESS_TOKEN_REFRESH_MARGIN_SECONDS, max(remaining, 0) / 2)
+    return expires_at - timedelta(seconds=margin)
 
 
 class HttpAwsBlueair:
@@ -136,6 +224,10 @@ class HttpAwsBlueair:
             Optional override for the Gigya account-auth region
             (controls ``accounts.login`` / ``accounts.getJWT`` host and
             the Gigya partner API key).  Defaults to ``region``.
+        client_session
+            Optional aiohttp session to reuse.  A session passed in belongs
+            to the caller: ``cleanup_client_session`` leaves it open.  A new
+            session is created when omitted.
         cloud_region
             Optional override for the BlueCloud REST + MQTT region
             (controls ``execute-api`` host and ``iot.amazonaws.com``
@@ -173,13 +265,27 @@ class HttpAwsBlueair:
 
         self.jwt = None
 
+        # When to refresh the access token, from its ``exp`` claim. ``None``
+        # means the token carries no expiry and is kept until rejected.
+        self.access_token_refresh_at: datetime | None = None
+        # Serializes re-authentication so concurrent requests log in once.
+        self._auth_lock = Lock()
+
+        self._owns_session = client_session is None
         if client_session is None:
             self.api_session = ClientSession(raise_for_status=False)
         else:
             self.api_session = client_session
 
     async def cleanup_client_session(self) -> None:
-        """Close the underlying HTTP client session."""
+        """Close the HTTP client session if this client created it.
+
+        A session passed in as ``client_session`` belongs to the caller and is
+        left open.
+        """
+        if not self._owns_session:
+            _LOGGER.debug("Leaving caller-provided aiohttp session open")
+            return
         await self.api_session.close()
 
     @property
@@ -210,7 +316,9 @@ class HttpAwsBlueair:
     async def _get_request_with_logging_and_errors_raised(
         self, url: str, headers: dict | None = None, params: dict | None = None
     ) -> ClientResponse:
-        return await self.api_session.get(url=url, headers=headers, params=params)
+        return await send_with_timeout(
+            self.api_session.get(url=url, headers=headers, params=params, timeout=REQUEST_TIMEOUT)
+        )
 
     @request_with_errors
     @request_with_logging
@@ -221,7 +329,15 @@ class HttpAwsBlueair:
         form_data: FormData | None = None,
         headers: dict | None = None,
     ) -> ClientResponse:
-        return await self.api_session.post(url=url, data=form_data, json=json_body, headers=headers)
+        return await send_with_timeout(
+            self.api_session.post(
+                url=url,
+                data=form_data,
+                json=json_body,
+                headers=headers,
+                timeout=REQUEST_TIMEOUT,
+            )
+        )
 
     async def _accounts_login(self) -> ClientResponse:
         url = f"https://{AWS_APIKEYS[self.gigya_region]['gigyaRegion']}/accounts.login"
@@ -313,7 +429,57 @@ class HttpAwsBlueair:
         self.jwt = response_json["id_token"]
 
     async def refresh_access_token(self) -> None:
-        """Re-authenticate from scratch and store the new BlueCloud access token."""
+        """Re-authenticate from scratch and store the new BlueCloud access token.
+
+        Serialized with every other re-authentication by this client, so a
+        call made while another refresh is running waits for it first.
+        """
+        async with self._auth_lock:
+            await self._refresh_access_token_unlocked()
+
+    def _access_token_is_usable(self) -> bool:
+        """Return whether the cached access token can be used for a request.
+
+        Returns:
+            ``True`` when a token is cached and its refresh time, if known,
+            has not been reached.
+        """
+        if self.access_token is None:
+            return False
+        refresh_at = self.access_token_refresh_at
+        return refresh_at is None or datetime.now(UTC) < refresh_at
+
+    def _clear_auth_state(self) -> None:
+        """Forget every cached credential so the next request logs in again."""
+        self.session_token = None
+        self.session_secret = None
+        self.access_token = None
+        self.access_token_refresh_at = None
+        self.user_id = None
+        self.mqtt_auth_name = None
+        self.mqtt_auth_signature = None
+        self.mqtt_auth_token = None
+        self.jwt = None
+
+    async def _discard_rejected_session(self, rejected_access_token: str | None) -> None:
+        """Clear cached credentials after the API rejected ``rejected_access_token``.
+
+        If another request has already replaced that token, the newer one is
+        kept. When the rejected request had no token cached when it started,
+        the state is cleared unconditionally, as before this check existed.
+
+        Args:
+            rejected_access_token: Access token cached when the rejected
+                request started.
+        """
+        async with self._auth_lock:
+            if rejected_access_token is None or self.access_token == rejected_access_token:
+                self._clear_auth_state()
+            else:
+                _LOGGER.debug("access token already replaced by a concurrent refresh")
+
+    async def _refresh_access_token_unlocked(self) -> None:
+        """Re-authenticate and store new tokens; the caller holds ``_auth_lock``."""
         _LOGGER.debug("refresh_access_token")
         # Always do a full re-authentication from scratch.
         # The JWT from Gigya has a very short lifetime (~5 minutes) and cannot
@@ -343,6 +509,7 @@ class HttpAwsBlueair:
                 "MQTT real-time updates will not be available"
             )
         # Extract the username claim from the JWT to use as userId in API paths
+        claims: dict[str, Any] = {}
         try:
             if self.access_token is None:
                 raise ValueError("no access_token to extract user_id from")
@@ -355,20 +522,44 @@ class HttpAwsBlueair:
         except (IndexError, ValueError) as e:
             _LOGGER.warning("Failed to extract user_id from access_token JWT: %s", e)
             self.user_id = None
+        self.access_token_refresh_at = _refresh_time_from_claims(claims)
 
     async def get_user_id(self) -> str:
-        """Return the cached user ID, refreshing the access token if needed."""
+        """Return the cached user ID, refreshing the access token if needed.
+
+        Concurrent callers share one refresh.
+
+        Returns:
+            The user ID from the access token's ``username`` claim.
+
+        Raises:
+            SessionError: If no user ID is available after refreshing.
+        """
         if self.user_id is None:
-            await self.refresh_access_token()
+            async with self._auth_lock:
+                if self.user_id is None:
+                    await self._refresh_access_token_unlocked()
         if self.user_id is None:
             raise SessionError("user_id was not available after refresh_access_token")
         return self.user_id
 
     async def get_access_token(self) -> str:
-        """Return the cached access token, refreshing it if needed."""
+        """Return the cached access token, refreshing it if needed.
+
+        The token is refreshed when missing or close to its ``exp`` claim.
+        Concurrent callers share one refresh.
+
+        Returns:
+            A BlueCloud access token.
+
+        Raises:
+            SessionError: If no access token is available after refreshing.
+        """
         _LOGGER.debug("get_access_token")
-        if self.access_token is None:
-            await self.refresh_access_token()
+        if not self._access_token_is_usable():
+            async with self._auth_lock:
+                if not self._access_token_is_usable():
+                    await self._refresh_access_token_unlocked()
         if self.access_token is None:
             raise SessionError("access_token was not available after refresh_access_token")
         return self.access_token

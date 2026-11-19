@@ -32,6 +32,27 @@ a lot of this is based on [hass-blueair](https://github.com/aijayadams/hass-blue
   `fan_speed_count` adapt automatically based on the device's hardware
   identifier.
 
+## Sessions, Authentication and Errors
+
+- **Shared aiohttp sessions** — pass `client_session` to reuse an existing
+  session, such as Home Assistant's. `cleanup_client_session()` only closes a
+  session the client created itself; a session you pass in is left open for
+  its owner to close.
+- **Re-authentication** — concurrent requests share one login. The BlueCloud
+  access token is refreshed shortly before the `exp` claim in the token, and
+  a request rejected with an expired session re-authenticates and retries
+  once.
+- **Errors** — every error is a `BaseError`, which is an aiohttp `ClientError`:
+  - `LoginError` / `SessionError` (both `AuthError`): rejected credentials or
+    session.
+  - `RateError`: HTTP 429 rate limit.
+  - `ServerError`: HTTP 5xx; does not discard the session.
+  - `ResponseError`: any other unexpected status; also a `ValueError`.
+  - `RequestTimeoutError`: a request took longer than 20 seconds; also a
+    `TimeoutError`.
+- **Debug logging** — request and response logs mask credentials, tokens,
+  session secrets, signatures and email addresses.
+
 ## Development
 
 Clone this repository and install the development environment:
