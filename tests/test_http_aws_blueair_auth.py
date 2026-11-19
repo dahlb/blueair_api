@@ -195,9 +195,7 @@ def test_refresh_time_uses_the_margin_for_long_lived_tokens() -> None:
     refresh_at = _refresh_time_from_claims({"exp": expires_at.timestamp()})
 
     assert refresh_at is not None
-    assert abs(
-        (expires_at - refresh_at).total_seconds() - ACCESS_TOKEN_REFRESH_MARGIN_SECONDS
-    ) < 1
+    assert abs((expires_at - refresh_at).total_seconds() - ACCESS_TOKEN_REFRESH_MARGIN_SECONDS) < 1
 
 
 def test_refresh_time_halves_the_lifetime_of_short_lived_tokens() -> None:
@@ -272,10 +270,13 @@ async def test_refresh_access_token_reads_exp_from_the_access_token() -> None:
 
     assert client.user_id == "user-1"
     assert client.access_token_refresh_at is not None
-    assert abs(
-        (expires_at - client.access_token_refresh_at).total_seconds()
-        - ACCESS_TOKEN_REFRESH_MARGIN_SECONDS
-    ) < 1
+    assert (
+        abs(
+            (expires_at - client.access_token_refresh_at).total_seconds()
+            - ACCESS_TOKEN_REFRESH_MARGIN_SECONDS
+        )
+        < 1
+    )
 
 
 @pytest.mark.parametrize("client_class", [HttpAwsBlueair, HttpBlueair])
