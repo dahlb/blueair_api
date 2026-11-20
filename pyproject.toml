@@ -78,12 +78,6 @@ pretty = true
 show_error_codes = true
 warn_unused_configs = true
 
-[[tool.mypy.overrides]]
-module = [
-    "paho.*",
-]
-ignore_missing_imports = true
-
 [tool.ruff]
 line-length = 100
 indent-width = 4

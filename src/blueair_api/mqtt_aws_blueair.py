@@ -28,7 +28,7 @@ import uuid
 import paho.mqtt.client as mqtt
 from paho.mqtt.enums import CallbackAPIVersion
 
-from .const import AWS_MQTT_BROKERS
+from .const import AWS_MQTT_BROKERS, MQTT_CREDENTIAL_REFRESH_TIMEOUT_SECONDS
 
 _LOGGER = getLogger(__name__)
 
@@ -274,6 +274,14 @@ class MqttAwsBlueair:
         creates a new socket.  We bridge into the async event loop to
         call the credential refresher so that ``_get_ws_headers`` will
         return fresh tokens for the upcoming WebSocket handshake.
+
+        The wait is bounded by ``MQTT_CREDENTIAL_REFRESH_TIMEOUT_SECONDS``,
+        long enough for a full re-authentication. A refresh that runs past it
+        is cancelled, and the attempt goes ahead with the previous tokens.
+
+        Args:
+            client: The paho client about to connect.
+            userdata: paho user data (unused).
         """
         _LOGGER.info("MQTT pre-connect: preparing for connection attempt")
         if not self.credential_refresher or not self._event_loop:
@@ -285,11 +293,29 @@ class MqttAwsBlueair:
             future: concurrent.futures.Future[tuple[str, str, str]] = (
                 asyncio.run_coroutine_threadsafe(self.credential_refresher(), self._event_loop)
             )
-            new_name, new_sig, new_token = future.result(timeout=30)
+            new_name, new_sig, new_token = future.result(
+                timeout=MQTT_CREDENTIAL_REFRESH_TIMEOUT_SECONDS
+            )
             self._mqtt_auth_name = new_name
             self._mqtt_auth_signature = new_sig
             self._mqtt_auth_token = new_token
             _LOGGER.info("MQTT credentials refreshed successfully via on_pre_connect")
+        except TimeoutError:
+            # A refresher that itself raised a TimeoutError (for example a
+            # RequestTimeoutError) has finished; only an unfinished one ran
+            # past the wait.
+            if future.done():
+                _LOGGER.exception(
+                    "Failed to refresh MQTT credentials in on_pre_connect; "
+                    "will attempt reconnect with previous (possibly stale) tokens"
+                )
+                return
+            future.cancel()
+            _LOGGER.warning(
+                "MQTT credential refresh did not finish within %s seconds; "
+                "will attempt reconnect with previous (possibly stale) tokens",
+                MQTT_CREDENTIAL_REFRESH_TIMEOUT_SECONDS,
+            )
         except Exception:
             _LOGGER.exception(
                 "Failed to refresh MQTT credentials in on_pre_connect; "
