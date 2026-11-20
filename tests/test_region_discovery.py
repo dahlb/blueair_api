@@ -27,6 +27,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 import logging
+from typing import Any, cast
 from unittest import IsolatedAsyncioTestCase
 
 import pytest
@@ -39,7 +40,7 @@ from blueair_api.region_discovery import device_state_looks_frozen, discover_clo
 # ---------------------------------------------------------------------------
 
 
-def _states(rows: list[dict]) -> dict:
+def _states(rows: list[Any]) -> dict[str, Any]:
     return {"states": rows}
 
 
@@ -169,7 +170,7 @@ class _FakeResponse:
         self._body = body
         self._json_exc = json_exc
 
-    async def json(self):
+    async def json(self) -> Any:
         if self._json_exc is not None:
             raise self._json_exc
         return self._body
@@ -217,15 +218,21 @@ class _FakeSession:
         if isinstance(entry, type) and issubclass(entry, BaseException):
             raise entry()
         if callable(entry):
-            return entry(path)
+            built: _FakeResponse = entry(path)
+            return built
         # Otherwise: list[_FakeResponse], consumed in order.
         assert isinstance(entry, list) and entry, f"empty queue for {region}"
-        return entry.pop(0)
+        queued: _FakeResponse = entry.pop(0)
+        return queued
 
-    async def post(self, *, url: str, headers=None, **kwargs):
+    async def post(
+        self, *, url: str, headers: dict[str, str] | None = None, **kwargs: Any
+    ) -> _FakeResponse:
         return await self._next_response(url)
 
-    async def get(self, *, url: str, headers=None, **kwargs):
+    async def get(
+        self, *, url: str, headers: dict[str, str] | None = None, **kwargs: Any
+    ) -> _FakeResponse:
         return await self._next_response(url)
 
 
@@ -389,11 +396,8 @@ class DiscoveryTest(IsolatedAsyncioTestCase):
         )
         scan = await discover_cloud_region(client, candidates=["us", "eu", "cn"])
         assert scan.candidates_tried[0] == "eu"
-        first_login = next(
-            call
-            for call in client.api_session.calls
-            if call[1] == "login"  # type: ignore[attr-defined]
-        )
+        session = cast("_FakeSession", client.api_session)
+        first_login = next(call for call in session.calls if call[1] == "login")
         assert first_login[0] == "eu"
 
     async def test_does_not_mutate_client_state(self) -> None:
@@ -443,7 +447,7 @@ class DiscoveryTest(IsolatedAsyncioTestCase):
         assert refresh_calls == ["refresh_jwt"]
         assert scan.winner == "us"
 
-    async def test_multi_region_warning_is_logged(self, caplog=None) -> None:
+    async def test_multi_region_warning_is_logged(self, caplog: object = None) -> None:
         # IsolatedAsyncioTestCase doesn't ship pytest's caplog fixture;
         # capture via assertLogs instead.
         client = _make_client(

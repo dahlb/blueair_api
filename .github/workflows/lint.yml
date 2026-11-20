@@ -38,11 +38,12 @@ jobs:
           cache-dependency-path: |
             pyproject.toml
 
+      # The dev group adds pytest to the lint tools, since mypy also checks tests.
       - name: Install lint requirements
         run: |
           python -m pip install --upgrade pip
-          pip install --group lint -e .
+          pip install --group dev -e .
 
       - name: Run mypy
-        # Checks src/blueair_api with strict = true from pyproject.toml.
+        # Checks src/blueair_api and tests with strict = true from pyproject.toml.
         run: mypy

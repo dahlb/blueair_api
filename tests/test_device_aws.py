@@ -11,17 +11,35 @@ Then use pytest to drive the tests
     $ pytest tests
 """
 
+from collections.abc import Iterator
 import contextlib
 import dataclasses
 from importlib import resources
 import json
 import typing
-from typing import Any
+from typing import Any, cast
 from unittest import IsolatedAsyncioTestCase, TestCase, mock
+
+import pytest
 
 from blueair_api import intermediate_representation_aws as ir
 from blueair_api.device_aws import AttributeType, DeviceAws
 from blueair_api.sku_map import UNKNOWN_MODEL
+
+
+def query_dict(info: dict[str, Any], path: str) -> dict[str, Any]:
+    """Return the JSON object at ``path`` in a device info fixture.
+
+    Args:
+        info: Device info payload.
+        path: Dotted path to an object inside it.
+
+    Returns:
+        The object at ``path``, which tests may read and change.
+    """
+    value = ir.query_json(info, path)
+    assert isinstance(value, dict)
+    return cast("dict[str, Any]", value)
 
 
 class FakeDeviceInfoHelper:
@@ -30,10 +48,12 @@ class FakeDeviceInfoHelper:
     def __init__(self, info: dict[str, Any]) -> None:
         self.info = info
 
-    async def device_info(self, *args, **kwargs):
+    async def device_info(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         return self.info
 
-    async def set_device_info(self, device_uuid, service_name, action_verb, action_value) -> None:
+    async def set_device_info(
+        self, device_uuid: str, service_name: str, action_verb: str, action_value: Any
+    ) -> None:
         # this function seems to be only updating the states consider rename the method.
         # action_verb seems to be a type annotation:
         # c.f. senml: https://www.rfc-editor.org/rfc/rfc8428.html#section-5
@@ -54,8 +74,8 @@ class AssertFullyCheckedHelper:
 
     def __init__(self, device: DeviceAws) -> None:
         self.device = device
-        self.logs = []
-        self.fields = set()
+        self.logs: list[str] = []
+        self.fields: set[str] = set()
         for field in dataclasses.fields(self.device):
             if typing.get_origin(field.type) is AttributeType:
                 self.fields.add(field.name)
@@ -67,7 +87,7 @@ class AssertFullyCheckedHelper:
 
 
 @contextlib.contextmanager
-def assert_fully_checked(device):
+def assert_fully_checked(device: DeviceAws) -> Iterator[AssertFullyCheckedHelper]:
     helper = AssertFullyCheckedHelper(device)
     yield helper
     assert set(helper.logs) == helper.fields
@@ -103,9 +123,11 @@ class DeviceAwsTestBase(IsolatedAsyncioTestCase):
             }
         )
 
-        self.device_sensor_helper = {"mock_data": [{"datapoints": [], "sensors": []}]}
+        self.device_sensor_helper: dict[str, list[dict[str, Any]]] = {
+            "mock_data": [{"datapoints": [], "sensors": []}]
+        }
 
-        async def fake_sensors(device_name, device_uuid):
+        async def fake_sensors(device_name: str, device_uuid: str) -> list[dict[str, Any]]:
             return self.device_sensor_helper["mock_data"]
 
         self.api.device_sensors.side_effect = fake_sensors
@@ -120,7 +142,7 @@ class DeviceAwsSetterTest(DeviceAwsTestBase):
         super().setUp()
         # minimally populate dc to define the states.
         fake = {"n": "n", "v": 0}
-        ir.query_json(self.device_info_helper.info, "configuration.dc").update(
+        query_dict(self.device_info_helper.info, "configuration.dc").update(
             {
                 "brightness": fake,
                 "fanspeed": fake,
@@ -1393,7 +1415,7 @@ class OnlineStateTest(DeviceAwsTestBase):
     def setUp(self) -> None:
         super().setUp()
         fake = {"n": "n", "v": 0}
-        ir.query_json(self.device_info_helper.info, "configuration.dc").update(
+        query_dict(self.device_info_helper.info, "configuration.dc").update(
             {
                 "standby": fake,
                 "fanspeed": fake,
@@ -1439,19 +1461,19 @@ class ModelNameTest(DeviceAwsTestBase):
 
     async def test_known_sku_from_dict(self) -> None:
         """SKU in the dict returns the human-readable name."""
-        ir.query_json(self.device_info_helper.info, "configuration.di")["sku"] = "111582"
+        query_dict(self.device_info_helper.info, "configuration.di")["sku"] = "111582"
         await self.device.refresh()
         assert self.device.model_name == "Blueair Blue Pure 511i Max"
 
     async def test_another_known_sku(self) -> None:
         """Another SKU in the dict returns the correct name."""
-        ir.query_json(self.device_info_helper.info, "configuration.di")["sku"] = "110829"
+        query_dict(self.device_info_helper.info, "configuration.di")["sku"] = "110829"
         await self.device.refresh()
         assert self.device.model_name == "Blueair Blue Pure 311i Max"
 
     async def test_unknown_sku(self) -> None:
         """Completely unknown SKU falls back to 'Unknown (sku)'."""
-        ir.query_json(self.device_info_helper.info, "configuration.di")["sku"] = "999999"
+        query_dict(self.device_info_helper.info, "configuration.di")["sku"] = "999999"
         await self.device.refresh()
         assert self.device.model_name == f"{UNKNOWN_MODEL} (999999)"
 
@@ -1467,7 +1489,7 @@ class ModelNameTest(DeviceAwsTestBase):
         preset support depends on correct SKU resolution so the device
         appears as a Signature device in HA's device registry.
         """
-        ir.query_json(self.device_info_helper.info, "configuration.di")["sku"] = "112936"
+        query_dict(self.device_info_helper.info, "configuration.di")["sku"] = "112936"
         await self.device.refresh()
         assert self.device.model_name == "Blueair Blue Signature SP4i"
 
@@ -1522,7 +1544,7 @@ class MqttSensorSlugsTest(DeviceAwsTestBase):
     """Tests that mqtt_sensor_slugs is populated from rt5s.sn."""
 
     async def test_slugs_populated_from_rt5s(self) -> None:
-        ir.query_json(self.device_info_helper.info, "configuration.ds")["rt5s"] = {
+        query_dict(self.device_info_helper.info, "configuration.ds")["rt5s"] = {
             "sn": ["pm2_5", "fsp0", "rssi", "pm1", "pm10"],
             "tn": "d/fake-uuid/s/5s",
             "ttl": 1200,
@@ -1540,7 +1562,7 @@ class MqttSensorSlugsTest(DeviceAwsTestBase):
         assert self.device.mqtt_sensor_slugs == []
 
     async def test_humidifier_slugs(self) -> None:
-        ir.query_json(self.device_info_helper.info, "configuration.ds")["rt5s"] = {
+        query_dict(self.device_info_helper.info, "configuration.ds")["rt5s"] = {
             "sn": ["t", "h", "rssi"],
             "tn": "d/fake-uuid/s/5s",
             "ttl": -1,
@@ -1562,7 +1584,7 @@ class MqttSensorSlugsTest(DeviceAwsTestBase):
         here.  This test covers the path where parse_json succeeds but
         the rt5s.sn array is missing or the wrong type.
         """
-        ds = ir.query_json(self.device_info_helper.info, "configuration.ds")
+        ds = query_dict(self.device_info_helper.info, "configuration.ds")
         well_formed_envelope = {
             "tn": "d/fake-uuid/s/5s",
             "ttl": -1,
@@ -1639,7 +1661,9 @@ class ApplySensorDataTest(DeviceAwsTestBase):
         """Non-numeric sensor value is logged and the rest of the batch lands."""
         await self.device.refresh()
         with self.assertLogs("blueair_api.device_aws", level="WARNING") as cm:
-            self.device.apply_sensor_data({"pm2_5": "not-a-number", "pm1": 5.0})
+            # Deliberately the wrong type: MQTT payloads are not validated upstream.
+            bad_sensors = cast("dict[str, float]", {"pm2_5": "not-a-number", "pm1": 5.0})
+            self.device.apply_sensor_data(bad_sensors)
         # Bad value skipped, good value applied.
         assert self.device.pm1 == 5
         assert any("pm2_5" in m for m in cm.output)
@@ -1696,7 +1720,7 @@ class ApplyStateChangeTest(DeviceAwsTestBase):
 
     async def test_humidifier_fan_speed_remapped(self) -> None:
         """Humidifier devices remap raw fan speed 11/37/64 → 1/2/3."""
-        ir.query_json(self.device_info_helper.info, "configuration.di")["hw"] = "hum2_l"
+        query_dict(self.device_info_helper.info, "configuration.di")["hw"] = "hum2_l"
         await self.device.refresh()
 
         self.device.apply_state_change({"fanspeed": 11})
@@ -1709,7 +1733,7 @@ class ApplyStateChangeTest(DeviceAwsTestBase):
         assert self.device.fan_speed == 3
 
     async def test_non_humidifier_fan_speed_not_remapped(self) -> None:
-        ir.query_json(self.device_info_helper.info, "configuration.di")["hw"] = "nb_h_1.0"
+        query_dict(self.device_info_helper.info, "configuration.di")["hw"] = "nb_h_1.0"
         await self.device.refresh()
         self.device.apply_state_change({"fanspeed": 37})
         assert self.device.fan_speed == 37
@@ -1810,7 +1834,7 @@ class MiniRestfulSetterTest(DeviceAwsTestBase):
         super().setUp()
         # Populate dc so refresh() will read the states back.
         fake = {"n": "n", "v": 0}
-        ir.query_json(self.device_info_helper.info, "configuration.dc").update(
+        query_dict(self.device_info_helper.info, "configuration.dc").update(
             {
                 "nlstepless": fake,
                 "timdur": fake,
@@ -1847,3 +1871,17 @@ class MiniRestfulSetterTest(DeviceAwsTestBase):
         self.device.hour_format = None
         await self.device.refresh()
         assert self.device.hour_format is False
+
+
+class DeviceAwsIdentityTest(TestCase):
+    """The identity fields from the registered-devices list are required strings."""
+
+    def test_identity_fields_are_required(self) -> None:
+        api = mock.MagicMock()
+        with pytest.raises(TypeError):
+            DeviceAws(api)  # type: ignore[call-arg]
+
+    def test_name_stays_optional_until_refresh(self) -> None:
+        device = DeviceAws(mock.MagicMock(), uuid="u", name_api="n", mac="m", type_name="t")
+        assert device.uuid == "u"
+        assert device.name is None

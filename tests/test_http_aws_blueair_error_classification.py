@@ -12,9 +12,10 @@ instead of a transient, retryable one.
 
 from __future__ import annotations
 
+from typing import cast
 from unittest import IsolatedAsyncioTestCase
 
-from aiohttp import ClientError
+from aiohttp import ClientError, ClientResponse
 import pytest
 
 from blueair_api.errors import LoginError, RateError, ResponseError, ServerError, SessionError
@@ -31,7 +32,7 @@ class _FakeResponse:
         self._body = body
         self._json_exc = json_exc
 
-    async def json(self, content_type=None):
+    async def json(self, content_type: str | None = None) -> object:
         if self._json_exc is not None:
             raise self._json_exc
         return self._body
@@ -41,8 +42,8 @@ class _FakeResponse:
 
 
 @request_with_errors
-async def _wrapped(*, url: str, response: _FakeResponse) -> _FakeResponse:
-    return response
+async def _wrapped(*, url: str, response: _FakeResponse) -> ClientResponse:
+    return cast("ClientResponse", response)
 
 
 class TestNonJsonResponseBody(IsolatedAsyncioTestCase):
@@ -91,7 +92,7 @@ class TestExistingClassificationUnaffected(IsolatedAsyncioTestCase):
     async def test_200_with_valid_json_returns_response(self) -> None:
         response = _FakeResponse(200, {"ok": True})
         result = await _wrapped(url="https://example/prod/c/registered-devices", response=response)
-        assert result is response
+        assert cast("object", result) is response
 
     async def test_400_login_url_raises_login_error(self) -> None:
         response = _FakeResponse(400, {"error": "bad credentials"})

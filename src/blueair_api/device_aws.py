@@ -182,11 +182,14 @@ class DeviceAws(CallbacksMixin):
     raw_info: dict[str, Any] = field(repr=False, init=False)
     raw_sensors: list[dict[str, Any]] | None = field(repr=False, init=False)
 
-    uuid: str | None = None
+    # Identity from the registered-devices list; ``create_device`` always sets
+    # these. Keyword-only so they can be required without reordering fields.
+    uuid: str = field(kw_only=True)
+    name_api: str = field(kw_only=True)
+    mac: str = field(kw_only=True)
+    type_name: str = field(kw_only=True)
+    # Display name from the device's own configuration; set by ``refresh``.
     name: str | None = None
-    name_api: str | None = None
-    mac: str | None = None
-    type_name: str | None = None
 
     # Attributes are defined below.
     # We mandate that unittests shall test all fields of AttributeType.

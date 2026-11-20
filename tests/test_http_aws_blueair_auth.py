@@ -103,7 +103,7 @@ async def test_requests_rejected_together_re_login_once() -> None:
     rejected_once: set[int] = set()
 
     @request_with_active_session
-    async def request(self: CountingClient, number: int) -> str:
+    async def request(self: HttpAwsBlueair, number: int) -> str:
         """Reject the first attempt made with ``token-1``.
 
         Args:

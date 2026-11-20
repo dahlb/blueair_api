@@ -80,7 +80,7 @@ The underlying commands are:
 ```
 
 `mypy` runs in strict mode (`strict = true` in `pyproject.toml`) over
-`src/blueair_api`. The Lint workflow runs the same check on every push and pull
+`src/blueair_api` and `tests`. The Lint workflow runs the same check on every push and pull
 request.
 
 Add or update pytest coverage for behavior changes. Fixture data for device

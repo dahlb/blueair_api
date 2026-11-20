@@ -145,7 +145,7 @@ class SensorPackTest(TestCase):
 
     def test_vj_alarm_dict(self) -> None:
         """Alarm fields with vj=dict should skip the dict and not crash."""
-        alarm_obj = {
+        alarm_obj: ir.MappingType = {
             "n": "Alarm",
             "e": True,
             "t": 25200,

@@ -8,7 +8,7 @@ with credential refresh via paho's on_pre_connect hook.
 import asyncio
 import json
 import threading
-from typing import Never
+from typing import Any, Never
 from unittest import TestCase, mock
 
 import pytest
@@ -21,7 +21,7 @@ FAKE_DEVICE_UUID = "14ad6685-408a-4aa2-a923-a561e0872cc4"
 FAKE_USER_ID = "52da8f11-6303-45bb-a06f-658b0a126917"
 
 
-def make_mqtt_client(**kwargs):
+def make_mqtt_client(**kwargs: Any) -> MqttAwsBlueair:
     return MqttAwsBlueair(
         region="us",
         mqtt_auth_name="custom-authorizer",
@@ -32,7 +32,7 @@ def make_mqtt_client(**kwargs):
     )
 
 
-def make_mqtt_message(topic: str, payload: dict | list) -> mock.MagicMock:
+def make_mqtt_message(topic: str, payload: dict[str, Any] | list[Any]) -> mock.MagicMock:
     msg = mock.MagicMock()
     msg.topic = topic
     msg.payload = json.dumps(payload).encode()
@@ -267,7 +267,7 @@ class TestDisconnectReconnect(TestCase):
         loop_thread.start()
         client._event_loop = loop
 
-        async def fake_refresh():
+        async def fake_refresh() -> tuple[str, str, str]:
             return ("new-name", "new-sig", "new-token")
 
         client.credential_refresher = fake_refresh
@@ -322,7 +322,7 @@ class TestDisconnectReconnect(TestCase):
         client = make_mqtt_client()
         client._event_loop = None
 
-        async def fake_refresh():
+        async def fake_refresh() -> tuple[str, str, str]:
             return ("n", "s", "t")
 
         client.credential_refresher = fake_refresh
@@ -528,7 +528,7 @@ class TestEndToEndCredentialRefresh(TestCase):
         loop_thread.start()
         client._event_loop = loop
 
-        async def fake_refresh():
+        async def fake_refresh() -> tuple[str, str, str]:
             return ("refreshed-name", "refreshed-sig", "refreshed-token")
 
         client.credential_refresher = fake_refresh
@@ -582,7 +582,7 @@ class TestConnectDisconnect(TestCase):
     """Tests for connect() and disconnect() methods."""
 
     @mock.patch("blueair_api.mqtt_aws_blueair.mqtt.Client")
-    def test_connect_stores_event_loop(self, MockClient) -> None:
+    def test_connect_stores_event_loop(self, MockClient: mock.MagicMock) -> None:
         """connect() should store the event_loop for on_pre_connect."""
         client = make_mqtt_client()
         fake_loop = mock.MagicMock()
@@ -590,7 +590,7 @@ class TestConnectDisconnect(TestCase):
         assert client._event_loop is fake_loop
 
     @mock.patch("blueair_api.mqtt_aws_blueair.mqtt.Client")
-    def test_connect_calls_paho_connect_and_loop_start(self, MockClient) -> None:
+    def test_connect_calls_paho_connect_and_loop_start(self, MockClient: mock.MagicMock) -> None:
         """connect() should call paho's connect() and loop_start()."""
         mock_paho = MockClient.return_value
         client = make_mqtt_client()
@@ -599,7 +599,9 @@ class TestConnectDisconnect(TestCase):
         mock_paho.loop_start.assert_called_once()
 
     @mock.patch("blueair_api.mqtt_aws_blueair.mqtt.Client")
-    def test_disconnect_calls_paho_loop_stop_and_disconnect(self, MockClient) -> None:
+    def test_disconnect_calls_paho_loop_stop_and_disconnect(
+        self, MockClient: mock.MagicMock
+    ) -> None:
         """disconnect() should call loop_stop() and disconnect() on paho."""
         mock_paho = MockClient.return_value
         client = make_mqtt_client()

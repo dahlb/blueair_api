@@ -18,13 +18,15 @@ constructed URLs.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from blueair_api.const import AWS_APIKEYS
 from blueair_api.http_aws_blueair import HttpAwsBlueair
 
 
-def _make(**kwargs) -> HttpAwsBlueair:
+def _make(**kwargs: Any) -> HttpAwsBlueair:
     """Build a client without opening a real aiohttp session.
 
     We pass a sentinel ``client_session`` to avoid the default

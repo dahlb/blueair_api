@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 import functools
 import json
 from logging import getLogger
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Concatenate
 
 from aiohttp import ClientResponse, ClientSession, FormData
 
@@ -28,9 +28,9 @@ GIGYA_STATUS_CODE_PENDING_REGISTRATION = 206
 GIGYA_ERROR_CODE_PENDING_REGISTRATION = 206001
 
 
-def request_with_active_session[R](
-    func: Callable[..., Awaitable[R]],
-) -> Callable[..., Awaitable[R]]:
+def request_with_active_session[**P, R](
+    func: Callable[Concatenate[HttpAwsBlueair, P], Awaitable[R]],
+) -> Callable[Concatenate[HttpAwsBlueair, P], Awaitable[R]]:
     """Retry ``func`` once with cleared session state after a ``SessionError``.
 
     Only the access token the request used is discarded. If a concurrent
@@ -41,14 +41,12 @@ def request_with_active_session[R](
         func: An ``HttpAwsBlueair`` method that makes an authenticated request.
 
     Returns:
-        The wrapped method. It keeps ``func``'s return type; its arguments
-        are not checked against ``func``'s, because ``DeviceAws`` passes
-        ``str | None`` identifiers that are always set in practice.
+        The wrapped method, with ``func``'s signature and return type.
     """
 
     @functools.wraps(func)
     async def request_with_active_session_wrapper(
-        self: HttpAwsBlueair, *args: Any, **kwargs: Any
+        self: HttpAwsBlueair, /, *args: P.args, **kwargs: P.kwargs
     ) -> R:
         """Call ``func``, re-authenticating and retrying once on ``SessionError``.
 
@@ -256,17 +254,17 @@ class HttpAwsBlueair:
                 f"Unknown cloud_region {self.cloud_region!r}; expected one of {sorted(AWS_APIKEYS)}"
             )
 
-        self.session_token = None
-        self.session_secret = None
+        self.session_token: str | None = None
+        self.session_secret: str | None = None
 
-        self.access_token = None
-        self.user_id = None
+        self.access_token: str | None = None
+        self.user_id: str | None = None
 
-        self.mqtt_auth_name = None
-        self.mqtt_auth_signature = None
-        self.mqtt_auth_token = None
+        self.mqtt_auth_name: str | None = None
+        self.mqtt_auth_signature: str | None = None
+        self.mqtt_auth_token: str | None = None
 
-        self.jwt = None
+        self.jwt: str | None = None
 
         # When to refresh the access token, from its ``exp`` claim. ``None``
         # means the token carries no expiry and is kept until rejected.

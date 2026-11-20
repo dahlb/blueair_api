@@ -19,7 +19,7 @@ def test_clean_dictionary_for_logging_returns_non_mapping_unchanged(value: Any) 
 
 def test_clean_dictionary_for_logging_masks_nested_values() -> None:
     """Sensitive keys are masked in nested mappings and lists without mutating input."""
-    original = {
+    original: dict[str, Any] = {
         "Password": "secret",
         "name": "device",
         "nested": {"username": "abc", "keep": 1},
