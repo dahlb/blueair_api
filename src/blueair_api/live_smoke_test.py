@@ -638,8 +638,7 @@ async def start_mqtt_listener(
     mqtt_client.credential_refresher = refresh_credentials
     MqttUpdatePrinter(devices, loop).attach(mqtt_client)
     for device in devices:
-        if device.uuid is not None:
-            mqtt_client.register_device(device.uuid)
+        mqtt_client.register_device(device.uuid)
     # paho's connect performs a blocking network handshake.
     await asyncio.to_thread(mqtt_client.connect, loop)
     return mqtt_client

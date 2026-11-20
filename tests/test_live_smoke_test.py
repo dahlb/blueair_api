@@ -440,13 +440,14 @@ async def test_start_mqtt_listener_registers_devices_and_connects(
         [fake_aws_device(uuid="a"), fake_aws_device(uuid="b")],
     )
 
-    assert client is created[0]
-    fake = created[0]
+    fake: Any = created[0]
     assert fake.kwargs["region"] == "eu"
     assert fake.devices == ["a", "b"]
     assert fake.connected_with is asyncio.get_running_loop()
     assert fake.on_sensor_data is not None
     assert await fake.credential_refresher() == ("name", "signature", "new-token")
+    # Checked last: mypy narrows both sides of ``is``, which would hide the fake's attributes.
+    assert client is fake
 
 
 async def test_run_legacy_check_reports_login_errors(
@@ -580,7 +581,14 @@ def test_smoke_test_transcript_captures_traceback(tmp_path: Path) -> None:
 
 def test_device_state_excludes_api_and_raw_fields() -> None:
     """Printed device state omits the API client and raw payload fields."""
-    device = DeviceAws(api=cast("HttpAwsBlueair", None), uuid="device-1", brightness=42)
+    device = DeviceAws(
+        api=cast("HttpAwsBlueair", None),
+        uuid="device-1",
+        name_api="device",
+        mac="mac",
+        type_name="type",
+        brightness=42,
+    )
 
     state = device_state(device)
 

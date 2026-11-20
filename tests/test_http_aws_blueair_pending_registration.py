@@ -15,8 +15,10 @@ Now ``refresh_session`` completes the pending registration transparently
 from __future__ import annotations
 
 import json
+from typing import Any, cast
 from unittest import IsolatedAsyncioTestCase
 
+from aiohttp import ClientResponse, ClientSession, FormData
 import pytest
 
 from blueair_api.errors import LoginError
@@ -50,41 +52,51 @@ class _FakeResponse:
         self.status = status
         self._body = body
 
-    async def json(self, content_type=None):
+    async def json(self, content_type: str | None = None) -> object:
         return self._body
 
     async def text(self) -> str:
         return json.dumps(self._body)
 
 
-def _make_client() -> HttpAwsBlueair:
-    """Build a client whose POSTs replay ``fake_post.script`` in order.
+class _ScriptedClient(HttpAwsBlueair):
+    """Client whose POSTs replay ``script`` in order.
 
     Each script entry is ``(url_substring, fake_response)``; every issued
-    POST is recorded on ``fake_post.calls`` as ``(url, form_data)``.
+    POST is recorded on ``calls`` as ``(url, form_data)``.
     """
-    client = HttpAwsBlueair(
-        username="j@example.com",
-        password="hunter2",
-        client_session=object(),  # type: ignore[arg-type]
-    )
 
-    async def fake_post(*, url: str, form_data=None, **kwargs):
-        fake_post.calls.append((url, form_data))
-        url_substring, response = fake_post.script.pop(0)
+    def __init__(self) -> None:
+        super().__init__(
+            username="j@example.com",
+            password="hunter2",
+            client_session=cast("ClientSession", object()),
+        )
+        self.script: list[tuple[str, _FakeResponse]] = []
+        self.calls: list[tuple[str, FormData | None]] = []
+
+    async def _post_request_with_logging_and_errors_raised(
+        self,
+        url: str,
+        json_body: dict[str, Any] | None = None,
+        form_data: FormData | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> ClientResponse:
+        self.calls.append((url, form_data))
+        url_substring, response = self.script.pop(0)
         assert url_substring in url, f"{url} did not match {url_substring!r}"
-        return response
+        return cast("ClientResponse", response)
 
-    fake_post.script = []
-    fake_post.calls = []
-    client._post_request_with_logging_and_errors_raised = fake_post
-    return client
+
+def _make_client() -> _ScriptedClient:
+    """Build a client whose POSTs replay its ``script`` in order."""
+    return _ScriptedClient()
 
 
 class TestSelfHealPendingRegistration(IsolatedAsyncioTestCase):
     async def test_refresh_session_completes_pending_registration(self) -> None:
         client = _make_client()
-        client._post_request_with_logging_and_errors_raised.script = [
+        client.script = [
             ("accounts.login", _FakeResponse(200, PENDING_REGISTRATION_BODY)),
             ("accounts.setAccountInfo", _FakeResponse(200, GIGYA_OK_BODY)),
             ("accounts.finalizeRegistration", _FakeResponse(200, GIGYA_OK_BODY)),
@@ -93,7 +105,7 @@ class TestSelfHealPendingRegistration(IsolatedAsyncioTestCase):
         await client.refresh_session()
         assert client.session_token == "tok"
         assert client.session_secret == "sec"
-        urls = [url for url, _ in client._post_request_with_logging_and_errors_raised.calls]
+        urls = [url for url, _ in client.calls]
         assert urls == [
             "https://accounts.us1.gigya.com/accounts.login",
             "https://accounts.us1.gigya.com/accounts.setAccountInfo",
@@ -104,7 +116,7 @@ class TestSelfHealPendingRegistration(IsolatedAsyncioTestCase):
     async def test_refresh_session_without_profile_name_raises_login_error(self) -> None:
         body = dict(PENDING_REGISTRATION_BODY, profile={})
         client = _make_client()
-        client._post_request_with_logging_and_errors_raised.script = [
+        client.script = [
             ("accounts.login", _FakeResponse(200, body)),
         ]
         with pytest.raises(LoginError):
@@ -118,7 +130,7 @@ class TestSelfHealPendingRegistration(IsolatedAsyncioTestCase):
             errorDetails="nope",
         )
         client = _make_client()
-        client._post_request_with_logging_and_errors_raised.script = [
+        client.script = [
             ("accounts.login", _FakeResponse(200, PENDING_REGISTRATION_BODY)),
             ("accounts.setAccountInfo", _FakeResponse(200, failure)),
         ]
@@ -127,7 +139,7 @@ class TestSelfHealPendingRegistration(IsolatedAsyncioTestCase):
 
     async def test_successful_login_is_unchanged(self) -> None:
         client = _make_client()
-        client._post_request_with_logging_and_errors_raised.script = [
+        client.script = [
             ("accounts.login", _FakeResponse(200, LOGIN_SUCCESS_BODY)),
         ]
         await client.refresh_session()
@@ -136,8 +148,8 @@ class TestSelfHealPendingRegistration(IsolatedAsyncioTestCase):
 
 
 @request_with_errors
-async def _wrapped(*, url: str, response: _FakeResponse) -> _FakeResponse:
-    return response
+async def _wrapped(*, url: str, response: _FakeResponse) -> ClientResponse:
+    return cast("ClientResponse", response)
 
 
 class TestWrapperPasses206ThroughForLogin(IsolatedAsyncioTestCase):
@@ -146,7 +158,7 @@ class TestWrapperPasses206ThroughForLogin(IsolatedAsyncioTestCase):
         result = await _wrapped(
             url="https://accounts.us1.gigya.com/accounts.login", response=response
         )
-        assert result is response
+        assert cast("object", result) is response
 
     async def test_gigya_206_on_other_url_still_raises_value_error(self) -> None:
         response = _FakeResponse(200, PENDING_REGISTRATION_BODY)

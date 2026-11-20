@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
+from typing import Any, cast
 
 from aiohttp import ClientError, ClientResponse
 import pytest
@@ -62,7 +62,7 @@ async def test_request_with_logging_masks_request_and_response_secrets(
     )
 
     @request_with_logging
-    async def send(**kwargs: Any) -> _FakeResponse:
+    async def send(**kwargs: Any) -> ClientResponse:
         """Return the fake response.
 
         Args:
@@ -71,7 +71,7 @@ async def test_request_with_logging_masks_request_and_response_secrets(
         Returns:
             The fake response.
         """
-        return response
+        return cast("ClientResponse", response)
 
     with caplog.at_level(logging.DEBUG, logger="blueair_api.util_http"):
         await send(

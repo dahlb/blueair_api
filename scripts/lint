@@ -10,7 +10,7 @@ fi
 status=0
 
 .venv/bin/prek run -a || status=$?
-# Type-check the library (tool.mypy files) in strict mode.
+# Type-check the library and tests (tool.mypy files) in strict mode.
 .venv/bin/mypy || status=$?
 
 exit "$status"
