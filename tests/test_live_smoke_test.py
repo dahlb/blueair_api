@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, ClassVar, cast
@@ -351,7 +350,7 @@ def test_mqtt_update_printer_applies_updates_to_matching_device(
     printed: list[Any] = []
     monkeypatch.setattr(f"{MODULE}.print_devices", lambda label, devices: printed.extend(devices))
     device = fake_aws_device()
-    printer = MqttUpdatePrinter([cast("DeviceAws", device)], cast("Any", None))
+    printer = MqttUpdatePrinter([cast("DeviceAws", device)])
 
     printer.handle_sensor_data("device-1", {"pm2_5": 3.0})
     printer.handle_state_change("device-1", {"brightness": 10})
@@ -365,19 +364,17 @@ def test_mqtt_update_printer_applies_updates_to_matching_device(
     assert "MQTT event for device-1" in output
 
 
-async def test_mqtt_update_printer_marshals_callbacks_onto_loop(
+def test_mqtt_update_printer_attaches_its_handlers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Callbacks fired from paho's thread are applied on the event loop."""
+    """The MQTT client's callbacks apply updates directly (they run on the loop)."""
     monkeypatch.setattr(f"{MODULE}.print_devices", lambda label, devices: None)
     device = fake_aws_device()
-    loop = asyncio.get_running_loop()
     client = SimpleNamespace(on_sensor_data=None, on_state_change=None, on_event=None)
-    MqttUpdatePrinter([cast("DeviceAws", device)], loop).attach(cast("Any", client))
+    MqttUpdatePrinter([cast("DeviceAws", device)]).attach(cast("Any", client))
 
-    await asyncio.to_thread(client.on_sensor_data, "device-1", {"pm1": 2.0})
-    await asyncio.to_thread(client.on_state_change, "device-1", {"childlock": True})
-    await asyncio.sleep(0)
+    client.on_sensor_data("device-1", {"pm1": 2.0})
+    client.on_state_change("device-1", {"childlock": True})
 
     assert device.calls == [("sensors", {"pm1": 2.0}), ("state", {"childlock": True})]
 
@@ -409,7 +406,7 @@ async def test_start_mqtt_listener_registers_devices_and_connects(
         def __init__(self, **kwargs: Any) -> None:
             self.kwargs = kwargs
             self.devices: list[str] = []
-            self.connected_with: Any = None
+            self.connected = False
             self.credential_refresher: Any = None
             self.on_sensor_data: Any = None
             self.on_state_change: Any = None
@@ -419,8 +416,8 @@ async def test_start_mqtt_listener_registers_devices_and_connects(
         def register_device(self, device_uuid: str) -> None:
             self.devices.append(device_uuid)
 
-        def connect(self, event_loop: Any = None) -> None:
-            self.connected_with = event_loop
+        async def connect(self) -> None:
+            self.connected = True
 
     async def refresh_access_token() -> None:
         api.mqtt_auth_token = "new-token"
@@ -443,7 +440,7 @@ async def test_start_mqtt_listener_registers_devices_and_connects(
     fake: Any = created[0]
     assert fake.kwargs["region"] == "eu"
     assert fake.devices == ["a", "b"]
-    assert fake.connected_with is asyncio.get_running_loop()
+    assert fake.connected is True
     assert fake.on_sensor_data is not None
     assert await fake.credential_refresher() == ("name", "signature", "new-token")
     # Checked last: mypy narrows both sides of ``is``, which would hide the fake's attributes.
@@ -492,7 +489,7 @@ async def test_main_runs_steps_in_order_and_cleans_up(
     FakeClientSession.instances = []
 
     class FakeMqtt:
-        def disconnect(self) -> None:
+        async def disconnect(self) -> None:
             calls.append("mqtt_disconnect")
 
     async def fake_get_aws_devices(**kwargs: Any) -> Any:

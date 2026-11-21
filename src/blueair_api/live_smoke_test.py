@@ -27,7 +27,7 @@ and uses the repository virtual environment:
 
 from argparse import ArgumentParser, Namespace
 import asyncio
-from asyncio import AbstractEventLoop, sleep
+from asyncio import sleep
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, fields
@@ -497,58 +497,27 @@ def print_devices(label: str, devices: Sequence[Device | DeviceAws]) -> None:
 class MqttUpdatePrinter:
     """Apply MQTT callbacks to loaded AWS devices and print their new state.
 
-    paho invokes callbacks on its own network thread. Each callback is handed to
-    the asyncio event loop with ``call_soon_threadsafe`` so device objects are
-    only mutated from the loop thread, matching how library consumers use them.
+    The MQTT client calls its callbacks on the event loop, so they update the
+    device objects directly.
     """
 
-    def __init__(self, devices: Sequence[DeviceAws], loop: AbstractEventLoop) -> None:
+    def __init__(self, devices: Sequence[DeviceAws]) -> None:
         """Initialize the printer.
 
         Args:
             devices: Loaded AWS devices that MQTT messages should update.
-            loop: Event loop that should apply incoming updates.
         """
         self._devices = {device.uuid: device for device in devices}
-        self._loop = loop
 
     def attach(self, mqtt_client: MqttAwsBlueair) -> None:
-        """Register thread-safe callbacks on an MQTT client.
+        """Register this printer's handlers as an MQTT client's callbacks.
 
         Args:
             mqtt_client: MQTT client whose callbacks should be wired up.
         """
-
-        def on_sensor_data(device_id: str, sensors: dict[str, float]) -> None:
-            """Hand sensor data from the MQTT thread to the event loop.
-
-            Args:
-                device_id: Device the readings belong to.
-                sensors: Sensor readings.
-            """
-            self._loop.call_soon_threadsafe(self.handle_sensor_data, device_id, sensors)
-
-        def on_state_change(device_id: str, state: dict[str, Any]) -> None:
-            """Hand a state change from the MQTT thread to the event loop.
-
-            Args:
-                device_id: Device whose state changed.
-                state: Changed state attributes.
-            """
-            self._loop.call_soon_threadsafe(self.handle_state_change, device_id, state)
-
-        def on_event(device_id: str, event: dict[str, Any]) -> None:
-            """Hand a device event from the MQTT thread to the event loop.
-
-            Args:
-                device_id: Device the event belongs to.
-                event: Event payload.
-            """
-            self._loop.call_soon_threadsafe(self.handle_event, device_id, event)
-
-        mqtt_client.on_sensor_data = on_sensor_data
-        mqtt_client.on_state_change = on_state_change
-        mqtt_client.on_event = on_event
+        mqtt_client.on_sensor_data = self.handle_sensor_data
+        mqtt_client.on_state_change = self.handle_state_change
+        mqtt_client.on_event = self.handle_event
 
     def handle_sensor_data(self, device_id: str, sensors: dict[str, float]) -> None:
         """Apply MQTT sensor data to a device and print its state.
@@ -627,7 +596,6 @@ async def start_mqtt_listener(
             api.mqtt_auth_token or "",
         )
 
-    loop = asyncio.get_running_loop()
     mqtt_client = MqttAwsBlueair(
         region=api.cloud_region,
         mqtt_auth_name=api.mqtt_auth_name,
@@ -636,11 +604,10 @@ async def start_mqtt_listener(
         user_id=api.user_id,
     )
     mqtt_client.credential_refresher = refresh_credentials
-    MqttUpdatePrinter(devices, loop).attach(mqtt_client)
+    MqttUpdatePrinter(devices).attach(mqtt_client)
     for device in devices:
         mqtt_client.register_device(device.uuid)
-    # paho's connect performs a blocking network handshake.
-    await asyncio.to_thread(mqtt_client.connect, loop)
+    await mqtt_client.connect()
     return mqtt_client
 
 
@@ -798,7 +765,7 @@ async def main(options: SmokeTestOptions) -> None:
         completed = True
     finally:
         if mqtt_client is not None:
-            await asyncio.to_thread(mqtt_client.disconnect)
+            await mqtt_client.disconnect()
         if aws_session is not None:
             await aws_session.close()
         if legacy_session is not None:

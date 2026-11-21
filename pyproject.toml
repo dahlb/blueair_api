@@ -27,7 +27,7 @@ keywords = [
 ]
 dependencies = [
     "aiohttp",
-    "paho-mqtt",
+    "aiomqtt>=2.5.1",
 ]
 
 [project.urls]

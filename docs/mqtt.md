@@ -152,13 +152,19 @@ mqtt.on_sensor_data = lambda device_id, sensors: print(sensors)
 mqtt.on_state_change = lambda device_id, state: print(state)
 mqtt.on_event = lambda device_id, event: print(event)
 
-# Register devices and connect
+# Register devices and connect (from a coroutine)
 mqtt.register_device("14ad6685-408a-4aa2-a923-a561e0872cc4")
-mqtt.connect()
+await mqtt.connect()
 
 # Later...
-mqtt.disconnect()
+await mqtt.disconnect()
 ```
+
+The client runs on the asyncio event loop (through
+[aiomqtt](https://github.com/empicano/aiomqtt)): there is no network
+thread, and every callback below is called on the loop that ran
+`connect()`, so callbacks can update shared state directly. Keep them
+short and non-blocking.
 
 ### Callbacks
 
@@ -168,7 +174,7 @@ mqtt.disconnect()
 | `on_state_change` | `(device_id: str, state: dict[str, Any])` | On device state change |
 | `on_event` | `(device_id: str, event: dict[str, Any])` | On connect/disconnect |
 | `on_connect_callback` | `()` | MQTT connection established |
-| `on_disconnect_callback` | `()` | MQTT connection lost |
+| `on_disconnect_callback` | `()` | MQTT connection lost unexpectedly (not on `disconnect()`) |
 
 ## Dynamic Sensor and State Mapping
 
@@ -202,88 +208,60 @@ expires (or the connection drops for any reason), the MQTT broker closes
 the WebSocket connection. The client must obtain fresh tokens and
 reconnect.
 
-### Architecture Decision: Use Paho's Native Reconnect
+### How Reconnecting Works
 
-**Do NOT disable paho's built-in reconnect** (`_reconnect_on_failure`).
-An earlier implementation set `_reconnect_on_failure = False` and used a
-custom reconnect thread. This caused **silent connection death**: when the
-connection dropped, paho's `loop_forever()` thread exited immediately
-(because `not self._reconnect_on_failure → run = False`), and since it
-runs as a daemon thread, nothing in the system noticed. The custom
-reconnect thread relied on `on_disconnect` firing to spawn it, but that
-callback runs on the same dying paho thread and could race with the exit.
-
-### How Token Refresh Works
-
-The implementation uses two paho-native hooks that run synchronously
-inside paho's reconnect flow:
-
-1. **`on_pre_connect` callback** — Called by paho immediately before each
-   `reconnect()` creates a new socket. We use this to call the async
-   `credential_refresher` (which calls `refresh_access_token()` on the
-   HTTP client) and update the stored auth credentials. It waits up to
-   `MQTT_CREDENTIAL_REFRESH_TIMEOUT_SECONDS` (120s), long enough for a full
-   re-authentication of up to six 20-second requests.
-
-2. **`ws_set_options(headers=callable)`** — Instead of passing a static
-   dict of WebSocket headers, we pass a callable that returns the
-   *current* credentials on every WebSocket handshake. Paho calls this
-   during `_WebsocketWrapper._do_handshake()` on every connection
-   (including reconnects).
-
-3. **`reconnect_delay_set(min_delay=5, max_delay=300)`** — Configures
-   paho's built-in exponential backoff for reconnection attempts.
-
-### Reconnect Flow (Paho Internal)
-
-When a connection is lost, paho's `loop_forever()` (running in the
-`loop_start()` thread) executes this sequence:
+`connect()` returns once the first connection is up (and raises
+`aiomqtt.MqttError` if that first attempt fails). After that, a task on
+the event loop reads messages and, whenever the connection drops,
+reconnects with the same client:
 
 ```text
-connection lost
-  → _do_on_disconnect() fires on_disconnect callback
-  → _reconnect_wait() sleeps with exponential backoff (5s → 10s → ... → 300s)
-  → reconnect()
-      → on_pre_connect() ← refreshes credentials here
-      → _create_socket()
-          → _WebsocketWrapper._do_handshake(extra_headers)
-              → callable headers returns fresh tokens ← applied here
-      → _send_connect() sends MQTT CONNECT packet
-  → on_connect() fires
-      → re-subscribes to all device topics
-  → backoff timer resets to min_delay on successful CONNACK
+connection lost (aiomqtt raises MqttError, or the message stream ends)
+  → on_disconnect_callback fires
+  → asyncio.sleep(backoff)        5s → 10s → ... → 300s
+  → await credential_refresher()  ← refreshes tokens here
+  → async with client:            ← new WebSocket handshake
+      → callable headers return the fresh tokens
+      → re-subscribe to the event topic and every device's topics
+      → on_connect_callback fires, backoff resets to 5s
 ```
 
-This is all handled by a single paho thread — no custom threads, no
-race conditions.
+1. **Credential refresh** — before each reconnect the client awaits
+   `credential_refresher` (which calls `refresh_access_token()` on the
+   HTTP client) and stores the new tokens. It waits up to
+   `MQTT_CREDENTIAL_REFRESH_TIMEOUT_SECONDS` (120s), long enough for a
+   full re-authentication of up to six 20-second requests.
+
+2. **Callable WebSocket headers** — the client passes a callable rather
+   than a static dict of headers, so every handshake (including
+   reconnects) sends the *current* credentials.
+
+3. **Subscriptions on every connect** — subscribing after each
+   connection means subscriptions survive reconnects.
+
+`disconnect()` cancels the task, which leaves the client's context and
+disconnects cleanly; no reconnect is attempted after it.
 
 ### Failure Scenarios
 
 | Scenario | Behavior |
 | --- | --- |
-| Token expires, AWS closes connection | Paho detects loss → waits 5s → `on_pre_connect` refreshes → reconnects with new tokens |
-| Token refresh fails (e.g., network down) | `on_pre_connect` catches exception, logs it → paho tries with stale tokens → WS handshake fails → paho backs off → retries (calls `on_pre_connect` again) |
-| Token refresh takes longer than 120s | `on_pre_connect` cancels the refresh, logs a warning → same as a failed refresh |
-| AWS broker unreachable | Paho retries with exponential backoff up to 300s → keeps trying indefinitely |
-| Clean disconnect (`disconnect()` called) | Paho stops the loop — no reconnect attempted |
+| Token expires, AWS closes connection | Message stream ends → waits 5s → refreshes credentials → reconnects with new tokens |
+| Token refresh fails (e.g., network down) | The error is logged → reconnects with stale tokens → handshake fails → backs off → retries (refreshing again) |
+| Token refresh takes longer than 120s | The refresh is cancelled and a warning logged → same as a failed refresh |
+| AWS broker unreachable | Retries with exponential backoff up to 300s, indefinitely |
+| Clean disconnect (`disconnect()` called) | The task is cancelled — no reconnect attempted |
+| A subscription fails | Logged; retried on the next connection or TTL re-subscribe |
 
-### Why Not a Custom Reconnect Thread?
+### Why asyncio?
 
-A custom reconnect thread outside paho's event loop has these problems:
-
-- **Race condition**: Paho's own reconnect (if enabled) races with the
-  custom thread, both trying to connect simultaneously.
-- **Silent death**: If paho's reconnect is disabled to avoid the race,
-  the `loop_forever()` thread exits silently on disconnect (daemon thread,
-  no exception, no log). The custom thread must be spawned from
-  `on_disconnect`, which runs on the dying thread.
-- **Client rebuild**: The custom thread typically rebuilds the entire
-  paho Client, losing all internal state (subscriptions, message queues,
-  mid tracking).
-- **No CONNACK verification**: `connect()` is non-blocking; the custom
-  thread must poll for connection success separately.
-
-Using paho's native hooks avoids all of these issues.
+Earlier versions wrapped paho-mqtt's own network thread. Callbacks then
+ran on that thread, so callers had to hand every update to their event
+loop, and `connect()`/`disconnect()` blocked (Home Assistant ran them in
+an executor). With aiomqtt the socket is driven by the event loop
+itself, so there is no thread to hand off from or to stop. Only the
+initial socket connect runs in an executor inside aiomqtt, because
+paho's connect blocks on the TLS and WebSocket handshake.
 
 ## Sensor Data Stream TTL
 
@@ -302,9 +280,9 @@ periodically re-subscribe to keep the data stream alive.
 
 ### How It Works
 
-1. **Periodic re-subscribe timer** — On connect, a daemon timer starts
-   at 75% of the TTL interval (default: 900s for 1200s TTL). When it
-   fires, the client subscribes to `d/<id>/s/5s` for every registered
+1. **Periodic re-subscribe task** — On connect, an asyncio task starts
+   that wakes at 75% of the TTL interval (default: 900s for 1200s TTL). When it
+   wakes, the client subscribes to `d/<id>/s/5s` for every registered
    device. Per MQTT spec, subscribing to an already-subscribed topic is
    idempotent (broker sends SUBACK), so this is safe.  We intentionally
    do NOT unsubscribe first — unsubscribing kills the device's data
@@ -345,10 +323,10 @@ mqtt.set_sensor_ttl(1200)
 
 # Register devices and connect as usual
 mqtt.register_device(device_uuid)
-mqtt.connect()
+await mqtt.connect()
 ```
 
-The re-subscribe timer starts automatically on connect and cancels on
+The re-subscribe task starts automatically on connect and is cancelled on
 disconnect. No additional setup is required.
 
 ## Graceful Degradation
@@ -363,13 +341,9 @@ library falls back to REST-only polling. MQTT is an optional enhancement.
 - The device pushes data at its own interval; no polling overhead
 - AWS IoT Core supports millions of concurrent connections; one subscriber
   per user account is negligible
-- `paho-mqtt` (>= 2.0) is used for the MQTT client implementation
-- **Never set `_reconnect_on_failure = False`** — see "Reconnection &
-  Token Refresh" section above for why
-- Key paho hooks used: `on_pre_connect` (credential refresh),
-  `ws_set_options(headers=callable)` (dynamic WS headers),
-  `reconnect_delay_set()` (backoff configuration)
-- Subscriptions are placed in `on_connect` so they survive reconnects
-  (recommended pattern from paho's own documentation)
+- `aiomqtt` (>= 2.5.1, built on paho-mqtt) is used for the MQTT client
+  implementation; it runs on the asyncio event loop
+- Subscriptions are made after every connection so they survive
+  reconnects
 - Sensor data streams have a device-side TTL (typically 1200s) — the
   client automatically re-subscribes to keep them alive

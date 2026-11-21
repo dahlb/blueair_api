@@ -1,24 +1,98 @@
 """Tests for MqttAwsBlueair.
 
-Unit tests that mock the paho-mqtt client to verify message parsing,
-topic routing, callback dispatch, device registration, and reconnection
-with credential refresh via paho's on_pre_connect hook.
+The aiomqtt client is replaced with a fake, so these tests cover message
+parsing, topic routing, callback dispatch, device registration, and
+reconnecting with credential refresh, all on the event loop.
 """
 
 import asyncio
+from collections.abc import AsyncIterator
 import json
-import threading
-from typing import Any, Never
-from unittest import TestCase, mock
+import logging
+from types import SimpleNamespace
+from typing import Any, ClassVar, Self
 
+import aiomqtt
 import pytest
 
-from blueair_api.const import MQTT_CREDENTIAL_REFRESH_TIMEOUT_SECONDS, REQUEST_TIMEOUT_SECONDS
-from blueair_api.errors import RequestTimeoutError
+from blueair_api import mqtt_aws_blueair
+from blueair_api.const import AWS_MQTT_BROKERS
 from blueair_api.mqtt_aws_blueair import MqttAwsBlueair
 
 FAKE_DEVICE_UUID = "14ad6685-408a-4aa2-a923-a561e0872cc4"
 FAKE_USER_ID = "52da8f11-6303-45bb-a06f-658b0a126917"
+SENSOR_TOPIC = f"d/{FAKE_DEVICE_UUID}/s/5s"
+SHADOW_TOPIC = f"$aws/things/{FAKE_DEVICE_UUID}/shadow/update/documents"
+EVENT_TOPIC = f"c/{FAKE_USER_ID}/s/event"
+CONNECTION_LOST = aiomqtt.MqttError("connection lost")
+
+
+class FakeClient:
+    """Stand-in for aiomqtt.Client, driven by the test.
+
+    ``connect_errors`` makes the next connection attempts fail, in order.
+    ``disconnect`` ends the message stream the way a dropped connection does.
+    """
+
+    instances: ClassVar[list[FakeClient]] = []
+    connect_errors: ClassVar[list[BaseException]] = []
+
+    def __init__(self, hostname: str, port: int, **kwargs: Any) -> None:
+        self.hostname = hostname
+        self.port = port
+        self.kwargs = kwargs
+        self.subscriptions: list[str] = []
+        self.subscribe_error: BaseException | None = None
+        self.connects = 0
+        self.exits = 0
+        self.handshake_headers: list[dict[str, str]] = []
+        self._queue: asyncio.Queue[Any] = asyncio.Queue()
+        FakeClient.instances.append(self)
+
+    async def __aenter__(self) -> Self:
+        if FakeClient.connect_errors:
+            raise FakeClient.connect_errors.pop(0)
+        self.connects += 1
+        self.handshake_headers.append(self.kwargs["websocket_headers"]({}))
+        return self
+
+    async def __aexit__(self, *args: object) -> None:
+        self.exits += 1
+
+    async def subscribe(self, topic: str) -> None:
+        if self.subscribe_error is not None:
+            raise self.subscribe_error
+        self.subscriptions.append(topic)
+
+    @property
+    def messages(self) -> AsyncIterator[Any]:
+        return self._messages()
+
+    async def _messages(self) -> AsyncIterator[Any]:
+        while True:
+            item = await self._queue.get()
+            if item is None:
+                return
+            if isinstance(item, BaseException):
+                raise item
+            yield item
+
+    def deliver(self, topic: str, payload: Any) -> None:
+        """Queue a message whose payload is JSON-encoded bytes."""
+        self._queue.put_nowait(SimpleNamespace(topic=topic, payload=json.dumps(payload).encode()))
+
+    def drop(self, error: BaseException | None = CONNECTION_LOST) -> None:
+        """End the connection: with an error, or (None) by ending the stream."""
+        self._queue.put_nowait(error)
+
+
+@pytest.fixture(autouse=True)
+def fake_aiomqtt(monkeypatch: pytest.MonkeyPatch) -> type[FakeClient]:
+    FakeClient.instances = []
+    FakeClient.connect_errors = []
+    monkeypatch.setattr("blueair_api.mqtt_aws_blueair.aiomqtt.Client", FakeClient)
+    monkeypatch.setattr(mqtt_aws_blueair, "_RECONNECT_MIN_DELAY", 0)
+    return FakeClient
 
 
 def make_mqtt_client(**kwargs: Any) -> MqttAwsBlueair:
@@ -32,866 +106,520 @@ def make_mqtt_client(**kwargs: Any) -> MqttAwsBlueair:
     )
 
 
-def make_mqtt_message(topic: str, payload: dict[str, Any] | list[Any]) -> mock.MagicMock:
-    msg = mock.MagicMock()
-    msg.topic = topic
-    msg.payload = json.dumps(payload).encode()
-    return msg
+async def wait_for(condition: Any) -> None:
+    """Let the event loop run until a condition holds."""
+    async with asyncio.timeout(2):
+        # Polls state the fakes change; there is no event to wait on.
+        while not condition():  # noqa: ASYNC110
+            await asyncio.sleep(0)
 
 
-class TestSensorDataParsing(TestCase):
-    """Tests for sensor data message handling (d/<deviceId>/s/5s topic)."""
+async def deliver(client: MqttAwsBlueair, topic: str, payload: Any) -> None:
+    await client._on_message(topic, json.dumps(payload).encode())
 
-    def test_sensor_data_callback(self) -> None:
-        client = make_mqtt_client()
-        received = []
-        client.on_sensor_data = lambda device_id, sensors: received.append((device_id, sensors))
 
-        msg = make_mqtt_message(
-            f"d/{FAKE_DEVICE_UUID}/s/5s",
-            [{"n": "pm2_5", "v": 3.0}, {"n": "fsp0", "v": 11.0}, {"n": "rssi", "v": -24.0}],
-        )
-        client._on_message(None, None, msg)
+# ----- Message parsing ----------------------------------------------------
 
-        assert len(received) == 1
-        device_id, sensors = received[0]
-        assert device_id == FAKE_DEVICE_UUID
-        assert sensors == {"pm2_5": 3.0, "fsp0": 11.0, "rssi": -24.0}
 
-    def test_sensor_data_empty_list(self) -> None:
-        client = make_mqtt_client()
-        received = []
-        client.on_sensor_data = lambda device_id, sensors: received.append((device_id, sensors))
-
-        msg = make_mqtt_message(f"d/{FAKE_DEVICE_UUID}/s/5s", [])
-        client._on_message(None, None, msg)
-
-        assert len(received) == 1
-        assert received[0][1] == {}
-
-    def test_sensor_data_no_callback(self) -> None:
-        """No crash when on_sensor_data is not set."""
-        client = make_mqtt_client()
-        msg = make_mqtt_message(f"d/{FAKE_DEVICE_UUID}/s/5s", [{"n": "pm2_5", "v": 5.0}])
-        client._on_message(None, None, msg)  # should not raise
-
-
-class TestStateChangeParsing(TestCase):
-    """Tests for state change handling ($aws/things/<deviceId>/shadow/...)."""
-
-    def test_state_change_callback(self) -> None:
-        client = make_mqtt_client()
-        received = []
-        client.on_state_change = lambda device_id, state: received.append((device_id, state))
-
-        msg = make_mqtt_message(
-            f"$aws/things/{FAKE_DEVICE_UUID}/shadow/update/documents",
-            {
-                "current": {
-                    "state": {
-                        "reported": {
-                            "fanspeed": 51,
-                            "standby": False,
-                            "brightness": 64,
-                        }
-                    }
-                },
-                "previous": {},
-            },
-        )
-        client._on_message(None, None, msg)
-
-        assert len(received) == 1
-        device_id, state = received[0]
-        assert device_id == FAKE_DEVICE_UUID
-        assert state == {"fanspeed": 51, "standby": False, "brightness": 64}
-
-    def test_state_change_empty_reported(self) -> None:
-        client = make_mqtt_client()
-        received = []
-        client.on_state_change = lambda device_id, state: received.append((device_id, state))
-
-        msg = make_mqtt_message(
-            f"$aws/things/{FAKE_DEVICE_UUID}/shadow/update/documents",
-            {"current": {"state": {"reported": {}}}},
-        )
-        client._on_message(None, None, msg)
-
-        assert len(received) == 1
-        assert received[0][1] == {}
-
-    def test_state_change_missing_structure(self) -> None:
-        """Gracefully handle missing nested keys."""
-        client = make_mqtt_client()
-        received = []
-        client.on_state_change = lambda device_id, state: received.append((device_id, state))
-
-        msg = make_mqtt_message(
-            f"$aws/things/{FAKE_DEVICE_UUID}/shadow/update/documents",
-            {"unexpected": "format"},
-        )
-        client._on_message(None, None, msg)
-
-        assert len(received) == 1
-        assert received[0][1] == {}
-
-
-class TestEventParsing(TestCase):
-    """Tests for connectivity event handling (c/<userId>/s/event topic)."""
-
-    def test_event_callback(self) -> None:
-        client = make_mqtt_client()
-        received = []
-        client.on_event = lambda device_id, event: received.append((device_id, event))
-
-        payload = {
-            "et": "Connected",
-            "o": FAKE_DEVICE_UUID,
-            "ts": 1751558540,
-            "m": "Device is Online",
-            "ot": "ConnectionEvent",
-            "r": "US",
-            "ec": 0,
-        }
-        msg = make_mqtt_message(f"c/{FAKE_USER_ID}/s/event", payload)
-        client._on_message(None, None, msg)
-
-        assert len(received) == 1
-        device_id, event = received[0]
-        assert device_id == FAKE_DEVICE_UUID
-        assert event["et"] == "Connected"
-
-    def test_event_not_connected(self) -> None:
-        client = make_mqtt_client()
-        received = []
-        client.on_event = lambda device_id, event: received.append((device_id, event))
-
-        payload = {
-            "et": "NotConnected",
-            "o": FAKE_DEVICE_UUID,
-            "ts": 1751558600,
-            "m": "Device is Offline",
-            "ot": "ConnectionEvent",
-            "ec": 0,
-        }
-        msg = make_mqtt_message(f"c/{FAKE_USER_ID}/s/event", payload)
-        client._on_message(None, None, msg)
-
-        assert len(received) == 1
-        assert received[0][0] == FAKE_DEVICE_UUID
-        assert received[0][1]["et"] == "NotConnected"
-
-    def test_event_missing_origin_device(self) -> None:
-        client = make_mqtt_client()
-        received = []
-        client.on_event = lambda device_id, event: received.append((device_id, event))
-
-        msg = make_mqtt_message(f"c/{FAKE_USER_ID}/s/event", {"et": "NotConnected"})
-        client._on_message(None, None, msg)
-
-        assert len(received) == 1
-        assert received[0][0] == ""
-
-
-class TestDeviceRegistration(TestCase):
-    """Tests for device registration and topic subscription."""
-
-    def test_register_device(self) -> None:
-        client = make_mqtt_client()
-        client.register_device(FAKE_DEVICE_UUID)
-        assert FAKE_DEVICE_UUID in client._device_ids
-
-    def test_register_device_dedup(self) -> None:
-        client = make_mqtt_client()
-        client.register_device(FAKE_DEVICE_UUID)
-        client.register_device(FAKE_DEVICE_UUID)
-        assert client._device_ids.count(FAKE_DEVICE_UUID) == 1
-
-
-class TestDisconnectReconnect(TestCase):
-    """Tests for disconnect handling and credential refresh via on_pre_connect."""
-
-    def test_clean_disconnect_no_warning(self) -> None:
-        """A clean disconnect (reason_code=0) should not log a warning."""
-        client = make_mqtt_client()
-        client._stopping = False
-        mock_paho = mock.MagicMock()
-        client._client = mock_paho
-
-        client._on_disconnect(mock_paho, None, None, 0, None)
-
-        assert client._connected is False
-
-    def test_stopping_disconnect(self) -> None:
-        """When _stopping is True, disconnect should be clean."""
-        client = make_mqtt_client()
-        client._stopping = True
-        mock_paho = mock.MagicMock()
-        client._client = mock_paho
-
-        client._on_disconnect(mock_paho, None, None, 7, None)
-
-        assert client._connected is False
-
-    def test_unexpected_disconnect_sets_not_connected(self) -> None:
-        """An unexpected disconnect should set connected to False."""
-        client = make_mqtt_client()
-        client._connected = True
-        client._stopping = False
-        mock_paho = mock.MagicMock()
-        client._client = mock_paho
-
-        client._on_disconnect(mock_paho, None, None, 7, None)
-
-        assert client._connected is False
-
-    def test_disconnect_callback_fires(self) -> None:
-        """on_disconnect_callback should fire on unexpected disconnect."""
-        client = make_mqtt_client()
-        client._stopping = False
-        mock_paho = mock.MagicMock()
-        client._client = mock_paho
-        callback_fired = []
-        client.on_disconnect_callback = lambda: callback_fired.append(True)
-
-        client._on_disconnect(mock_paho, None, None, 7, None)
-
-        assert len(callback_fired) == 1
-
-    def test_on_pre_connect_refreshes_credentials(self) -> None:
-        """on_pre_connect should call credential_refresher and update tokens."""
-        client = make_mqtt_client()
-
-        loop = asyncio.new_event_loop()
-        loop_thread = threading.Thread(target=loop.run_forever, daemon=True)
-        loop_thread.start()
-        client._event_loop = loop
-
-        async def fake_refresh() -> tuple[str, str, str]:
-            return ("new-name", "new-sig", "new-token")
-
-        client.credential_refresher = fake_refresh
-
-        client._on_pre_connect(None, None)
-
-        loop.call_soon_threadsafe(loop.stop)
-        loop_thread.join(timeout=5)
-        loop.close()
-
-        assert client._mqtt_auth_name == "new-name"
-        assert client._mqtt_auth_signature == "new-sig"
-        assert client._mqtt_auth_token == "new-token"
-
-    def test_on_pre_connect_handles_refresh_failure(self) -> None:
-        """If credential refresh fails, on_pre_connect should not crash."""
-        client = make_mqtt_client()
-
-        loop = asyncio.new_event_loop()
-        loop_thread = threading.Thread(target=loop.run_forever, daemon=True)
-        loop_thread.start()
-        client._event_loop = loop
-
-        async def failing_refresh() -> Never:
-            raise RuntimeError("network error")
-
-        client.credential_refresher = failing_refresh
-
-        # Should not raise
-        client._on_pre_connect(None, None)
-
-        loop.call_soon_threadsafe(loop.stop)
-        loop_thread.join(timeout=5)
-        loop.close()
-
-        # Credentials should remain unchanged
-        assert client._mqtt_auth_name == "custom-authorizer"
-
-    def test_on_pre_connect_skips_without_refresher(self) -> None:
-        """on_pre_connect should be a no-op without a credential_refresher."""
-        client = make_mqtt_client()
-        client._event_loop = asyncio.new_event_loop()
-        client.credential_refresher = None
-
-        # Should not raise
-        client._on_pre_connect(None, None)
-
-        client._event_loop.close()
-
-    def test_on_pre_connect_skips_without_event_loop(self) -> None:
-        """on_pre_connect should be a no-op without an event loop."""
-        client = make_mqtt_client()
-        client._event_loop = None
-
-        async def fake_refresh() -> tuple[str, str, str]:
-            return ("n", "s", "t")
-
-        client.credential_refresher = fake_refresh
-
-        # Should not raise
-        client._on_pre_connect(None, None)
-
-    def test_get_ws_headers_returns_current_creds(self) -> None:
-        """_get_ws_headers should return the current auth credentials."""
-        client = make_mqtt_client()
-
-        headers = client._get_ws_headers({"Host": "example.com"})
-
-        assert headers["X-Amz-CustomAuthorizer-Name"] == "custom-authorizer"
-        assert headers["X-Amz-CustomAuthorizer-Signature"] == "fake-signature"
-        assert headers["X-Amz-CustomAuthorizer-Token"] == "fake-token"
-        assert headers["Host"] == "example.com"
-
-    def test_get_ws_headers_reflects_refreshed_creds(self) -> None:
-        """After credential refresh, _get_ws_headers should return new tokens."""
-        client = make_mqtt_client()
-        client._mqtt_auth_name = "updated-name"
-        client._mqtt_auth_signature = "updated-sig"
-        client._mqtt_auth_token = "updated-token"
-
-        headers = client._get_ws_headers({})
-
-        assert headers["X-Amz-CustomAuthorizer-Name"] == "updated-name"
-        assert headers["X-Amz-CustomAuthorizer-Signature"] == "updated-sig"
-        assert headers["X-Amz-CustomAuthorizer-Token"] == "updated-token"
-
-    def test_register_device_while_connected_subscribes(self) -> None:
-        """Registering a device while connected should subscribe immediately."""
-        client = make_mqtt_client()
-        mock_paho = mock.MagicMock()
-        client._client = mock_paho
-        client._connected = True
-
-        client.register_device(FAKE_DEVICE_UUID)
-
-        # Should have subscribed to 2 topics for this device
-        assert mock_paho.subscribe.call_count == 2
-        subscribed_topics = [call.args[0] for call in mock_paho.subscribe.call_args_list]
-        assert f"d/{FAKE_DEVICE_UUID}/s/5s" in subscribed_topics
-        assert f"$aws/things/{FAKE_DEVICE_UUID}/shadow/update/documents" in subscribed_topics
-
-
-class TestOnConnect(TestCase):
-    """Tests for the on_connect handler."""
-
-    def test_on_connect_subscribes_to_all_topics(self) -> None:
-        client = make_mqtt_client()
-        client.register_device(FAKE_DEVICE_UUID)
-        mock_paho = mock.MagicMock()
-        client._client = mock_paho
-
-        # Simulate successful connection (reason_code=0)
-        client._on_connect(mock_paho, None, None, 0, None)
-
-        assert client._connected is True
-        # 1 user event topic + 2 device topics = 3 subscriptions
-        assert mock_paho.subscribe.call_count == 3
-        subscribed_topics = [call.args[0] for call in mock_paho.subscribe.call_args_list]
-        assert f"c/{FAKE_USER_ID}/s/event" in subscribed_topics
-        assert f"d/{FAKE_DEVICE_UUID}/s/5s" in subscribed_topics
-
-    def test_on_connect_failure(self) -> None:
-        client = make_mqtt_client()
-        mock_paho = mock.MagicMock()
-
-        client._on_connect(mock_paho, None, None, 5, None)  # reason_code != 0
-
-        assert client._connected is False
-        mock_paho.subscribe.assert_not_called()
-
-    def test_on_connect_callback_fired(self) -> None:
-        client = make_mqtt_client()
-        called = []
-        client.on_connect_callback = lambda: called.append(True)
-        mock_paho = mock.MagicMock()
-        client._client = mock_paho
-
-        client._on_connect(mock_paho, None, None, 0, None)
-
-        assert len(called) == 1
-
-
-class TestOnDisconnect(TestCase):
-    """Tests for the on_disconnect handler."""
-
-    def test_on_disconnect(self) -> None:
-        client = make_mqtt_client()
-        client._connected = True
-        called = []
-        client.on_disconnect_callback = lambda: called.append(True)
-
-        client._on_disconnect(None, None, None, 0, None)
-
-        assert client._connected is False
-        assert len(called) == 1
-
-
-class TestMalformedMessages(TestCase):
-    """Tests for handling invalid/malformed MQTT payloads."""
-
-    def test_invalid_json(self) -> None:
-        """Should not crash on invalid JSON."""
-        client = make_mqtt_client()
-        received = []
-        client.on_sensor_data = lambda device_id, sensors: received.append(True)
-
-        msg = mock.MagicMock()
-        msg.topic = f"d/{FAKE_DEVICE_UUID}/s/5s"
-        msg.payload = b"not valid json"
-        client._on_message(None, None, msg)
-
-        assert len(received) == 0
-
-    def test_non_list_sensor_payload(self) -> None:
-        """Sensor topic with dict payload instead of list."""
-        client = make_mqtt_client()
-        received = []
-        client.on_sensor_data = lambda device_id, sensors: received.append((device_id, sensors))
-
-        msg = make_mqtt_message(f"d/{FAKE_DEVICE_UUID}/s/5s", {"unexpected": "dict"})
-        client._on_message(None, None, msg)
-
-        assert len(received) == 1
-        assert received[0][1] == {}
-
-    def test_event_with_non_dict_payload(self) -> None:
-        """Event topic with list payload instead of dict."""
-        client = make_mqtt_client()
-        received = []
-        client.on_event = lambda device_id, event: received.append(True)
-
-        msg = make_mqtt_message(f"c/{FAKE_USER_ID}/s/event", [1, 2, 3])
-        client._on_message(None, None, msg)
-
-        assert len(received) == 0
-
-
-class TestInvalidRegion(TestCase):
-    def test_connect_invalid_region(self) -> None:
-        client = MqttAwsBlueair(
-            region="invalid",
-            mqtt_auth_name="n",
-            mqtt_auth_signature="s",
-            mqtt_auth_token="t",
-            user_id="u",
-        )
-        with pytest.raises(ValueError):
-            client.connect()
-
-
-class TestBuildClient(TestCase):
-    """Tests that _build_client wires up paho hooks correctly."""
-
-    def test_build_client_sets_on_pre_connect(self) -> None:
-        """_build_client must assign on_pre_connect for credential refresh."""
-        client = make_mqtt_client()
-        paho_client = client._build_client()
-        assert paho_client.on_pre_connect is not None
-        assert paho_client.on_pre_connect == client._on_pre_connect
-
-    def test_build_client_sets_on_connect_fail(self) -> None:
-        """_build_client must assign on_connect_fail for logging handshake errors."""
-        client = make_mqtt_client()
-        paho_client = client._build_client()
-        assert paho_client.on_connect_fail is not None
-        assert paho_client.on_connect_fail == client._on_connect_fail
-
-    def test_build_client_sets_callable_headers(self) -> None:
-        """_build_client must pass a callable (not a dict) to ws_set_options."""
-        client = make_mqtt_client()
-        paho_client = client._build_client()
-        # paho stores the callable in _websocket_extra_headers
-        assert callable(paho_client._websocket_extra_headers)
-
-    def test_build_client_enables_reconnect(self) -> None:
-        """_build_client must leave reconnect_on_failure enabled (default True)."""
-        client = make_mqtt_client()
-        paho_client = client._build_client()
-        assert paho_client._reconnect_on_failure is True
-
-    def test_build_client_sets_reconnect_delay(self) -> None:
-        """_build_client must configure backoff via reconnect_delay_set."""
-        client = make_mqtt_client()
-        paho_client = client._build_client()
-        assert paho_client._reconnect_min_delay == 5
-        assert paho_client._reconnect_max_delay == 300
-
-
-class TestEndToEndCredentialRefresh(TestCase):
-    """Test the full reconnect credential flow: on_pre_connect → _get_ws_headers."""
-
-    def test_pre_connect_then_headers_returns_fresh_creds(self) -> None:
-        """Simulate paho's reconnect: on_pre_connect refreshes, then headers use the new values."""
-        client = make_mqtt_client()
-
-        loop = asyncio.new_event_loop()
-        loop_thread = threading.Thread(target=loop.run_forever, daemon=True)
-        loop_thread.start()
-        client._event_loop = loop
-
-        async def fake_refresh() -> tuple[str, str, str]:
-            return ("refreshed-name", "refreshed-sig", "refreshed-token")
-
-        client.credential_refresher = fake_refresh
-
-        # Step 1: paho calls on_pre_connect
-        client._on_pre_connect(None, None)
-
-        # Step 2: paho calls _get_ws_headers during WS handshake
-        headers = client._get_ws_headers({"Host": "broker.example.com"})
-
-        loop.call_soon_threadsafe(loop.stop)
-        loop_thread.join(timeout=5)
-        loop.close()
-
-        assert headers["X-Amz-CustomAuthorizer-Name"] == "refreshed-name"
-        assert headers["X-Amz-CustomAuthorizer-Signature"] == "refreshed-sig"
-        assert headers["X-Amz-CustomAuthorizer-Token"] == "refreshed-token"
-        # Default headers preserved
-        assert headers["Host"] == "broker.example.com"
-
-    def test_pre_connect_failure_headers_use_old_creds(self) -> None:
-        """If credential refresh fails, headers fall back to the previous credentials."""
-        client = make_mqtt_client()
-
-        loop = asyncio.new_event_loop()
-        loop_thread = threading.Thread(target=loop.run_forever, daemon=True)
-        loop_thread.start()
-        client._event_loop = loop
-
-        async def failing_refresh() -> Never:
-            raise RuntimeError("auth server down")
-
-        client.credential_refresher = failing_refresh
-
-        # on_pre_connect fails silently
-        client._on_pre_connect(None, None)
-
-        # Headers should still work with original creds
-        headers = client._get_ws_headers({})
-
-        loop.call_soon_threadsafe(loop.stop)
-        loop_thread.join(timeout=5)
-        loop.close()
-
-        assert headers["X-Amz-CustomAuthorizer-Name"] == "custom-authorizer"
-        assert headers["X-Amz-CustomAuthorizer-Signature"] == "fake-signature"
-        assert headers["X-Amz-CustomAuthorizer-Token"] == "fake-token"
-
-
-class TestConnectDisconnect(TestCase):
-    """Tests for connect() and disconnect() methods."""
-
-    @mock.patch("blueair_api.mqtt_aws_blueair.mqtt.Client")
-    def test_connect_stores_event_loop(self, MockClient: mock.MagicMock) -> None:
-        """connect() should store the event_loop for on_pre_connect."""
-        client = make_mqtt_client()
-        fake_loop = mock.MagicMock()
-        client.connect(event_loop=fake_loop)
-        assert client._event_loop is fake_loop
-
-    @mock.patch("blueair_api.mqtt_aws_blueair.mqtt.Client")
-    def test_connect_calls_paho_connect_and_loop_start(self, MockClient: mock.MagicMock) -> None:
-        """connect() should call paho's connect() and loop_start()."""
-        mock_paho = MockClient.return_value
-        client = make_mqtt_client()
-        client.connect()
-        mock_paho.connect.assert_called_once()
-        mock_paho.loop_start.assert_called_once()
-
-    @mock.patch("blueair_api.mqtt_aws_blueair.mqtt.Client")
-    def test_disconnect_calls_paho_loop_stop_and_disconnect(
-        self, MockClient: mock.MagicMock
-    ) -> None:
-        """disconnect() should call loop_stop() and disconnect() on paho."""
-        mock_paho = MockClient.return_value
-        client = make_mqtt_client()
-        client.connect()
-        client.disconnect()
-        mock_paho.loop_stop.assert_called_once()
-        mock_paho.disconnect.assert_called_once()
-        assert client._stopping is True
-        assert client._client is None
-
-
-class TestOnConnectFail(TestCase):
-    """Tests for the on_connect_fail handler."""
-
-    def test_on_connect_fail_does_not_crash(self) -> None:
-        """on_connect_fail should log but not raise."""
-        client = make_mqtt_client()
-        # Should not raise
-        client._on_connect_fail(None, None)
-
-
-class TestSensorTTLResubscribe(TestCase):
-    """Tests for the sensor TTL keepalive re-subscribe mechanism."""
-
-    def test_set_sensor_ttl(self) -> None:
-        """set_sensor_ttl should update the TTL value."""
-        client = make_mqtt_client()
-        client.set_sensor_ttl(600)
-        assert client._sensor_ttl == 600
-
-    def test_set_sensor_ttl_ignores_non_positive(self) -> None:
-        """set_sensor_ttl should ignore values <= 0."""
-        client = make_mqtt_client()
-        original = client._sensor_ttl
-        client.set_sensor_ttl(-1)
-        assert client._sensor_ttl == original
-        client.set_sensor_ttl(0)
-        assert client._sensor_ttl == original
-
-    def test_default_sensor_ttl(self) -> None:
-        """Default sensor TTL should be 1200 seconds."""
-        client = make_mqtt_client()
-        assert client._sensor_ttl == 1200
-
-    def test_resubscribe_sensor_topics(self) -> None:
-        """_resubscribe_sensor_topics should subscribe (without unsubscribe) for each device."""
-        client = make_mqtt_client()
-        client.register_device(FAKE_DEVICE_UUID)
-        mock_paho = mock.MagicMock()
-        client._client = mock_paho
-        client._connected = True
-
-        client._resubscribe_sensor_topics()
-
-        mock_paho.unsubscribe.assert_not_called()
-        mock_paho.subscribe.assert_called_once_with(f"d/{FAKE_DEVICE_UUID}/s/5s")
-
-    def test_resubscribe_sensor_topics_multiple_devices(self) -> None:
-        """_resubscribe_sensor_topics should handle multiple devices."""
-        client = make_mqtt_client()
-        uuid2 = "22222222-2222-2222-2222-222222222222"
-        client.register_device(FAKE_DEVICE_UUID)
-        client.register_device(uuid2)
-        mock_paho = mock.MagicMock()
-        client._client = mock_paho
-        client._connected = True
-
-        client._resubscribe_sensor_topics()
-
-        mock_paho.unsubscribe.assert_not_called()
-        assert mock_paho.subscribe.call_count == 2
-
-    def test_resubscribe_sensor_topics_not_connected(self) -> None:
-        """_resubscribe_sensor_topics should be a no-op when not connected."""
-        client = make_mqtt_client()
-        client.register_device(FAKE_DEVICE_UUID)
-        mock_paho = mock.MagicMock()
-        client._client = mock_paho
-        client._connected = False
-
-        client._resubscribe_sensor_topics()
-
-        mock_paho.unsubscribe.assert_not_called()
-        mock_paho.subscribe.assert_not_called()
-
-    def test_on_connect_starts_resubscribe_timer(self) -> None:
-        """_on_connect should start the re-subscribe timer."""
-        client = make_mqtt_client()
-        client.register_device(FAKE_DEVICE_UUID)
-        mock_paho = mock.MagicMock()
-        client._client = mock_paho
-
-        client._on_connect(mock_paho, None, None, 0, None)
-
-        assert client._resubscribe_timer is not None
-        # Clean up
-        client._cancel_resubscribe_timer()
-
-    def test_disconnect_cancels_resubscribe_timer(self) -> None:
-        """disconnect() should cancel the re-subscribe timer."""
-        client = make_mqtt_client()
-        # Simulate a running timer
-        client._resubscribe_timer = mock.MagicMock()
-        client._client = mock.MagicMock()
-
-        client.disconnect()
-
-        assert client._resubscribe_timer is None
-
-    def test_unexpected_disconnect_cancels_timer(self) -> None:
-        """_on_disconnect should cancel the re-subscribe timer."""
-        client = make_mqtt_client()
-        client._resubscribe_timer = mock.MagicMock()
-
-        client._on_disconnect(None, None, None, 7, None)
-
-        assert client._resubscribe_timer is None
-
-    def test_resubscribe_timer_interval(self) -> None:
-        """Timer interval should be TTL * 0.75."""
-        client = make_mqtt_client()
-        client.set_sensor_ttl(1200)
-        client.register_device(FAKE_DEVICE_UUID)
-        mock_paho = mock.MagicMock()
-        client._client = mock_paho
-        client._connected = True
-
-        with mock.patch("blueair_api.mqtt_aws_blueair.threading.Timer") as MockTimer:
-            mock_timer_instance = mock.MagicMock()
-            MockTimer.return_value = mock_timer_instance
-            client._start_resubscribe_timer()
-            MockTimer.assert_called_once_with(900, client._resubscribe_timer_fired)
-            mock_timer_instance.start.assert_called_once()
-
-        client._cancel_resubscribe_timer()
-
-    def test_resubscribe_timer_custom_ttl(self) -> None:
-        """Timer interval should use custom TTL when set."""
-        client = make_mqtt_client()
-        client.set_sensor_ttl(600)  # 10 minutes
-
-        with mock.patch("blueair_api.mqtt_aws_blueair.threading.Timer") as MockTimer:
-            mock_timer_instance = mock.MagicMock()
-            MockTimer.return_value = mock_timer_instance
-            client._start_resubscribe_timer()
-            MockTimer.assert_called_once_with(450, client._resubscribe_timer_fired)
-
-        client._cancel_resubscribe_timer()
-
-
-class TestConnectedEventResubscribe(TestCase):
-    """Tests for re-subscribing on device Connected events."""
-
-    def test_connected_event_resubscribes(self) -> None:
-        """A Connected event should trigger re-subscribe for that device."""
-        client = make_mqtt_client()
-        client.register_device(FAKE_DEVICE_UUID)
-        mock_paho = mock.MagicMock()
-        client._client = mock_paho
-        client._connected = True
-
-        payload = {
-            "et": "Connected",
-            "o": FAKE_DEVICE_UUID,
-            "ts": 1776455065,
-            "m": "Device is Online",
-            "ot": "ConnectionEvent",
-        }
-        msg = make_mqtt_message(f"c/{FAKE_USER_ID}/s/event", payload)
-        client._on_message(None, None, msg)
-
-        # Should have re-subscribed to the 5s topic (no unsubscribe)
-        mock_paho.unsubscribe.assert_not_called()
-        mock_paho.subscribe.assert_called_once_with(f"d/{FAKE_DEVICE_UUID}/s/5s")
-
-    def test_not_connected_event_does_not_resubscribe(self) -> None:
-        """A NotConnected event should NOT trigger re-subscribe."""
-        client = make_mqtt_client()
-        client.register_device(FAKE_DEVICE_UUID)
-        mock_paho = mock.MagicMock()
-        client._client = mock_paho
-        client._connected = True
-
-        payload = {
-            "et": "NotConnected",
-            "o": FAKE_DEVICE_UUID,
-            "ts": 1776455065,
-            "m": "Device is Offline",
-        }
-        msg = make_mqtt_message(f"c/{FAKE_USER_ID}/s/event", payload)
-        client._on_message(None, None, msg)
-
-        mock_paho.unsubscribe.assert_not_called()
-        mock_paho.subscribe.assert_not_called()
-
-
-def _run_loop_in_thread() -> tuple[asyncio.AbstractEventLoop, threading.Thread]:
-    """Start an event loop on a background thread, as Home Assistant's loop runs.
-
-    Returns:
-        The running loop and its thread.
-    """
-    loop = asyncio.new_event_loop()
-    loop_thread = threading.Thread(target=loop.run_forever, daemon=True)
-    loop_thread.start()
-    return loop, loop_thread
-
-
-def _stop_loop(loop: asyncio.AbstractEventLoop, loop_thread: threading.Thread) -> None:
-    """Stop and close a loop started by ``_run_loop_in_thread``.
-
-    Args:
-        loop: The running loop.
-        loop_thread: The thread running it.
-    """
-    loop.call_soon_threadsafe(loop.stop)
-    loop_thread.join(timeout=5)
-    loop.close()
-
-
-def test_credential_refresh_wait_covers_a_full_re_authentication() -> None:
-    """Wait long enough for every request of a full re-authentication."""
-    assert MQTT_CREDENTIAL_REFRESH_TIMEOUT_SECONDS >= 6 * REQUEST_TIMEOUT_SECONDS
-
-
-def test_on_pre_connect_cancels_a_refresh_that_runs_past_the_wait(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-) -> None:
-    """Cancel an unfinished refresh and keep the previous tokens.
-
-    Args:
-        monkeypatch: Pytest helper for shortening the wait.
-        caplog: Pytest log capture fixture.
-    """
-    monkeypatch.setattr(
-        "blueair_api.mqtt_aws_blueair.MQTT_CREDENTIAL_REFRESH_TIMEOUT_SECONDS", 0.05
-    )
+async def test_sensor_data_callback() -> None:
     client = make_mqtt_client()
-    loop, loop_thread = _run_loop_in_thread()
-    client._event_loop = loop
-    cancelled = threading.Event()
+    received: list[Any] = []
+    client.on_sensor_data = lambda device_id, sensors: received.append((device_id, sensors))
 
-    async def slow_refresh() -> tuple[str, str, str]:
-        """Outlast the wait, recording cancellation.
+    await deliver(
+        client,
+        SENSOR_TOPIC,
+        [{"n": "pm2_5", "v": 3.0}, {"n": "fsp0", "v": 11.0}, {"n": "rssi", "v": -24.0}],
+    )
 
-        Returns:
-            Never returns before it is cancelled.
-        """
-        try:
-            await asyncio.sleep(5)
-        except asyncio.CancelledError:
-            cancelled.set()
-            raise
-        return ("late-name", "late-sig", "late-token")
-
-    client.credential_refresher = slow_refresh
-
-    client._on_pre_connect(None, None)
-
-    assert cancelled.wait(timeout=2)
-    _stop_loop(loop, loop_thread)
-    assert client._mqtt_auth_name == "custom-authorizer"
-    assert "did not finish within 0.05 seconds" in caplog.text
+    assert received == [(FAKE_DEVICE_UUID, {"pm2_5": 3.0, "fsp0": 11.0, "rssi": -24.0})]
 
 
-def test_on_pre_connect_reports_a_refresher_timeout_as_a_failure(
+async def test_sensor_data_empty_list() -> None:
+    client = make_mqtt_client()
+    received: list[Any] = []
+    client.on_sensor_data = lambda device_id, sensors: received.append((device_id, sensors))
+
+    await deliver(client, SENSOR_TOPIC, [])
+
+    assert received == [(FAKE_DEVICE_UUID, {})]
+
+
+async def test_sensor_data_without_callbacks_does_not_raise() -> None:
+    client = make_mqtt_client()
+
+    await deliver(client, SENSOR_TOPIC, [{"n": "pm2_5", "v": 5.0}])
+    await deliver(client, SHADOW_TOPIC, {"current": {"state": {"reported": {}}}})
+    await deliver(client, EVENT_TOPIC, {"et": "Connected", "o": FAKE_DEVICE_UUID})
+
+
+async def test_non_list_sensor_payload_reports_no_sensors() -> None:
+    client = make_mqtt_client()
+    received: list[Any] = []
+    client.on_sensor_data = lambda device_id, sensors: received.append(sensors)
+
+    await deliver(client, SENSOR_TOPIC, {"n": "pm2_5"})
+
+    assert received == [{}]
+
+
+async def test_state_change_callback() -> None:
+    client = make_mqtt_client()
+    received: list[Any] = []
+    client.on_state_change = lambda device_id, state: received.append((device_id, state))
+
+    await deliver(
+        client,
+        SHADOW_TOPIC,
+        {
+            "current": {"state": {"reported": {"fanspeed": 51, "standby": False}}},
+            "previous": {},
+        },
+    )
+
+    assert received == [(FAKE_DEVICE_UUID, {"fanspeed": 51, "standby": False})]
+
+
+@pytest.mark.parametrize(
+    "payload", [{"current": {"state": {"reported": {}}}}, {"unexpected": "format"}]
+)
+async def test_state_change_without_reported_state(payload: dict[str, Any]) -> None:
+    client = make_mqtt_client()
+    received: list[Any] = []
+    client.on_state_change = lambda device_id, state: received.append(state)
+
+    await deliver(client, SHADOW_TOPIC, payload)
+
+    assert received == [{}]
+
+
+async def test_state_change_with_non_dict_payload_is_ignored() -> None:
+    client = make_mqtt_client()
+    received: list[Any] = []
+    client.on_state_change = lambda device_id, state: received.append(state)
+
+    await deliver(client, SHADOW_TOPIC, ["not", "a", "dict"])
+
+    assert received == []
+
+
+@pytest.mark.parametrize("event_type", ["Connected", "NotConnected"])
+async def test_event_callback(event_type: str) -> None:
+    client = make_mqtt_client()
+    received: list[Any] = []
+    client.on_event = lambda device_id, event: received.append((device_id, event))
+    payload = {"et": event_type, "o": FAKE_DEVICE_UUID, "m": "Device is Online", "ec": 0}
+
+    await deliver(client, EVENT_TOPIC, payload)
+
+    assert received == [(FAKE_DEVICE_UUID, payload)]
+
+
+async def test_event_missing_origin_device() -> None:
+    client = make_mqtt_client()
+    received: list[Any] = []
+    client.on_event = lambda device_id, event: received.append(device_id)
+
+    await deliver(client, EVENT_TOPIC, {"et": "NotConnected"})
+
+    assert received == [""]
+
+
+async def test_event_with_non_dict_payload_is_ignored() -> None:
+    client = make_mqtt_client()
+    received: list[Any] = []
+    client.on_event = lambda device_id, event: received.append(event)
+
+    await deliver(client, EVENT_TOPIC, ["not", "a", "dict"])
+
+    assert received == []
+
+
+@pytest.mark.parametrize("raw", [b"not json", b"\xff\xfe", None])
+async def test_unparsable_payload_is_logged(raw: Any, caplog: pytest.LogCaptureFixture) -> None:
+    client = make_mqtt_client()
+    received: list[Any] = []
+    client.on_sensor_data = lambda device_id, sensors: received.append(sensors)
+
+    await client._on_message(SENSOR_TOPIC, raw)
+
+    assert received == []
+    assert "Failed to parse MQTT message" in caplog.text
+
+
+async def test_string_payload_is_parsed() -> None:
+    client = make_mqtt_client()
+    received: list[Any] = []
+    client.on_sensor_data = lambda device_id, sensors: received.append(sensors)
+
+    await client._on_message(SENSOR_TOPIC, json.dumps([{"n": "voc", "v": 1}]))
+
+    assert received == [{"voc": 1}]
+
+
+async def test_unhandled_topic_is_ignored(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.DEBUG)
+    client = make_mqtt_client()
+
+    await deliver(client, "x/unknown", {})
+
+    assert "Unhandled MQTT topic" in caplog.text
+
+
+async def test_callback_errors_are_logged(caplog: pytest.LogCaptureFixture) -> None:
+    client = make_mqtt_client()
+
+    def fail(*args: Any) -> None:
+        raise RuntimeError("boom")
+
+    client.on_sensor_data = fail
+    client.on_state_change = fail
+    client.on_event = fail
+
+    await deliver(client, SENSOR_TOPIC, [])
+    await deliver(client, SHADOW_TOPIC, {})
+    await deliver(client, EVENT_TOPIC, {"o": FAKE_DEVICE_UUID})
+
+    for name in ("on_sensor_data", "on_state_change", "on_event"):
+        assert f"Error in {name} callback" in caplog.text
+
+
+# ----- Registration and TTL ------------------------------------------------
+
+
+async def test_register_device_dedup() -> None:
+    client = make_mqtt_client()
+
+    client.register_device(FAKE_DEVICE_UUID)
+    client.register_device(FAKE_DEVICE_UUID)
+
+    assert client._device_ids == [FAKE_DEVICE_UUID]
+
+
+def test_set_sensor_ttl() -> None:
+    client = make_mqtt_client()
+    assert client._sensor_ttl == 1200
+    assert client._resubscribe_interval == 900
+
+    client.set_sensor_ttl(600)
+    assert client._sensor_ttl == 600
+
+    client.set_sensor_ttl(0)
+    client.set_sensor_ttl(-5)
+    assert client._sensor_ttl == 600
+
+    client.set_sensor_ttl(1)
+    # Never re-subscribe in a tight loop.
+    assert client._resubscribe_interval == 1
+
+
+# ----- Connecting ----------------------------------------------------------
+
+
+async def test_connect_builds_the_websocket_client_and_subscribes() -> None:
+    client = make_mqtt_client()
+    client.register_device(FAKE_DEVICE_UUID)
+    connects: list[bool] = []
+    client.on_connect_callback = lambda: connects.append(True)
+
+    await client.connect()
+
+    fake = FakeClient.instances[0]
+    assert fake.hostname == AWS_MQTT_BROKERS["us"]
+    assert fake.port == 443
+    assert fake.kwargs["transport"] == "websockets"
+    assert fake.kwargs["websocket_path"] == "/mqtt"
+    assert fake.kwargs["identifier"] == client._client_id
+    assert fake.kwargs["tls_context"] is not None
+    assert fake.handshake_headers == [
+        {
+            "X-Amz-CustomAuthorizer-Name": "custom-authorizer",
+            "X-Amz-CustomAuthorizer-Signature": "fake-signature",
+            "X-Amz-CustomAuthorizer-Token": "fake-token",
+        }
+    ]
+    assert fake.subscriptions == [EVENT_TOPIC, SENSOR_TOPIC, SHADOW_TOPIC]
+    assert client.connected
+    assert connects == [True]
+    assert client._resubscribe_task is not None
+
+    await client.disconnect()
+
+
+async def test_connect_rejects_an_unknown_region() -> None:
+    client = MqttAwsBlueair(
+        region="nowhere",
+        mqtt_auth_name="n",
+        mqtt_auth_signature="s",
+        mqtt_auth_token="t",
+        user_id=FAKE_USER_ID,
+    )
+
+    with pytest.raises(ValueError, match="nowhere"):
+        await client.connect()
+
+
+async def test_connect_logs_missing_credentials(caplog: pytest.LogCaptureFixture) -> None:
+    client = MqttAwsBlueair(
+        region="us", mqtt_auth_name="", mqtt_auth_signature="", mqtt_auth_token="", user_id=""
+    )
+
+    await client.connect()
+
+    assert "MQTT auth credentials missing" in caplog.text
+    await client.disconnect()
+
+
+async def test_first_connection_failure_is_raised() -> None:
+    client = make_mqtt_client()
+    FakeClient.connect_errors = [aiomqtt.MqttError("refused")]
+
+    with pytest.raises(aiomqtt.MqttError, match="refused"):
+        await client.connect()
+
+    assert not client.connected
+    assert client._run_task is None
+
+
+async def test_registering_while_connected_subscribes() -> None:
+    client = make_mqtt_client()
+    await client.connect()
+    fake = FakeClient.instances[0]
+
+    client.register_device(FAKE_DEVICE_UUID)
+    await wait_for(lambda: SHADOW_TOPIC in fake.subscriptions)
+
+    assert fake.subscriptions == [EVENT_TOPIC, SENSOR_TOPIC, SHADOW_TOPIC]
+    await client.disconnect()
+
+
+async def test_subscribe_failures_are_logged(caplog: pytest.LogCaptureFixture) -> None:
+    client = make_mqtt_client()
+    client.register_device(FAKE_DEVICE_UUID)
+    await client.connect()
+    fake = FakeClient.instances[0]
+    fake.subscribe_error = aiomqtt.MqttError("no suback")
+
+    await client._resubscribe_sensor_topics(fake)  # type: ignore[arg-type]
+
+    assert f"Failed to subscribe to {SENSOR_TOPIC}" in caplog.text
+    await client.disconnect()
+
+
+async def test_messages_are_dispatched_on_the_loop() -> None:
+    client = make_mqtt_client()
+    received: list[Any] = []
+    client.on_sensor_data = lambda device_id, sensors: received.append(sensors)
+    await client.connect()
+
+    FakeClient.instances[0].deliver(SENSOR_TOPIC, [{"n": "pm1", "v": 2}])
+    await wait_for(lambda: received)
+
+    assert received == [{"pm1": 2}]
+    await client.disconnect()
+
+
+async def test_connected_event_resubscribes_the_sensor_topic() -> None:
+    client = make_mqtt_client()
+    client.register_device(FAKE_DEVICE_UUID)
+    await client.connect()
+    fake = FakeClient.instances[0]
+    fake.subscriptions.clear()
+
+    fake.deliver(EVENT_TOPIC, {"et": "Connected", "o": FAKE_DEVICE_UUID})
+    fake.deliver(EVENT_TOPIC, {"et": "Connected", "o": "someone-else"})
+    await wait_for(lambda: fake.subscriptions)
+    await asyncio.sleep(0)
+
+    assert fake.subscriptions == [SENSOR_TOPIC]
+    await client.disconnect()
+
+
+async def test_periodic_resubscribe_keeps_the_sensor_stream_alive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = make_mqtt_client()
+    client.register_device(FAKE_DEVICE_UUID)
+    resubscribes: list[Any] = []
+
+    async def resubscribe(fake: Any) -> None:
+        resubscribes.append(fake)
+
+    monkeypatch.setattr(client, "_resubscribe_sensor_topics", resubscribe)
+    monkeypatch.setattr(MqttAwsBlueair, "_resubscribe_interval", 0)
+    await client.connect()
+
+    await wait_for(lambda: len(resubscribes) >= 2)
+
+    assert resubscribes[0] is FakeClient.instances[0]
+    await client.disconnect()
+    assert client._resubscribe_task is None
+
+
+async def test_disconnect_stops_the_client() -> None:
+    client = make_mqtt_client()
+    await client.connect()
+    run_task = client._run_task
+
+    await client.disconnect()
+
+    assert not client.connected
+    assert run_task is not None
+    assert run_task.done()
+    assert FakeClient.instances[0].exits == 1
+    assert client._client is None
+
+
+async def test_disconnect_without_connect_is_safe() -> None:
+    client = make_mqtt_client()
+
+    await client.disconnect()
+
+    assert not client.connected
+
+
+# ----- Reconnecting ----------------------------------------------------------
+
+
+@pytest.mark.parametrize("error", [aiomqtt.MqttError("connection lost"), None])
+async def test_reconnects_with_refreshed_credentials(error: BaseException | None) -> None:
+    client = make_mqtt_client()
+    client.register_device(FAKE_DEVICE_UUID)
+    disconnects: list[bool] = []
+    client.on_disconnect_callback = lambda: disconnects.append(True)
+
+    async def refresh() -> tuple[str, str, str]:
+        return ("new-name", "new-signature", "new-token")
+
+    client.credential_refresher = refresh
+    await client.connect()
+    fake = FakeClient.instances[0]
+
+    fake.drop(error)
+    await wait_for(lambda: fake.connects == 2)
+
+    assert disconnects == [True]
+    assert fake.handshake_headers[-1] == {
+        "X-Amz-CustomAuthorizer-Name": "new-name",
+        "X-Amz-CustomAuthorizer-Signature": "new-signature",
+        "X-Amz-CustomAuthorizer-Token": "new-token",
+    }
+    assert fake.subscriptions.count(SENSOR_TOPIC) == 2
+    assert client.connected
+    await client.disconnect()
+
+
+async def test_reconnect_keeps_trying_after_failed_attempts() -> None:
+    client = make_mqtt_client()
+    await client.connect()
+    fake = FakeClient.instances[0]
+    FakeClient.connect_errors = [aiomqtt.MqttError("refused"), aiomqtt.MqttError("refused")]
+
+    fake.drop()
+    await wait_for(lambda: fake.connects == 2)
+
+    assert client.connected
+    assert FakeClient.connect_errors == []
+    await client.disconnect()
+
+
+async def test_reconnect_backoff_doubles_up_to_the_maximum(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    delays: list[float] = []
+    real_sleep = asyncio.sleep
+
+    async def record_sleep(delay: float) -> None:
+        delays.append(delay)
+        await real_sleep(0)
+
+    monkeypatch.setattr(mqtt_aws_blueair, "_RECONNECT_MIN_DELAY", 100)
+    monkeypatch.setattr("blueair_api.mqtt_aws_blueair.asyncio.sleep", record_sleep)
+    client = make_mqtt_client()
+    client.set_sensor_ttl(10**9)
+    await client.connect()
+    fake = FakeClient.instances[0]
+    FakeClient.connect_errors = [aiomqtt.MqttError("refused")] * 3
+
+    fake.drop()
+    await wait_for(lambda: fake.connects == 2)
+    # Zero-second sleeps are this test's own polling.
+    reconnect_delays = [delay for delay in delays if 0 < delay < 10**8]
+
+    assert reconnect_delays == [100, 200, 300, 300]
+    await client.disconnect()
+
+
+async def test_reconnect_without_refresher_keeps_credentials() -> None:
+    client = make_mqtt_client()
+    await client.connect()
+    fake = FakeClient.instances[0]
+
+    fake.drop()
+    await wait_for(lambda: fake.connects == 2)
+
+    assert fake.handshake_headers[-1] == fake.handshake_headers[0]
+    await client.disconnect()
+
+
+async def test_failed_refresh_reconnects_with_old_credentials(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Report a refresher's own request timeout as a failed refresh, not a slow one.
-
-    Args:
-        caplog: Pytest log capture fixture.
-    """
     client = make_mqtt_client()
-    loop, loop_thread = _run_loop_in_thread()
-    client._event_loop = loop
 
-    async def timing_out_refresh() -> Never:
-        """Fail the way a request timeout inside the refresher does.
+    async def refresh() -> tuple[str, str, str]:
+        raise RuntimeError("login failed")
 
-        Raises:
-            RequestTimeoutError: Always.
-        """
-        raise RequestTimeoutError("Blueair request timed out after 20 seconds")
+    client.credential_refresher = refresh
+    await client.connect()
+    fake = FakeClient.instances[0]
 
-    client.credential_refresher = timing_out_refresh
+    fake.drop()
+    await wait_for(lambda: fake.connects == 2)
 
-    client._on_pre_connect(None, None)
-
-    _stop_loop(loop, loop_thread)
-    assert client._mqtt_auth_name == "custom-authorizer"
+    assert fake.handshake_headers[-1]["X-Amz-CustomAuthorizer-Token"] == "fake-token"
     assert "Failed to refresh MQTT credentials" in caplog.text
-    assert "did not finish within" not in caplog.text
+    await client.disconnect()
+
+
+async def test_slow_refresh_is_abandoned(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setattr(mqtt_aws_blueair, "MQTT_CREDENTIAL_REFRESH_TIMEOUT_SECONDS", 0.01)
+    client = make_mqtt_client()
+    cancelled: list[bool] = []
+
+    async def refresh() -> tuple[str, str, str]:
+        try:
+            await asyncio.sleep(10)
+        except asyncio.CancelledError:
+            cancelled.append(True)
+            raise
+        return ("never", "never", "never")
+
+    client.credential_refresher = refresh
+    await client.connect()
+    fake = FakeClient.instances[0]
+
+    fake.drop()
+    await wait_for(lambda: fake.connects == 2)
+
+    assert cancelled == [True]
+    assert fake.handshake_headers[-1]["X-Amz-CustomAuthorizer-Token"] == "fake-token"
+    assert "did not finish within" in caplog.text
+    await client.disconnect()
+
+
+async def test_disconnect_during_backoff_stops_reconnecting(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(mqtt_aws_blueair, "_RECONNECT_MIN_DELAY", 60)
+    client = make_mqtt_client()
+    await client.connect()
+    fake = FakeClient.instances[0]
+
+    fake.drop()
+    await wait_for(lambda: not client.connected)
+    await client.disconnect()
+
+    assert fake.connects == 1
