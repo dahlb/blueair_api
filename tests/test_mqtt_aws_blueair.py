@@ -15,6 +15,7 @@ from typing import Any, ClassVar, Self
 import aiomqtt
 import pytest
 
+import blueair_api
 from blueair_api import mqtt_aws_blueair
 from blueair_api.const import AWS_MQTT_BROKERS
 from blueair_api.mqtt_aws_blueair import MqttAwsBlueair
@@ -374,11 +375,18 @@ async def test_first_connection_failure_is_raised() -> None:
     client = make_mqtt_client()
     FakeClient.connect_errors = [aiomqtt.MqttError("refused")]
 
-    with pytest.raises(aiomqtt.MqttError, match="refused"):
+    # Callers catch the package's export without importing aiomqtt.
+    with pytest.raises(blueair_api.MqttError, match="refused"):
         await client.connect()
 
     assert not client.connected
     assert client._run_task is None
+
+
+def test_mqtt_error_is_aiomqtts() -> None:
+    """Export aiomqtt's MqttError, so catching it catches every aiomqtt failure."""
+    assert blueair_api.MqttError is aiomqtt.MqttError
+    assert "MqttError" in blueair_api.__all__
 
 
 async def test_registering_while_connected_subscribes() -> None:
