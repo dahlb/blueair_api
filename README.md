@@ -50,6 +50,10 @@ a lot of this is based on [hass-blueair](https://github.com/aijayadams/hass-blue
   - `ResponseError`: any other unexpected status; also a `ValueError`.
   - `RequestTimeoutError`: a request took longer than 20 seconds; also a
     `TimeoutError`.
+
+  `MqttAwsBlueair.connect()` raises `MqttError` (aiomqtt's, exported here so
+  callers needn't import aiomqtt) when the first connection fails, and
+  `ValueError` for a region without an MQTT broker.
 - **Debug logging** — request and response logs mask credentials, tokens,
   session secrets, signatures and email addresses.
 

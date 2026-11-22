@@ -14,7 +14,7 @@ from .errors import (
 )
 from .http_aws_blueair import HttpAwsBlueair
 from .http_blueair import HttpBlueair
-from .mqtt_aws_blueair import MqttAwsBlueair
+from .mqtt_aws_blueair import MqttAwsBlueair, MqttError
 from .region_discovery import (
     CandidateProbe,
     CloudRegionScan,
@@ -37,6 +37,7 @@ __all__ = [
     "HttpBlueair",
     "LoginError",
     "MqttAwsBlueair",
+    "MqttError",
     "RateError",
     "RequestTimeoutError",
     "ResponseError",

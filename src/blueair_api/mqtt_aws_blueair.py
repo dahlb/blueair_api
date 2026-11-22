@@ -26,8 +26,13 @@ from typing import Any
 import uuid
 
 import aiomqtt
+from aiomqtt import MqttError
 
 from .const import AWS_MQTT_BROKERS, MQTT_CREDENTIAL_REFRESH_TIMEOUT_SECONDS
+
+# MqttError is re-exported as blueair_api.MqttError, so callers can catch
+# MQTT failures without importing aiomqtt.
+__all__ = ["MqttAwsBlueair", "MqttError"]
 
 _LOGGER = getLogger(__name__)
 
@@ -179,7 +184,7 @@ class MqttAwsBlueair:
         """
         try:
             await client.subscribe(topic)
-        except aiomqtt.MqttError as error:
+        except MqttError as error:
             _LOGGER.warning("Failed to subscribe to %s: %s", topic, error)
             return
         _LOGGER.debug("Subscribed to %s", topic)
@@ -346,7 +351,8 @@ class MqttAwsBlueair:
 
         Raises:
             ValueError: No broker is configured for the region.
-            aiomqtt.MqttError: The first connection attempt failed.
+            MqttError: The first connection attempt failed (exported as
+                ``blueair_api.MqttError``, which is ``aiomqtt.MqttError``).
         """
         broker = AWS_MQTT_BROKERS.get(self._region)
         if broker is None:
@@ -393,7 +399,7 @@ class MqttAwsBlueair:
         """
         delay = _RECONNECT_MIN_DELAY
         while not self._stopping:
-            error: aiomqtt.MqttError | None = None
+            error: MqttError | None = None
             try:
                 async with client:
                     await self._on_connect(client)
@@ -402,7 +408,7 @@ class MqttAwsBlueair:
                     delay = _RECONNECT_MIN_DELAY
                     async for message in client.messages:
                         await self._on_message(str(message.topic), message.payload)
-            except aiomqtt.MqttError as exc:
+            except MqttError as exc:
                 if not first_connection.done():
                     first_connection.set_exception(exc)
                     return
@@ -459,7 +465,7 @@ class MqttAwsBlueair:
         if self.on_connect_callback:
             self.on_connect_callback()
 
-    def _on_disconnect(self, error: aiomqtt.MqttError | None) -> None:
+    def _on_disconnect(self, error: MqttError | None) -> None:
         """Record an unexpected disconnect.
 
         Args:
