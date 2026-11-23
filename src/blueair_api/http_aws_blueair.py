@@ -649,7 +649,23 @@ class HttpAwsBlueair:
         action_verb: str,
         action_value: Any,
     ) -> bool:
-        """Write a single device attribute and return whether it succeeded."""
+        """Write a single device attribute.
+
+        Args:
+            device_uuid: The device's UUID.
+            service_name: Shadow field to write, e.g. ``"standby"``.
+            action_verb: SenML value key: ``"v"`` for numbers, ``"vb"`` for
+                booleans.
+            action_value: The value to write.
+
+        Returns:
+            bool: Always True. Kept from when a rejected write returned False,
+            so callers that check the result keep working.
+
+        Raises:
+            ResponseError: The API answered with anything but ``Success``, so
+                the device didn't accept the write.
+        """
         _LOGGER.debug("set_device_info")
         url = f"https://{AWS_APIKEYS[self.cloud_region]['restApiId']}.execute-api.{AWS_APIKEYS[self.cloud_region]['awsRegion']}/prod/c/{device_uuid}/a/{service_name}"
         headers = {
@@ -660,7 +676,12 @@ class HttpAwsBlueair:
             url=url, headers=headers, json_body=json_body
         )
         response_text = await response.text()
-        return response_text == "Success"
+        if response_text != "Success":
+            _LOGGER.debug("set_device_info %s was not accepted: %s", service_name, response_text)
+            raise ResponseError(
+                f"device did not accept {service_name}: {response_text[:500] or 'empty response'}"
+            )
+        return True
 
     async def discover_cloud_region(
         self,
