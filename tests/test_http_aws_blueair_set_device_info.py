@@ -53,7 +53,10 @@ async def test_accepted_write_returns_true() -> None:
     [
         ("Failure", "device did not accept standby: Failure"),
         ("", "device did not accept standby: empty response"),
-        ('{"message": "Device offline"}', 'device did not accept standby: {"message": "Device offline"}'),
+        (
+            '{"message": "Device offline"}',
+            'device did not accept standby: {"message": "Device offline"}',
+        ),
         ("x" * 600, "device did not accept standby: " + "x" * 500),
     ],
 )
