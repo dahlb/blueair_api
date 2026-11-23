@@ -53,7 +53,8 @@ a lot of this is based on [hass-blueair](https://github.com/aijayadams/hass-blue
 
   Device setters (`set_fan_speed`, `set_standby`, ...) store the new value on
   the device, and notify its callbacks, only once the API call returns; if it
-  raises, the device keeps its last known state.
+  raises, the device keeps its last known state. An AWS write the API doesn't
+  answer with `Success` raises `ResponseError`.
 
   `MqttAwsBlueair.connect()` raises `MqttError` (aiomqtt's, exported here so
   callers needn't import aiomqtt) when the first connection fails, and
