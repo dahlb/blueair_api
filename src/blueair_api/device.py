@@ -153,24 +153,25 @@ class Device(CallbacksMixin):
 
     async def set_fan_speed(self, new_speed: str) -> None:
         """Set the fan speed and push the change to the API."""
-        self.fan_speed = int(new_speed)
+        fan_speed = int(new_speed)
         await self.api.set_fan_speed(self._uuid_or_raise, new_speed)
+        self.fan_speed = fan_speed
         self.publish_updates()
 
     async def set_brightness(self, new_brightness: int) -> None:
         """Set the LED brightness and push the change to the API."""
-        self.brightness = new_brightness
         await self.api.set_brightness(self._uuid_or_raise, new_brightness)
+        self.brightness = new_brightness
         self.publish_updates()
 
     async def set_child_lock(self, enabled: bool) -> None:
         """Enable or disable the child lock and push the change to the API."""
-        self.child_lock = enabled
         await self.api.set_child_lock(self._uuid_or_raise, enabled)
+        self.child_lock = enabled
         self.publish_updates()
 
     async def set_fan_auto_mode(self, fan_auto_mode: bool) -> None:
         """Enable or disable fan auto mode and push the change to the API."""
-        self.fan_auto_mode = fan_auto_mode
         await self.api.set_fan_auto_mode(self._uuid_or_raise, fan_auto_mode)
+        self.fan_auto_mode = fan_auto_mode
         self.publish_updates()

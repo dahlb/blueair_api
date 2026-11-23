@@ -498,14 +498,14 @@ class DeviceAws(CallbacksMixin):
 
     async def set_brightness(self, value: int) -> None:
         """Set the LED brightness and push the change to the API."""
-        self.brightness = value
         await self.api.set_device_info(self.uuid, "brightness", "v", value)
+        self.brightness = value
         self.publish_updates()
 
     async def set_mood_brightness(self, value: int) -> None:
         """Set the mood-light brightness and push the change to the API."""
-        self.mood_brightness = value
         await self.api.set_device_info(self.uuid, "nlbrightness", "v", value)
+        self.mood_brightness = value
         self.publish_updates()
 
     @property
@@ -547,135 +547,136 @@ class DeviceAws(CallbacksMixin):
 
     async def set_fan_speed(self, value: int) -> None:
         """Set the fan speed, remapping for humidifiers, and push the change."""
-        self.fan_speed = value
+        wire_value = value
         if self._is_humidifier:
             if value == 1:
-                value = 11
+                wire_value = 11
             elif value == 2:
-                value = 37
+                wire_value = 37
             elif value == 3:
-                value = 64
-        await self.api.set_device_info(self.uuid, "fanspeed", "v", value)
+                wire_value = 64
+        await self.api.set_device_info(self.uuid, "fanspeed", "v", wire_value)
+        self.fan_speed = value
         self.publish_updates()
 
     async def set_standby(self, value: bool) -> None:
         """Set standby (whole-device power) and push the change to the API."""
-        self.standby = value
         await self.api.set_device_info(self.uuid, "standby", "vb", value)
+        self.standby = value
         self.publish_updates()
 
     async def set_fan_auto_mode(self, fan_auto_mode: bool) -> None:
         """Enable or disable fan auto mode and push the change to the API."""
-        self.fan_auto_mode = fan_auto_mode
         await self.api.set_device_info(self.uuid, "automode", "vb", fan_auto_mode)
+        self.fan_auto_mode = fan_auto_mode
         self.publish_updates()
 
     async def set_auto_regulated_humidity(self, value: int) -> None:
         """Set the auto-regulated humidity target and push the change to the API."""
-        self.auto_regulated_humidity = value
         await self.api.set_device_info(self.uuid, "autorh", "v", value)
+        self.auto_regulated_humidity = value
         self.publish_updates()
 
     async def set_humidifier_mode(self, value: bool) -> None:
         """Enable or disable humidification and push the change to the API."""
-        self.humidifier_mode = value
         await self.api.set_device_info(self.uuid, "hummode", "vb", value)
+        self.humidifier_mode = value
         self.publish_updates()
 
     async def set_combo_mode(self, value: int) -> None:
         """Set the combo device's preset/mode and push the change to the API."""
-        self.combo_mode = value
         await self.api.set_device_info(self.uuid, "mode", "v", value)
+        self.combo_mode = value
         self.publish_updates()
 
     async def set_child_lock(self, child_lock: bool) -> None:
         """Enable or disable the child lock and push the change to the API."""
-        self.child_lock = child_lock
         await self.api.set_device_info(self.uuid, "childlock", "vb", child_lock)
+        self.child_lock = child_lock
         self.publish_updates()
 
     async def set_night_mode(self, night_mode: bool) -> None:
         """Enable or disable night mode and push the change to the API."""
-        self.night_mode = night_mode
         await self.api.set_device_info(self.uuid, "nightmode", "vb", night_mode)
+        self.night_mode = night_mode
         self.publish_updates()
 
     async def set_wick_dry_mode(self, value: bool) -> None:
         """Enable or disable wick dry mode and push the change to the API."""
-        self.wick_dry_mode = value
         await self.api.set_device_info(self.uuid, "wickdrys", "vb", value)
+        self.wick_dry_mode = value
         self.publish_updates()
 
     async def set_germ_shield(self, value: bool) -> None:
         """Enable or disable germ shield and push the change to the API."""
-        self.germ_shield = value
         await self.api.set_device_info(self.uuid, "germshield", "vb", value)
+        self.germ_shield = value
         self.publish_updates()
 
     async def set_main_mode(self, value: int) -> None:
         """Set the main mode (purify/heat/cool) and push the change to the API."""
-        self.main_mode = value
         await self.api.set_device_info(self.uuid, "mainmode", "v", value)
+        self.main_mode = value
         self.publish_updates()
 
     async def set_heat_temp(self, value: int) -> None:
         """Set the heat target temperature and push the change to the API."""
-        self.heat_temp = value
         await self.api.set_device_info(self.uuid, "heattemp", "v", value)
+        self.heat_temp = value
         self.publish_updates()
 
     async def set_heat_sub_mode(self, value: int) -> None:
         """Set the heat sub-mode and push the change to the API."""
-        self.heat_sub_mode = value
         await self.api.set_device_info(self.uuid, "heatsubmode", "v", value)
+        self.heat_sub_mode = value
         self.publish_updates()
 
     async def set_heat_fan_speed(self, value: int) -> None:
         """Set the heat fan speed and push the change to the API."""
-        self.heat_fan_speed = value
         await self.api.set_device_info(self.uuid, "heatfs", "v", value)
+        self.heat_fan_speed = value
         self.publish_updates()
 
     async def set_cool_sub_mode(self, value: int) -> None:
         """Set the cool sub-mode and push the change to the API."""
-        self.cool_sub_mode = value
         await self.api.set_device_info(self.uuid, "coolsubmode", "v", value)
+        self.cool_sub_mode = value
         self.publish_updates()
 
     async def set_cool_fan_speed(self, value: int) -> None:
         """Set the cool fan speed and push the change to the API."""
-        self.cool_fan_speed = value
         await self.api.set_device_info(self.uuid, "coolfs", "v", value)
+        self.cool_fan_speed = value
         self.publish_updates()
 
     async def set_ap_sub_mode(self, value: int) -> None:
         """Set the Signature-series preset mode and push the change to the API."""
-        self.ap_sub_mode = value
         await self.api.set_device_info(self.uuid, "apsubmode", "v", value)
+        self.ap_sub_mode = value
         self.publish_updates()
 
     async def set_fan_speed_0(self, value: int) -> None:
         """Set the raw gear-scale fan speed and push the change to the API."""
-        self.fan_speed_0 = value
         await self.api.set_device_info(self.uuid, "fsp0", "v", value)
+        self.fan_speed_0 = value
         self.publish_updates()
 
     async def set_night_light_brightness(self, value: int) -> None:
         """Set the sunrise / night light stepless brightness (0-100)."""
-        self.night_light_brightness = value
         await self.api.set_device_info(self.uuid, "nlstepless", "v", value)
+        self.night_light_brightness = value
         self.publish_updates()
 
     async def set_timer_duration(self, value: int) -> None:
         """Set the sleep / off timer duration in seconds."""
-        self.timer_duration = value
         await self.api.set_device_info(self.uuid, "timdur", "v", value)
+        self.timer_duration = value
         self.publish_updates()
 
     async def set_hour_format(self, value: bool) -> None:
         """Set the clock display: False = 12-hour, True = 24-hour."""
-        self.hour_format = value
         await self.api.set_device_info(self.uuid, "hourformat", "vb", value)
+        self.hour_format = value
         self.publish_updates()
 
     @property

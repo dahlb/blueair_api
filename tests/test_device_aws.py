@@ -24,6 +24,7 @@ import pytest
 
 from blueair_api import intermediate_representation_aws as ir
 from blueair_api.device_aws import AttributeType, DeviceAws
+from blueair_api.errors import ServerError
 from blueair_api.sku_map import UNKNOWN_MODEL
 
 
@@ -1885,3 +1886,84 @@ class DeviceAwsIdentityTest(TestCase):
         device = DeviceAws(mock.MagicMock(), uuid="u", name_api="n", mac="m", type_name="t")
         assert device.uuid == "u"
         assert device.name is None
+
+
+def _aws_setters() -> list[str]:
+    """Return the names of every DeviceAws setter that writes to the API."""
+    return sorted(name for name in dir(DeviceAws) if name.startswith("set_"))
+
+
+def _make_aws_device(api: Any) -> DeviceAws:
+    """Return an AWS device whose every setter attribute holds a known value.
+
+    Args:
+        api: Stand-in for HttpAwsBlueair.
+
+    Returns:
+        DeviceAws: The device.
+    """
+    device = DeviceAws(
+        api,
+        name_api="fake-name-api",
+        uuid="fake-uuid",
+        name="fake-name",
+        mac="fake-mac",
+        type_name="fake-type-name",
+    )
+    for setter in _aws_setters():
+        setattr(device, setter.removeprefix("set_"), 0)
+    return device
+
+
+def test_every_aws_setter_stores_an_attribute_of_the_same_name() -> None:
+    """Each set_<name> writes the <name> attribute, which the tests below rely on."""
+    attributes = {field.name for field in dataclasses.fields(DeviceAws)}
+
+    assert {setter.removeprefix("set_") for setter in _aws_setters()} <= attributes
+    assert len(_aws_setters()) == 23
+
+
+@pytest.mark.parametrize("setter", _aws_setters())
+async def test_aws_setters_store_the_value_once_the_api_accepts_it(setter: str) -> None:
+    """Store the new value and notify callbacks after a successful call."""
+    api = mock.AsyncMock()
+    api.set_device_info.return_value = True
+    device = _make_aws_device(api)
+    callback = mock.Mock()
+    device.register_callback(callback)
+
+    await getattr(device, setter)(1)
+
+    api.set_device_info.assert_awaited_once()
+    assert getattr(device, setter.removeprefix("set_")) == 1
+    callback.assert_called_once_with()
+
+
+@pytest.mark.parametrize("setter", _aws_setters())
+async def test_failed_aws_setters_keep_the_last_known_value(setter: str) -> None:
+    """Keep the device's last known state when the API call fails."""
+    api = mock.AsyncMock()
+    api.set_device_info.side_effect = ServerError("unavailable")
+    device = _make_aws_device(api)
+    callback = mock.Mock()
+    device.register_callback(callback)
+
+    with pytest.raises(ServerError):
+        await getattr(device, setter)(1)
+
+    assert getattr(device, setter.removeprefix("set_")) == 0
+    callback.assert_not_called()
+
+
+async def test_humidifier_fan_speed_is_remapped_on_the_wire_only() -> None:
+    """Send a humidifier's 3-step speed on the 0-91 scale but store the step."""
+    api = mock.AsyncMock()
+    device = _make_aws_device(api)
+    device.type_name = "Humidifier"
+
+    with mock.patch.object(DeviceAws, "_is_humidifier", new_callable=mock.PropertyMock) as hum:
+        hum.return_value = True
+        await device.set_fan_speed(2)
+
+    api.set_device_info.assert_awaited_once_with("fake-uuid", "fanspeed", "v", 37)
+    assert device.fan_speed == 2
