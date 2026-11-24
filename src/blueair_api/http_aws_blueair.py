@@ -28,6 +28,28 @@ GIGYA_STATUS_CODE_PENDING_REGISTRATION = 206
 GIGYA_ERROR_CODE_PENDING_REGISTRATION = 206001
 
 
+def _is_success_response(response_text: str) -> bool:
+    """Return whether a device write response body means the write was accepted.
+
+    The API has answered with a bare ``Success`` and, since late 2026, with
+    the JSON string ``"Success"`` (quotes included); both are accepted
+    (dahlb/blueair_api#189).
+
+    Args:
+        response_text: Body of the API's answer to the write.
+
+    Returns:
+        bool: True when the body is ``Success``, bare or JSON-encoded.
+    """
+    body = response_text.strip()
+    if body == "Success":
+        return True
+    try:
+        return bool(json.loads(body) == "Success")
+    except json.JSONDecodeError:
+        return False
+
+
 def request_with_active_session[**P, R](
     func: Callable[Concatenate[HttpAwsBlueair, P], Awaitable[R]],
 ) -> Callable[Concatenate[HttpAwsBlueair, P], Awaitable[R]]:
@@ -663,8 +685,8 @@ class HttpAwsBlueair:
             so callers that check the result keep working.
 
         Raises:
-            ResponseError: The API answered with anything but ``Success``, so
-                the device didn't accept the write.
+            ResponseError: The API answered with anything but ``Success`` (bare or
+                JSON-quoted), so the device didn't accept the write.
         """
         _LOGGER.debug("set_device_info")
         url = f"https://{AWS_APIKEYS[self.cloud_region]['restApiId']}.execute-api.{AWS_APIKEYS[self.cloud_region]['awsRegion']}/prod/c/{device_uuid}/a/{service_name}"
@@ -676,7 +698,7 @@ class HttpAwsBlueair:
             url=url, headers=headers, json_body=json_body
         )
         response_text = await response.text()
-        if response_text != "Success":
+        if not _is_success_response(response_text):
             _LOGGER.debug("set_device_info %s was not accepted: %s", service_name, response_text)
             raise ResponseError(
                 f"device did not accept {service_name}: {response_text[:500] or 'empty response'}"
