@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, Concatenate
 
 from aiohttp import ClientResponse, ClientSession, FormData
 
-from .const import ACCESS_TOKEN_REFRESH_MARGIN_SECONDS, AWS_APIKEYS
+from .const import ACCESS_TOKEN_REFRESH_MARGIN_SECONDS, AWS_APIKEYS, RATE_LIMIT_STATUS_CODES
 from .errors import LoginError, RateError, ResponseError, ServerError, SessionError
 from .util_http import REQUEST_TIMEOUT, request_with_logging, send_with_timeout
 
@@ -101,7 +101,8 @@ def request_with_errors[**P](
 
     * 200 returns the response, as does Gigya's 206 pending-registration
       answer to ``accounts.login``.
-    * 429 raises ``RateError``.
+    * 429, and the non-standard 229 BlueCloud also uses for rate limits,
+      raise ``RateError``.
     * Other 4xx raise ``LoginError`` for ``accounts.login`` and
       ``SessionError`` otherwise, which makes ``request_with_active_session``
       re-authenticate and retry.
@@ -162,7 +163,7 @@ def request_with_errors[**P](
         if status_code == 200:
             _LOGGER.debug("response 200")
             return response
-        if status_code == 429:
+        if status_code in RATE_LIMIT_STATUS_CODES:
             _LOGGER.debug("rate limited, %s", status_code)
             raise RateError(await response.text())
         if 400 <= status_code < 500:
