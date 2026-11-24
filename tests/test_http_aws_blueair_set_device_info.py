@@ -34,9 +34,14 @@ def _client(response_text: str) -> tuple[HttpAwsBlueair, mock.AsyncMock]:
     return client, post
 
 
-async def test_accepted_write_returns_true() -> None:
-    """Return True, and send the SenML body, when the API answers Success."""
-    client, post = _client("Success")
+@pytest.mark.parametrize("response_text", ["Success", '"Success"', '"Success"\n', " Success "])
+async def test_accepted_write_returns_true(response_text: str) -> None:
+    """Return True, and send the SenML body, when the API answers Success.
+
+    The API answers either a bare ``Success`` or the JSON string
+    ``"Success"`` (dahlb/blueair_api#189).
+    """
+    client, post = _client(response_text)
 
     assert await client.set_device_info("fake-uuid", "standby", "vb", True) is True
 
@@ -53,6 +58,8 @@ async def test_accepted_write_returns_true() -> None:
     [
         ("Failure", "device did not accept standby: Failure"),
         ("", "device did not accept standby: empty response"),
+        ('"Failure"', 'device did not accept standby: "Failure"'),
+        ('["Success"]', 'device did not accept standby: ["Success"]'),
         (
             '{"message": "Device offline"}',
             'device did not accept standby: {"message": "Device offline"}',
