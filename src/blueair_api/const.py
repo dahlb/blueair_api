@@ -29,6 +29,11 @@ SENSITIVE_FIELD_NAMES = [
     "ba_x-amz-customauthorizer-token",
 ]
 
+# Statuses the Blueair API uses to report a rate limit: the standard HTTP 429,
+# and the non-standard 229 that BlueCloud answers with
+# ``{"message": "There are too many calls, please try again later"}``.
+RATE_LIMIT_STATUS_CODES: frozenset[int] = frozenset({229, 429})
+
 # Total time allowed for one HTTP request to the Blueair API, in seconds.
 REQUEST_TIMEOUT_SECONDS: float = 20
 

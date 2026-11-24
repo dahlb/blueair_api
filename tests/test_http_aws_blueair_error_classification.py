@@ -121,6 +121,16 @@ class TestRateLimitAndServerErrors(IsolatedAsyncioTestCase):
             await _wrapped(url="https://example/prod/c/registered-devices", response=response)
         assert not isinstance(error.value, SessionError)
 
+    async def test_229_too_many_calls_raises_rate_error(self) -> None:
+        # BlueCloud answers with a non-standard HTTP 229 when throttling.
+        response = _FakeResponse(
+            229, {"message": "There are too many calls, please try again later"}
+        )
+        with pytest.raises(RateError) as error:
+            await _wrapped(url="https://example/prod/c/registered-devices", response=response)
+        assert not isinstance(error.value, SessionError)
+        assert not isinstance(error.value, ResponseError)
+
     async def test_body_status_429_raises_rate_error(self) -> None:
         response = _FakeResponse(200, {"statusCode": 429})
         with pytest.raises(RateError):

@@ -45,7 +45,7 @@ a lot of this is based on [hass-blueair](https://github.com/aijayadams/hass-blue
 - **Errors** — every error is a `BaseError`, which is an aiohttp `ClientError`:
   - `LoginError` / `SessionError` (both `AuthError`): rejected credentials or
     session.
-  - `RateError`: HTTP 429 rate limit.
+  - `RateError`: rate limit (HTTP 429, or BlueCloud's non-standard 229).
   - `ServerError`: HTTP 5xx; does not discard the session.
   - `ResponseError`: any other unexpected status; also a `ValueError`.
   - `RequestTimeoutError`: a request took longer than 20 seconds; also a
