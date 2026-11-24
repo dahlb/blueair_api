@@ -3,7 +3,7 @@
 from collections.abc import Mapping
 from typing import TypedDict
 
-VERSION: str = "2.1.2"
+VERSION: str = "2.1.3"
 
 # Field and header names (compared lowercase) whose values are masked in
 # debug logs: credentials, tokens, session secrets, signatures and email.
