@@ -306,12 +306,23 @@ async def test_send_sample_control_update_writes_current_brightness() -> None:
     assert device.calls == [("set_brightness", 42)]
 
 
-@pytest.mark.parametrize("brightness", [None, True])
+async def test_send_sample_control_update_accepts_float_brightness() -> None:
+    """A float brightness, as the AWS API reports it, is written back as an int."""
+    device = fake_aws_device(brightness=70.0)
+
+    sent = await send_sample_control_update([device])
+
+    assert sent is True
+    assert device.calls == [("set_brightness", 70)]
+    assert isinstance(device.calls[0][1], int)
+
+
+@pytest.mark.parametrize("brightness", [None, True, NotImplemented])
 async def test_send_sample_control_update_skips_without_brightness(
     brightness: Any,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Devices that do not report an integer brightness are not written to."""
+    """Devices that do not report a numeric brightness are not written to."""
     device = fake_aws_device(brightness=brightness)
 
     sent = await send_sample_control_update([device])
