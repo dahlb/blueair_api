@@ -625,10 +625,13 @@ async def send_sample_control_update(devices: Sequence[DeviceAws]) -> bool:
         print("No AWS devices available; skipping sample control update.")
         return False
     device = devices[0]
-    brightness = device.brightness
-    if not isinstance(brightness, int) or isinstance(brightness, bool):
+    # The AWS API returns numeric states as floats (e.g. 70.0), so accept any
+    # real number and write it back as an int.
+    reported = device.brightness
+    if not isinstance(reported, int | float) or isinstance(reported, bool):
         print(f"{device.name} does not report brightness; skipping sample control update.")
         return False
+    brightness = int(reported)
     print(f"Writing current brightness {brightness} back to {device.name}.")
     await device.set_brightness(brightness)
     return True
