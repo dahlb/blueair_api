@@ -6,10 +6,15 @@ real-time sensor data and device state change callbacks.
 
 The client runs on the asyncio event loop through aiomqtt: there is no
 network thread, and every callback is called on the loop. On an
-unexpected disconnect it reconnects with exponential backoff, refreshing
-credentials before each attempt (tokens expire after 24 hours); the
-WebSocket headers are read on every handshake, so the new tokens are
-used automatically.
+unexpected disconnect it reconnects with exponential backoff. Each attempt
+uses a new aiomqtt client: aiomqtt 2.5 does not fully reset a client after
+an unexpected disconnect, so a reused one reports a connection before the
+broker has accepted it and then never receives anything. A connection only
+counts once every subscription is acknowledged. Credentials (tokens expire
+after 24 hours) are refreshed before a reconnect only when they are old or
+the broker refused the previous attempt, so a flapping connection does not
+log in again on every attempt; the WebSocket headers are read on every
+handshake, so new tokens are used automatically.
 
 MQTT broker endpoints and authentication flow determined through
 investigation of the Blueair cloud API responses and AWS IoT
@@ -22,6 +27,7 @@ import contextlib
 import json
 from logging import getLogger
 import ssl
+import time
 from typing import Any
 import uuid
 
@@ -29,6 +35,7 @@ import aiomqtt
 from aiomqtt import MqttError
 
 from .const import AWS_MQTT_BROKERS, MQTT_CREDENTIAL_REFRESH_TIMEOUT_SECONDS
+from .errors import RateError
 
 # MqttError is re-exported as blueair_api.MqttError, so callers can catch
 # MQTT failures without importing aiomqtt.
@@ -56,6 +63,10 @@ _RECONNECT_MAX_DELAY = 300
 
 # AWS IoT keepalive, in seconds.
 _KEEPALIVE = 60
+
+# Credentials older than this are refreshed before a reconnect, in seconds.
+# Younger ones are reused unless the broker refused the previous attempt.
+_CREDENTIAL_MAX_AGE = 3600
 
 
 def _create_ssl_context() -> ssl.SSLContext:
@@ -133,6 +144,7 @@ class MqttAwsBlueair:
         self.credential_refresher: CredentialRefresher | None = None
 
         self._client: aiomqtt.Client | None = None
+        self._credentials_obtained_at = time.monotonic()
         self._connected = False
         self._stopping = False
         self._sensor_ttl: int = _DEFAULT_SENSOR_TTL
@@ -173,34 +185,45 @@ class MqttAwsBlueair:
         self._background_tasks.add(task)
         task.add_done_callback(self._background_tasks.discard)
 
-    async def _subscribe(self, client: aiomqtt.Client, topic: str) -> None:
-        """Subscribe to a topic, logging rather than raising on failure.
-
-        A failed subscription is retried on the next connection.
+    async def _subscribe(
+        self, client: aiomqtt.Client, topic: str, *, required: bool = False
+    ) -> None:
+        """Subscribe to a topic, logging the failure.
 
         Args:
             client: The connected client.
             topic: The topic to subscribe to.
+            required: Re-raise a failure, so the connection is dropped and
+                retried; otherwise it is only logged and the subscription is
+                retried on the next connection.
+
+        Raises:
+            MqttError: The subscription failed and ``required`` is set.
         """
         try:
             await client.subscribe(topic)
         except MqttError as error:
             _LOGGER.warning("Failed to subscribe to %s: %s", topic, error)
+            if required:
+                raise
             return
         _LOGGER.debug("Subscribed to %s", topic)
 
-    async def _subscribe_device(self, client: aiomqtt.Client, device_uuid: str) -> None:
+    async def _subscribe_device(
+        self, client: aiomqtt.Client, device_uuid: str, *, required: bool = False
+    ) -> None:
         """Subscribe to MQTT topics for a single device.
 
         Args:
             client: The connected client.
             device_uuid: The device's UUID.
+            required: Re-raise a failed subscription (see ``_subscribe``).
         """
         for topic in (
             f"d/{device_uuid}/s/5s",
             f"$aws/things/{device_uuid}/shadow/update/documents",
         ):
-            await self._subscribe(client, topic)
+            await self._subscribe(client, topic, required=required)
 
     def set_sensor_ttl(self, ttl_seconds: int) -> None:
         """Set the sensor data stream TTL from the device configuration.
@@ -281,19 +304,34 @@ class MqttAwsBlueair:
         default_headers["X-Amz-CustomAuthorizer-Token"] = self._mqtt_auth_token
         return default_headers
 
-    async def _refresh_credentials(self) -> None:
-        """Refresh credentials before a reconnection attempt.
+    async def _refresh_credentials(self, *, refused: bool) -> bool:
+        """Refresh credentials before a reconnection attempt, if they need it.
+
+        They need it when the broker refused the previous attempt or they are
+        older than ``_CREDENTIAL_MAX_AGE``; otherwise the reconnect reuses
+        them, so a flapping connection does not log in on every attempt.
 
         The wait is bounded by ``MQTT_CREDENTIAL_REFRESH_TIMEOUT_SECONDS``,
         long enough for a full re-authentication. A refresh that fails or runs
         past it is abandoned, and the attempt goes ahead with the previous
         tokens.
+
+        Args:
+            refused: Whether the previous attempt failed before the broker
+                accepted the connection.
+
+        Returns:
+            bool: Whether the refresh was rate limited (``RateError``).
         """
         if not self.credential_refresher:
             _LOGGER.debug(
                 "MQTT reconnect: no credential_refresher configured, using existing tokens"
             )
-            return
+            return False
+        age = time.monotonic() - self._credentials_obtained_at
+        if not refused and age < _CREDENTIAL_MAX_AGE:
+            _LOGGER.debug("MQTT reconnect: reusing credentials obtained %d seconds ago", int(age))
+            return False
         try:
             async with asyncio.timeout(MQTT_CREDENTIAL_REFRESH_TIMEOUT_SECONDS):
                 new_name, new_sig, new_token = await self.credential_refresher()
@@ -303,7 +341,15 @@ class MqttAwsBlueair:
                 "will attempt reconnect with previous (possibly stale) tokens",
                 MQTT_CREDENTIAL_REFRESH_TIMEOUT_SECONDS,
             )
-            return
+            return False
+        except RateError as error:
+            _LOGGER.warning(
+                "MQTT credential refresh was rate limited (%s); "
+                "backing off for %s seconds before the next attempt",
+                error,
+                _RECONNECT_MAX_DELAY,
+            )
+            return True
         except Exception:
             # The refresher is the caller's code, so any failure is logged and
             # the reconnect goes ahead rather than ending the reconnect loop.
@@ -311,14 +357,21 @@ class MqttAwsBlueair:
                 "Failed to refresh MQTT credentials; "
                 "will attempt reconnect with previous (possibly stale) tokens"
             )
-            return
+            return False
         self._mqtt_auth_name = new_name
         self._mqtt_auth_signature = new_sig
         self._mqtt_auth_token = new_token
+        self._credentials_obtained_at = time.monotonic()
         _LOGGER.info("MQTT credentials refreshed successfully before reconnect")
+        return False
 
     def _build_client(self, broker: str, tls_context: ssl.SSLContext) -> aiomqtt.Client:
-        """Create the aiomqtt client; it is reused for every reconnect.
+        """Create a new aiomqtt client for one connection attempt.
+
+        aiomqtt 2.5 does not fully reset a client after an unexpected
+        disconnect (its CONNACK future stays resolved), so a reused client
+        reports a connection before the broker has accepted it and then
+        receives nothing. Every attempt therefore gets a fresh client.
 
         Args:
             broker: The region's broker host name.
@@ -379,29 +432,38 @@ class MqttAwsBlueair:
         self._stopping = False
         loop = asyncio.get_running_loop()
         tls_context = await loop.run_in_executor(None, _create_ssl_context)
-        client = self._build_client(broker, tls_context)
-        self._client = client
         first_connection: asyncio.Future[None] = loop.create_future()
-        self._run_task = loop.create_task(self._run(client, first_connection))
+        self._run_task = loop.create_task(self._run(broker, tls_context, first_connection))
         try:
             await first_connection
         except BaseException:
             await self.disconnect()
             raise
 
-    async def _run(self, client: aiomqtt.Client, first_connection: asyncio.Future[None]) -> None:
+    async def _run(
+        self, broker: str, tls_context: ssl.SSLContext, first_connection: asyncio.Future[None]
+    ) -> None:
         """Receive messages, reconnecting with backoff after unexpected disconnects.
 
+        Each attempt uses a new client (see ``_build_client``). The backoff
+        only resets once a connection has every subscription acknowledged, so
+        a connection the broker accepts but then drops still backs off.
+
         Args:
-            client: The client to connect with.
+            broker: The region's broker host name.
+            tls_context: TLS context for the WebSocket.
             first_connection: Resolved when the first connection is up, or
                 failed with the first attempt's error (which ends the task).
         """
         delay = _RECONNECT_MIN_DELAY
         while not self._stopping:
+            client = self._build_client(broker, tls_context)
+            self._client = client
             error: MqttError | None = None
+            accepted = False
             try:
                 async with client:
+                    accepted = True
                     await self._on_connect(client)
                     if not first_connection.done():
                         first_connection.set_result(None)
@@ -419,7 +481,8 @@ class MqttAwsBlueair:
             _LOGGER.info("MQTT reconnecting in %s seconds", delay)
             await asyncio.sleep(delay)
             delay = min(delay * 2, _RECONNECT_MAX_DELAY)
-            await self._refresh_credentials()
+            if await self._refresh_credentials(refused=not accepted):
+                delay = _RECONNECT_MAX_DELAY
 
     async def disconnect(self) -> None:
         """Disconnect from the MQTT broker and stop reconnecting."""
@@ -438,18 +501,26 @@ class MqttAwsBlueair:
         self._client = None
 
     async def _on_connect(self, client: aiomqtt.Client) -> None:
-        """Subscribe to every topic once a connection is up.
+        """Subscribe to every topic once the broker has accepted the connection.
+
+        The connection only counts as up, and ``on_connect_callback`` is only
+        called, once every subscription is acknowledged.
 
         Args:
             client: The connected client.
+
+        Raises:
+            MqttError: A subscription failed; the connection is dropped and
+                retried.
         """
-        _LOGGER.info("MQTT connected successfully (devices=%s)", len(self._device_ids))
-        self._connected = True
+        _LOGGER.debug("MQTT broker accepted the connection; subscribing")
         # Subscribe to per-user event topic
-        await self._subscribe(client, f"c/{self._user_id}/s/event")
+        await self._subscribe(client, f"c/{self._user_id}/s/event", required=True)
         # Subscribe to all registered devices
         for device_uuid in list(self._device_ids):
-            await self._subscribe_device(client, device_uuid)
+            await self._subscribe_device(client, device_uuid, required=True)
+        self._connected = True
+        _LOGGER.info("MQTT connected successfully (devices=%s)", len(self._device_ids))
         # Start the periodic re-subscribe task to keep sensor
         # data streams alive (resets the device-side TTL).
         self._cancel_resubscribe_task()

@@ -107,6 +107,20 @@ def make_mqtt_client(**kwargs: Any) -> MqttAwsBlueair:
     )
 
 
+def total_connects() -> int:
+    """Connections made across every client; each attempt uses a new one."""
+    return sum(fake.connects for fake in FakeClient.instances)
+
+
+def last_headers() -> dict[str, str]:
+    """Handshake headers of the most recent successful connection."""
+    return [fake for fake in FakeClient.instances if fake.connects][-1].handshake_headers[-1]
+
+
+def connected_clients() -> list[FakeClient]:
+    return [fake for fake in FakeClient.instances if fake.connects]
+
+
 async def wait_for(condition: Any) -> None:
     """Let the event loop run until a condition holds."""
     async with asyncio.timeout(2):
@@ -490,7 +504,10 @@ async def test_disconnect_without_connect_is_safe() -> None:
 
 
 @pytest.mark.parametrize("error", [aiomqtt.MqttError("connection lost"), None])
-async def test_reconnects_with_refreshed_credentials(error: BaseException | None) -> None:
+async def test_reconnects_with_refreshed_credentials(
+    error: BaseException | None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(mqtt_aws_blueair, "_CREDENTIAL_MAX_AGE", 0)
     client = make_mqtt_client()
     client.register_device(FAKE_DEVICE_UUID)
     disconnects: list[bool] = []
@@ -504,15 +521,16 @@ async def test_reconnects_with_refreshed_credentials(error: BaseException | None
     fake = FakeClient.instances[0]
 
     fake.drop(error)
-    await wait_for(lambda: fake.connects == 2)
+    await wait_for(lambda: total_connects() == 2)
 
     assert disconnects == [True]
-    assert fake.handshake_headers[-1] == {
+    assert last_headers() == {
         "X-Amz-CustomAuthorizer-Name": "new-name",
         "X-Amz-CustomAuthorizer-Signature": "new-signature",
         "X-Amz-CustomAuthorizer-Token": "new-token",
     }
-    assert fake.subscriptions.count(SENSOR_TOPIC) == 2
+    assert [c.subscriptions.count(SENSOR_TOPIC) for c in connected_clients()] == [1, 1]
+    assert connected_clients()[1] is not fake
     assert client.connected
     await client.disconnect()
 
@@ -524,7 +542,7 @@ async def test_reconnect_keeps_trying_after_failed_attempts() -> None:
     FakeClient.connect_errors = [aiomqtt.MqttError("refused"), aiomqtt.MqttError("refused")]
 
     fake.drop()
-    await wait_for(lambda: fake.connects == 2)
+    await wait_for(lambda: total_connects() == 2)
 
     assert client.connected
     assert FakeClient.connect_errors == []
@@ -550,7 +568,7 @@ async def test_reconnect_backoff_doubles_up_to_the_maximum(
     FakeClient.connect_errors = [aiomqtt.MqttError("refused")] * 3
 
     fake.drop()
-    await wait_for(lambda: fake.connects == 2)
+    await wait_for(lambda: total_connects() == 2)
     # Zero-second sleeps are this test's own polling.
     reconnect_delays = [delay for delay in delays if 0 < delay < 10**8]
 
@@ -564,15 +582,16 @@ async def test_reconnect_without_refresher_keeps_credentials() -> None:
     fake = FakeClient.instances[0]
 
     fake.drop()
-    await wait_for(lambda: fake.connects == 2)
+    await wait_for(lambda: total_connects() == 2)
 
-    assert fake.handshake_headers[-1] == fake.handshake_headers[0]
+    assert last_headers() == fake.handshake_headers[0]
     await client.disconnect()
 
 
 async def test_failed_refresh_reconnects_with_old_credentials(
-    caplog: pytest.LogCaptureFixture,
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.setattr(mqtt_aws_blueair, "_CREDENTIAL_MAX_AGE", 0)
     client = make_mqtt_client()
 
     async def refresh() -> tuple[str, str, str]:
@@ -583,9 +602,9 @@ async def test_failed_refresh_reconnects_with_old_credentials(
     fake = FakeClient.instances[0]
 
     fake.drop()
-    await wait_for(lambda: fake.connects == 2)
+    await wait_for(lambda: total_connects() == 2)
 
-    assert fake.handshake_headers[-1]["X-Amz-CustomAuthorizer-Token"] == "fake-token"
+    assert last_headers()["X-Amz-CustomAuthorizer-Token"] == "fake-token"
     assert "Failed to refresh MQTT credentials" in caplog.text
     await client.disconnect()
 
@@ -594,6 +613,7 @@ async def test_slow_refresh_is_abandoned(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     monkeypatch.setattr(mqtt_aws_blueair, "MQTT_CREDENTIAL_REFRESH_TIMEOUT_SECONDS", 0.01)
+    monkeypatch.setattr(mqtt_aws_blueair, "_CREDENTIAL_MAX_AGE", 0)
     client = make_mqtt_client()
     cancelled: list[bool] = []
 
@@ -610,10 +630,10 @@ async def test_slow_refresh_is_abandoned(
     fake = FakeClient.instances[0]
 
     fake.drop()
-    await wait_for(lambda: fake.connects == 2)
+    await wait_for(lambda: total_connects() == 2)
 
     assert cancelled == [True]
-    assert fake.handshake_headers[-1]["X-Amz-CustomAuthorizer-Token"] == "fake-token"
+    assert last_headers()["X-Amz-CustomAuthorizer-Token"] == "fake-token"
     assert "did not finish within" in caplog.text
     await client.disconnect()
 
@@ -630,4 +650,158 @@ async def test_disconnect_during_backoff_stops_reconnecting(
     await wait_for(lambda: not client.connected)
     await client.disconnect()
 
-    assert fake.connects == 1
+    assert total_connects() == 1
+
+
+async def test_each_connection_attempt_uses_a_new_client() -> None:
+    """A reused aiomqtt client reports a connection before the broker accepts it."""
+    client = make_mqtt_client()
+    await client.connect()
+    first = FakeClient.instances[0]
+    FakeClient.connect_errors = [aiomqtt.MqttError("refused")]
+
+    first.drop()
+    await wait_for(lambda: total_connects() == 2)
+
+    assert len(FakeClient.instances) == 3
+    assert [fake.connects for fake in FakeClient.instances] == [1, 0, 1]
+    assert client._client is FakeClient.instances[2]  # type: ignore[comparison-overlap]
+    await client.disconnect()
+    assert FakeClient.instances[2].exits == 1
+
+
+async def test_first_connection_fails_when_a_subscription_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fail(self: FakeClient, topic: str) -> None:
+        raise aiomqtt.MqttError("Operation timed out")
+
+    monkeypatch.setattr(FakeClient, "subscribe", fail)
+    client = make_mqtt_client()
+    connects: list[bool] = []
+    client.on_connect_callback = lambda: connects.append(True)
+
+    with pytest.raises(aiomqtt.MqttError, match="timed out"):
+        await client.connect()
+
+    assert connects == []
+    assert not client.connected
+    assert FakeClient.instances[0].exits == 1
+
+
+async def test_a_reconnect_whose_subscriptions_fail_keeps_backing_off(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A connection only counts once subscribed, so a flapping broker backs off."""
+    delays: list[float] = []
+    real_sleep = asyncio.sleep
+
+    async def record_sleep(delay: float) -> None:
+        delays.append(delay)
+        await real_sleep(0)
+
+    monkeypatch.setattr(mqtt_aws_blueair, "_RECONNECT_MIN_DELAY", 100)
+    monkeypatch.setattr("blueair_api.mqtt_aws_blueair.asyncio.sleep", record_sleep)
+    client = make_mqtt_client()
+    client.set_sensor_ttl(10**9)
+    connects: list[bool] = []
+    disconnects: list[bool] = []
+    client.on_connect_callback = lambda: connects.append(True)
+    client.on_disconnect_callback = lambda: disconnects.append(True)
+    await client.connect()
+    failing_subscribes = 3
+    real_subscribe = FakeClient.subscribe
+
+    async def subscribe(self: FakeClient, topic: str) -> None:
+        nonlocal failing_subscribes
+        if failing_subscribes:
+            failing_subscribes -= 1
+            raise aiomqtt.MqttError("Operation timed out")
+        await real_subscribe(self, topic)
+
+    monkeypatch.setattr(FakeClient, "subscribe", subscribe)
+    FakeClient.instances[0].drop()
+    await wait_for(lambda: client.connected and total_connects() == 5)
+    reconnect_delays = [delay for delay in delays if 0 < delay < 10**8]
+
+    # Three accepted connections whose first subscription failed, then one that worked.
+    assert reconnect_delays == [100, 200, 300, 300]
+    assert connects == [True, True]
+    assert len(disconnects) == 4
+    # One warning per failed connection, not one per topic.
+    assert caplog.text.count("Failed to subscribe") == 3
+    await client.disconnect()
+
+
+async def test_reconnect_reuses_recent_credentials() -> None:
+    """A flapping connection must not log in again on every attempt."""
+    client = make_mqtt_client()
+    refreshes: list[bool] = []
+
+    async def refresh() -> tuple[str, str, str]:
+        refreshes.append(True)
+        return ("new-name", "new-signature", "new-token")
+
+    client.credential_refresher = refresh
+    await client.connect()
+
+    for expected in (2, 3):
+        connected_clients()[-1].drop()
+        await wait_for(lambda expected=expected: total_connects() == expected and client.connected)
+
+    assert refreshes == []
+    assert last_headers()["X-Amz-CustomAuthorizer-Token"] == "fake-token"
+    await client.disconnect()
+
+
+async def test_reconnect_refreshes_credentials_after_a_refused_attempt() -> None:
+    client = make_mqtt_client()
+    refreshes: list[bool] = []
+
+    async def refresh() -> tuple[str, str, str]:
+        refreshes.append(True)
+        return ("new-name", "new-signature", "new-token")
+
+    client.credential_refresher = refresh
+    await client.connect()
+    FakeClient.connect_errors = [aiomqtt.MqttError("not authorized")]
+
+    FakeClient.instances[0].drop()
+    await wait_for(lambda: total_connects() == 2)
+
+    # The drop itself reused the credentials; the refused attempt refreshed them.
+    assert refreshes == [True]
+    assert last_headers()["X-Amz-CustomAuthorizer-Token"] == "new-token"
+    await client.disconnect()
+
+
+async def test_rate_limited_refresh_backs_off_to_the_maximum(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    delays: list[float] = []
+    real_sleep = asyncio.sleep
+
+    async def record_sleep(delay: float) -> None:
+        delays.append(delay)
+        await real_sleep(0)
+
+    monkeypatch.setattr(mqtt_aws_blueair, "_RECONNECT_MIN_DELAY", 5)
+    monkeypatch.setattr(mqtt_aws_blueair, "_CREDENTIAL_MAX_AGE", 0)
+    monkeypatch.setattr("blueair_api.mqtt_aws_blueair.asyncio.sleep", record_sleep)
+    client = make_mqtt_client()
+    client.set_sensor_ttl(10**9)
+
+    async def refresh() -> tuple[str, str, str]:
+        raise blueair_api.RateError("There are too many calls")
+
+    client.credential_refresher = refresh
+    await client.connect()
+    FakeClient.connect_errors = [aiomqtt.MqttError("refused")]
+
+    FakeClient.instances[0].drop()
+    await wait_for(lambda: total_connects() == 2)
+    reconnect_delays = [delay for delay in delays if 0 < delay < 10**8]
+
+    assert reconnect_delays == [5, 300]
+    assert "rate limited" in caplog.text
+    await client.disconnect()
